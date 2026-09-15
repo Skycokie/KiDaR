@@ -1,4 +1,11 @@
 export type Plan = "free" | "paid";
+export {
+  alphaMaskFromRgba,
+  cleanAlphaMask,
+  extractSilhouettePolygons,
+  getSilhouetteStats
+} from "./sticker-geometry";
+export type { AlphaMask, SilhouetteStats, StickerPolygon } from "./sticker-geometry";
 export type ProjectMode = "popout" | "gallery" | "upload";
 export type ProjectStatus = "draft" | "processing" | "ready" | "error";
 

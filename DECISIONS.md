@@ -27,3 +27,12 @@
   private with short-lived signed preview URLs; M4 AR HTML, MindAR, GLB, QR,
   and PDF outputs will use public R2/CDN or public Supabase storage URLs and
   never signed URLs.
+
+## M3 pop-out bug fix
+
+- **Broken behavior:** the mask was ignored, the fallback geometry was a
+  full-image quad, and the displayed texture was the original image rather
+  than the transparent cutout.
+- **Fix direction:** cleaned alpha masks now drive connected-component
+  contours; each contour becomes a beveled `ExtrudeGeometry`, and only the
+  cutout canvas is used as the cap texture.
