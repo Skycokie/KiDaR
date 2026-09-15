@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   canCreateProject,
   canUseWhitelabel,
+  generateUniqueSlug,
   mergeSettings,
   slugify
 } from "./index";
@@ -34,5 +35,13 @@ describe("core policies", () => {
 
   it("creates stable URL slugs", () => {
     expect(slugify("  Mărțișor & friends! ")).toBe("martisor-friends");
+  });
+
+  it("retries slug collisions without changing the base name", async () => {
+    const taken = new Set(["my-drawing", "my-drawing-2"]);
+    const slug = await generateUniqueSlug("My Drawing", async (candidate) =>
+      taken.has(candidate)
+    );
+    expect(slug).toBe("my-drawing-3");
   });
 });

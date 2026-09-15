@@ -66,3 +66,19 @@ export function slugify(value: string): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 60);
 }
+
+export async function generateUniqueSlug(
+  name: string,
+  slugExists: (slug: string) => Promise<boolean>
+): Promise<string> {
+  const base = slugify(name) || "project";
+  let candidate = base;
+  let suffix = 2;
+
+  while (await slugExists(candidate)) {
+    candidate = `${base}-${suffix}`;
+    suffix += 1;
+  }
+
+  return candidate;
+}

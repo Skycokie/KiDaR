@@ -15,3 +15,5 @@
 - **Static delivery:** generated AR pages are uploaded to R2 when configured,
   otherwise Supabase public storage is the fallback. Consumer page requests
   do not call the application API.
+- **M2 Supabase client dependencies:** `@supabase/ssr` and
+  `@supabase/supabase-js` are required for secure App Router cookie sessions.

@@ -22,7 +22,9 @@ PDF.
 
 The project is deliberately scaffolded milestone-by-milestone. M1 establishes
 the monorepo, shared core, database schema/RLS, optional-provider boundary, and
-CI. The worker's end-to-end demo pipeline is delivered in M4.
+ CI. M2 adds magic-link auth, project CRUD, quota enforcement, and private
+ source-drawing uploads. The worker's end-to-end demo pipeline is delivered in
+ M4.
 
 ## Commands
 
