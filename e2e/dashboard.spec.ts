@@ -137,5 +137,5 @@ test("real photo pop-out uses foreground coverage and silhouette bounds", async 
   expect(stats.bounds.minY).toBeGreaterThan(-0.5);
   expect(stats.bounds.maxY).toBeLessThan(0.5);
 
-  await page.screenshot({ path: "test-results/popout-real.png", fullPage: true });
+  await page.screenshot({ path: resolve("test-results/popout-real.png"), fullPage: true });
 });

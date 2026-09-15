@@ -15,8 +15,17 @@ import type { ProjectSettings } from "@kidar/core";
 type PreviewMode = "popout" | "gallery" | "upload";
 
 async function createCutout(sourceUrl: string) {
+  const ort = await import("onnxruntime-web");
+  ort.env.wasm.wasmPaths =
+    "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/";
   const { removeBackground } = await import("@imgly/background-removal");
-  const cutoutBlob = await removeBackground(sourceUrl);
+  const sourceResponse = await fetch(sourceUrl);
+  if (!sourceResponse.ok) throw new Error("Could not load source drawing");
+  const sourceBlob = await sourceResponse.blob();
+  const cutoutBlob = await removeBackground(sourceBlob, {
+    publicPath:
+      "https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/"
+  });
   const bitmap = await createImageBitmap(cutoutBlob);
   const canvas = document.createElement("canvas");
   canvas.width = bitmap.width;

@@ -11,11 +11,13 @@ try {
   // CI supplies these values through the workflow environment.
 }
 
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 60_000,
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL,
     trace: "on-first-retry"
   },
   projects: [
@@ -31,7 +33,7 @@ export default defineConfig({
   ],
   webServer: {
     command: "pnpm --filter @kidar/web dev",
-    url: "http://localhost:3000",
+    url: baseURL,
     reuseExistingServer: true,
     timeout: 120_000
   }

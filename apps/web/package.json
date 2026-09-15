@@ -10,11 +10,12 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@kidar/core": "workspace:*",
     "@imgly/background-removal": "^1.7.0",
+    "@kidar/core": "workspace:*",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.57.4",
     "next": "^14.2.31",
+    "onnxruntime-web": "1.21.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.3.8",
