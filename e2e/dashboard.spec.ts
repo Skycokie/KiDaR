@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const mailpitUrl = process.env.MAILPIT_URL ?? "http://127.0.0.1:54334";
 
@@ -97,4 +99,43 @@ test("persists gallery selection and transform settings after reload", async ({ 
   await page.getByLabel("Search Poly Pizza").fill("rocket");
   await expect(page.getByTestId("gallery-model-rocket")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#scale")).toHaveValue("1.75");
+});
+
+test("real photo pop-out uses foreground coverage and silhouette bounds", async ({ page, request }) => {
+  test.setTimeout(180_000);
+  await signIn(page, request);
+  const projectName = `Real Photo ${Date.now()}`;
+
+  await page.getByLabel("Project name").fill(projectName);
+  await page.getByRole("button", { name: "Create project" }).click();
+  await expect(page.getByText(`/${projectName.toLowerCase().replaceAll(" ", "-")}`)).toBeVisible();
+  await page.locator('input[type="file"]').first().setInputFiles({
+    name: "test-photo.jpg",
+    mimeType: "image/jpeg",
+    buffer: readFileSync(resolve("e2e/fixtures/test-photo.jpg"))
+  });
+  await expect(page.getByRole("status")).toContainText("Drawing uploaded");
+
+  await page.getByRole("link", { name: "Open studio" }).click();
+  const statsOutput = page.getByTestId("popout-stats");
+  await expect(statsOutput).toBeVisible({ timeout: 150_000 });
+  const stats = JSON.parse(await statsOutput.textContent() ?? "{}") as {
+    coverage: number;
+    vertexCount: number;
+    bounds: { minX: number; minY: number; maxX: number; maxY: number };
+  };
+  const boundsWidth = stats.bounds.maxX - stats.bounds.minX;
+  const boundsHeight = stats.bounds.maxY - stats.bounds.minY;
+
+  console.log(`REAL PHOTO POP-OUT ${JSON.stringify({ ...stats, boundsWidth, boundsHeight })}`);
+  expect(stats.coverage).toBeLessThan(0.4);
+  expect(stats.vertexCount).toBeGreaterThan(4);
+  expect(boundsWidth).toBeLessThan(0.9);
+  expect(boundsHeight).toBeLessThan(0.9);
+  expect(stats.bounds.minX).toBeGreaterThan(-0.5);
+  expect(stats.bounds.maxX).toBeLessThan(0.5);
+  expect(stats.bounds.minY).toBeGreaterThan(-0.5);
+  expect(stats.bounds.maxY).toBeLessThan(0.5);
+
+  await page.screenshot({ path: "test-results/popout-real.png", fullPage: true });
 });

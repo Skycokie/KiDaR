@@ -38,7 +38,7 @@ async function createCutout(sourceUrl: string) {
   if (stats.coverage >= 0.9) {
     throw new Error("Foreground mask covers almost the whole image; refusing full-rectangle extrusion");
   }
-  return { canvas, polygons };
+  return { canvas, polygons, stats };
 }
 
 function makeExtrudedSticker(
@@ -86,11 +86,13 @@ function makeExtrudedSticker(
 export function ThreePreview({
   sourceUrl,
   mode,
-  settings
+  settings,
+  onPopoutStats
 }: {
   sourceUrl: string | null;
   mode: PreviewMode;
   settings: ProjectSettings;
+  onPopoutStats?: (stats: ReturnType<typeof getSilhouetteStats>) => void;
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const [processing, setProcessing] = useState(false);
@@ -135,8 +137,9 @@ export function ThreePreview({
       setProcessing(true);
       setError(null);
       try {
-        const { canvas, polygons } = await createCutout(sourceUrl);
+        const { canvas, polygons, stats } = await createCutout(sourceUrl);
         if (disposed) return;
+        onPopoutStats?.(stats);
         const texture = new THREE.CanvasTexture(canvas);
         texture.colorSpace = THREE.SRGBColorSpace;
         polygons.forEach((polygon) => {
@@ -200,7 +203,7 @@ export function ThreePreview({
       renderer.dispose();
       mount.removeChild(renderer.domElement);
     };
-  }, [mode, settings, sourceUrl]);
+  }, [mode, onPopoutStats, settings, sourceUrl]);
 
   return (
     <div

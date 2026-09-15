@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import type { ProjectSettings } from "@kidar/core";
+import type { ProjectSettings, SilhouetteStats } from "@kidar/core";
 import { ThreePreview } from "./three-preview";
 
 type Mode = "popout" | "gallery" | "upload";
@@ -47,12 +47,16 @@ export function StudioClient({
   });
   const [mode, setMode] = useState<Mode>(initialProject.mode);
   const [lastSaved, setLastSaved] = useState("Saved");
+  const [popoutStats, setPopoutStats] = useState<SilhouetteStats | null>(null);
   const [notice, setNotice] = useState("");
   const [galleryQuery, setGalleryQuery] = useState("");
   const [galleryModels, setGalleryModels] = useState<GalleryModel[]>([]);
   const [searchingGallery, setSearchingGallery] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSettings = useRef(settings);
+  const handlePopoutStats = useCallback((stats: SilhouetteStats) => {
+    setPopoutStats(stats);
+  }, []);
 
   const saveSettings = useCallback(
     (patch: Partial<ProjectSettings>) => {
@@ -196,7 +200,17 @@ export function StudioClient({
       </header>
       <div className="studio-grid">
         <section className="preview-panel" aria-label="AR preview">
-          <ThreePreview sourceUrl={sourceUrl} mode={mode} settings={settings} />
+          <ThreePreview
+            sourceUrl={sourceUrl}
+            mode={mode}
+            settings={settings}
+            onPopoutStats={handlePopoutStats}
+          />
+          {popoutStats && (
+            <output data-testid="popout-stats">
+              {JSON.stringify(popoutStats)}
+            </output>
+          )}
         </section>
         <aside className="inspector">
           <details open>
