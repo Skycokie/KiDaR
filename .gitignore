@@ -10,3 +10,7 @@ coverage/
 .supabase/
 *.log
 *.tsbuildinfo
+test-results/
+playwright-report/
+supabase/.temp/
+supabase/.branches/

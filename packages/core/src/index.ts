@@ -8,6 +8,11 @@ export interface ProjectSettings {
   logoUrl?: string;
   ctaText?: string;
   ctaUrl?: string;
+  galleryModelUrl?: string;
+  uploadModelUrl?: string;
+  uploadModelPath?: string;
+  logoPath?: string;
+  soundPath?: string;
   scale: number;
   offset: { x: number; y: number; z: number };
   soundUrl?: string;

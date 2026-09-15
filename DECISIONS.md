@@ -17,3 +17,13 @@
   do not call the application API.
 - **M2 Supabase client dependencies:** `@supabase/ssr` and
   `@supabase/supabase-js` are required for secure App Router cookie sessions.
+- **M2 e2e dependency:** `@playwright/test` provides browser coverage for the
+  auth and project flows required by the CI gate.
+- **M3 preview dependencies:** `three` and `react-dropzone` provide the
+  client-only scene preview and reliable drag/drop input without a server GPU.
+- **M3 local ML dependency:** `@imgly/background-removal` runs background
+  removal in-browser, keeping pop-out generation free of paid AI APIs.
+- **Asset visibility boundary:** source drawings and studio-only assets stay
+  private with short-lived signed preview URLs; M4 AR HTML, MindAR, GLB, QR,
+  and PDF outputs will use public R2/CDN or public Supabase storage URLs and
+  never signed URLs.

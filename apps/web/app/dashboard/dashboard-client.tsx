@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 
 type DashboardProject = {
   id: string;
@@ -144,6 +145,7 @@ function ProjectCard({
       <input aria-label={`Rename ${project.name}`} value={name} onChange={(event) => setName(event.target.value)} />
       <p>/{project.slug}</p>
       <p>Status: {project.status}</p>
+      <Link href={`/studio/${project.id}`}>Open studio</Link>
       <label>
         Source drawing
         <input

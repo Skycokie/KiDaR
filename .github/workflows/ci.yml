@@ -22,3 +22,31 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.67.1
+      - run: pnpm install --frozen-lockfile=false
+      - run: supabase start
+      - name: Export local Supabase environment
+        shell: bash
+        run: |
+          get_env() {
+            supabase status -o env | awk -F= -v key="$1" '$1 == key { gsub(/"/, "", $2); print $2 }'
+          }
+          echo "NEXT_PUBLIC_SUPABASE_URL=$(get_env API_URL)" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(get_env ANON_KEY)" >> "$GITHUB_ENV"
+          echo "MAILPIT_URL=$(get_env MAILPIT_URL)" >> "$GITHUB_ENV"
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
