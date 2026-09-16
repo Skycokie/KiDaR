@@ -37,6 +37,20 @@
 - **M4.1 public artifacts:** Cloudflare R2 is the preferred public store.
   Appwrite fallback requires a bucket distinct from private `source-drawings`
   and is unavailable on the single-bucket Free plan without a second bucket.
+- **M4.2 worker polling:** the Railway worker uses Appwrite document polling
+  (configurable `WORKER_POLL_INTERVAL_MS`, idle backoff up to 15s) instead of
+  Realtime subscriptions. Polling keeps claim/retry tests deterministic and
+  avoids an extra Realtime dependency for a single-stage MVP pipeline.
+- **M4.2 popout runtime:** browser preview keeps `@imgly/background-removal` +
+  canvas/WebGL; the worker uses `@imgly/background-removal-node` + `sharp` for
+  cutout bytes, headless `three` ExtrudeGeometry + `gltf-transform`/`pngjs` for
+  GLB (no DOM `GLTFExporter`), and `@gltf-transform` `dedup`/`weld`/`prune`.
+  Verified limitation: on the current Windows agent,
+  `@imgly/background-removal-node`/`onnxruntime-node` aborts with
+  GLib-GObject-CRITICAL, so fixture-photo end-to-end BG removal is validated on
+  Linux/Railway hosts via `tsx src/popout/run-fixture.ts`; unit tests use
+  synthetic RGBA silhouettes. Resolution options if Linux also fails: enqueue
+  browser-produced cutout bytes, or swap to another local Node ONNX remover.
 - **M2 Appwrite SSR sessions:** `node-appwrite` creates magic-URL sessions
   server-side and stores the session secret in an httpOnly cookie.
 - **M2 e2e dependency:** `@playwright/test` covers auth/project flows; E2E
