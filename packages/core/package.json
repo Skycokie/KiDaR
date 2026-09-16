@@ -9,7 +9,9 @@
     "./hash": "./src/hash.ts",
     "./jobs": "./src/jobs.ts",
     "./storage": "./src/storage.ts",
-    "./templates/ar-page": "./src/templates/ar-page.ts"
+    "./templates/ar-page": "./src/templates/ar-page.ts",
+    "./print/qr": "./src/print/qr.ts",
+    "./print/pdf": "./src/print/pdf.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -18,7 +20,15 @@
     "test": "vitest run --passWithNoTests"
   },
   "devDependencies": {
+    "@types/pngjs": "6.0.5",
+    "@types/qrcode": "1.5.6",
+    "jsqr": "1.4.0",
+    "pngjs": "7.0.0",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "pdf-lib": "1.17.1",
+    "qrcode": "1.5.4"
   }
 }

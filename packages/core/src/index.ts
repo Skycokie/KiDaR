@@ -97,6 +97,18 @@ export {
 } from "./templates/ar-page";
 export type { ArPageConfig, ArPageVec3, NormalizedArPageConfig } from "./templates/ar-page";
 
+export { generateArQrPng, QrGenerateError } from "./print/qr";
+export type { GenerateArQrPngOptions } from "./print/qr";
+
+export {
+  generateA4PrintPdf,
+  PrintPdfError,
+  DEFAULT_PRINT_INSTRUCTION_RO,
+  PRINT_WATERMARK_RO,
+  toPdfWinAnsiText
+} from "./print/pdf";
+export type { GenerateA4PrintPdfInput, PrintImageMime } from "./print/pdf";
+
 export type ProjectMode = "popout" | "gallery" | "upload";
 export type ProjectStatus = "draft" | "processing" | "ready" | "error";
 
