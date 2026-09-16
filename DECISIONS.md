@@ -51,6 +51,18 @@
   Linux/Railway hosts via `tsx src/popout/run-fixture.ts`; unit tests use
   synthetic RGBA silhouettes. Resolution options if Linux also fails: enqueue
   browser-produced cutout bytes, or swap to another local Node ONNX remover.
+- **M4.3 MindAR compile:** use official `mind-ar@1.2.5` `OfflineCompiler`
+  (`mind-ar/src/image-target/offline-compiler.js`) with `canvas` `loadImage`,
+  matching upstream `examples/nodejs/createImageTargetLibrary.js`. Direct Node
+  CPU kernels exist; **do not** use Puppeteer/Chromium for target compilation.
+  Docker pins Node 22.14.0 + cairo/`canvas` native deps (no Chromium bundle).
+  Artifact key: `targets/<projectId>/<inputHash>/targets.mind`. Input hashing
+  includes source checksum, `mind-ar` version, pipeline version `m4.3.0`, and
+  static compiler settings. Compilation stays local/headless with no paid AI
+  APIs. Windows may not run canvas/TFJS reliably; combined Linux acceptance
+  gate is `pnpm -C apps/worker fixtures:linux` (popout + mind). Until that
+  report passes on Linux, status is **code complete, Linux fixture validation
+  pending** — not pipeline production complete.
 - **M2 Appwrite SSR sessions:** `node-appwrite` creates magic-URL sessions
   server-side and stores the session secret in an httpOnly cookie.
 - **M2 e2e dependency:** `@playwright/test` covers auth/project flows; E2E

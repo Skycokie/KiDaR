@@ -1,7 +1,8 @@
 /**
  * Optional local fixture runner for Node BG removal + GLB sizes.
  * Usage (Linux/Railway-like hosts recommended):
- *   pnpm --filter @kidar/worker exec tsx src/popout/run-fixture.ts
+ *   pnpm -C apps/worker tsx src/popout/run-fixture.ts
+ *   pnpm -C apps/worker fixtures:linux   # popout + mind combined report
  *
  * On this Windows agent, @imgly/background-removal-node + onnxruntime-node
  * currently aborts with GLib-GObject-CRITICAL; synthetic RGBA tests cover GLB.

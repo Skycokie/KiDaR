@@ -39,7 +39,12 @@ pnpm start
 pnpm appwrite:setup
 pnpm appwrite:verify
 pnpm pipeline:demo
+pnpm -C apps/worker fixtures:linux
 ```
+
+Worker Linux fixtures (`fixtures:linux`) validate M4.2 popout + M4.3 MindAR
+against `e2e/fixtures/test-photo.jpg`. Until that report passes on Linux,
+treat the pipeline as **code complete, Linux fixture validation pending**.
 
 No paid AI service is required or called by default. The optional AI provider
 is disabled unless an explicit API key is configured.
