@@ -6,6 +6,46 @@ export {
   getSilhouetteStats
 } from "./sticker-geometry";
 export type { AlphaMask, SilhouetteStats, StickerPolygon } from "./sticker-geometry";
+
+export {
+  JOB_TYPES,
+  JOB_STATUSES,
+  JOB_MAX_ATTEMPTS,
+  JOB_RETRY_BASE_DELAY_MS,
+  JOB_RETRY_MAX_DELAY_MS,
+  JOB_LOCK_TTL_MS,
+  LAST_ERROR_MAX_LENGTH,
+  isJobType,
+  isJobStatus,
+  canTransition,
+  assertTransition,
+  truncateJobError,
+  retryDelayMs,
+  isTerminalFailure,
+  isLockExpired,
+  isEligibleToClaim,
+  applyJobTransition,
+  isIdempotentHit
+} from "./jobs";
+export type { JobType, JobStatus, JobResult, PipelineJob, JobTransition } from "./jobs";
+
+export {
+  PublicStorageConfigError,
+  resolvePublicStorageConfig,
+  createUnimplementedPublicStorage,
+  createPublicArtifactStorage
+} from "./storage";
+export type {
+  PublicStorageProviderId,
+  PublicArtifactWriteInput,
+  PublicArtifactMetadata,
+  PublicArtifactStorage,
+  R2PublicStorageConfig,
+  AppwritePublicStorageConfig,
+  PublicStorageConfig,
+  PublicStorageEnv
+} from "./storage";
+
 export type ProjectMode = "popout" | "gallery" | "upload";
 export type ProjectStatus = "draft" | "processing" | "ready" | "error";
 
