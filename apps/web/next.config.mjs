@@ -31,7 +31,7 @@ const ortBrowserEntry = resolveOrtBrowserEntry();
 
 /** @type {import("next").NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@imgly/background-removal", "onnxruntime-web"],
+  transpilePackages: ["@kidar/core", "@imgly/background-removal", "onnxruntime-web"],
   webpack(config, { isServer, webpack }) {
     // Prefer the browser bundle; package exports otherwise resolve to ort.node
     // under some Next/webpack conditions and blow up Terser / RelativeURL.

@@ -1,6 +1,23 @@
 import { NextResponse } from "next/server";
+import { createPublicArtifactStorage, PublicStorageConfigError } from "@kidar/core";
+import { computeInputHash, sha256Hex } from "@kidar/core/hash";
 import { getLoggedInUser } from "@/lib/appwrite/client";
-import { createJobDocument, getProjectForOwner, updateProjectDocument } from "@/lib/appwrite/db";
+import { getProjectForOwner, updateProjectDocument } from "@/lib/appwrite/db";
+import { enqueueJob } from "@/lib/appwrite/jobs";
+import { APPWRITE_SOURCE_BUCKET } from "@/lib/appwrite/config";
+
+/**
+ * Source content checksum: prefer hashing file bytes in later milestones.
+ * Until then, derive a stable identifier digest so inputHash stays deterministic
+ * without reading private object bodies on enqueue.
+ */
+function sourceRef(sourceImagePath: string | null) {
+  if (!sourceImagePath) return null;
+  return {
+    fileId: sourceImagePath,
+    checksum: sha256Hex(`appwrite:${APPWRITE_SOURCE_BUCKET}:${sourceImagePath}`)
+  };
+}
 
 export async function POST(request: Request) {
   const user = await getLoggedInUser();
@@ -13,19 +30,45 @@ export async function POST(request: Request) {
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
   try {
-    const job = await createJobDocument({
-      project_id: body.projectId,
-      step: "popout_build",
-      status: "queued",
-      payload: { source: "studio" },
-      owner: user.$id
+    // Fail closed: publishing requires a valid public artifact store config.
+    createPublicArtifactStorage(process.env);
+
+    const inputHash = computeInputHash({
+      projectId: project.id,
+      mode: project.mode,
+      source: sourceRef(project.source_image_path),
+      settings: project.settings
     });
-    await updateProjectDocument(body.projectId, { status: "processing" });
+
+    const enqueued = await enqueueJob({
+      projectId: project.id,
+      type: "popout_build",
+      inputHash,
+      ownerId: user.$id,
+      payload: { source: "studio" }
+    });
+
+    if (enqueued.kind !== "idempotent_done") {
+      await updateProjectDocument(body.projectId, { status: "processing" });
+    }
+
     return NextResponse.json(
-      { job, message: "Publish queued. The worker pipeline will process it." },
+      {
+        job: enqueued.job,
+        enqueue: enqueued.kind,
+        message:
+          enqueued.kind === "idempotent_done"
+            ? "Publish inputs unchanged; returning existing completed job."
+            : enqueued.kind === "existing"
+              ? "Publish already queued or running for these inputs."
+              : "Publish queued. The worker pipeline will process it."
+      },
       { status: 202 }
     );
   } catch (cause) {
+    if (cause instanceof PublicStorageConfigError) {
+      return NextResponse.json({ error: cause.message, code: cause.code }, { status: 503 });
+    }
     const message = cause instanceof Error ? cause.message : "Publish failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }

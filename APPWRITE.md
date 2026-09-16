@@ -125,19 +125,38 @@ Indexes: unique `slug_unique` on `slug`; key `owner_idx` on `owner`.
 
 #### `jobs`
 
-| Key | Type | Required |
-| --- | --- | --- |
-| `project_id` | string (36) | yes |
-| `step` | string (32) | yes |
-| `status` | string (32) | yes |
-| `payload` | string (5000) | no |
-| `log` | string (10000) | no |
+`step` stores the job type (`popout_build` | `mind_compile` | `page_render`).
 
-Index: key `project_id_idx` on `project_id`.
+| Key | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `project_id` | string (36) | yes | |
+| `step` | string (32) | yes | job type |
+| `status` | string (32) | yes | `queued` \| `running` \| `done` \| `error` |
+| `payload` | string (5000) | no | JSON |
+| `log` | string (10000) | no | reserved |
+| `attempt` | integer | no | default 0 |
+| `max_attempts` | integer | no | default 3 |
+| `next_run_at` | string (40) | no | ISO timestamp |
+| `locked_at` | string (40) | no | ISO timestamp |
+| `lock_token` | string (64) | no | claim token |
+
+**Payload JSON** (attribute size budget on Free prevents more columns):
+
+`input_hash`, `artifact_hash`, `last_error`, `result`, plus optional `source`.
+
+Indexes: `project_id_idx`; `status_next_run_idx` (`status`,`next_run_at`);
+`status_locked_at_idx` (`status`,`locked_at`).
+
+Retry: max 3 attempts; backoff `min(5000 * 2^(n-1), 60000)` ms after failure `n`;
+lock TTL 5 minutes for reclaim. Claim uses update + re-read lock token (not
+exactly-once). Idempotent enqueue matches `input_hash` inside payload after
+filtering by `project_id` + `step`.
 
 #### Not created
 
 - `scan_events` — reserved for M4 analytics; do not provision in this setup.
+- Public Appwrite artifact bucket — Free plan allows one bucket; public outputs
+  prefer Cloudflare R2. Do not make `source-drawings` public.
 
 ### Storage
 
@@ -168,12 +187,24 @@ APPWRITE_JOBS_COLLECTION=jobs
 APPWRITE_SOURCE_BUCKET=source-drawings
 APPWRITE_ASSETS_BUCKET=source-drawings
 
+# Public consumer artifacts (preferred: Cloudflare R2). Required before publish.
+PUBLIC_ARTIFACT_STORAGE=
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET=kidar-ar
+R2_PUBLIC_BASE_URL=
+
 # E2E-only (CI or intentional production smoke of e2e-session)
 ALLOW_E2E_AUTH=
 ```
 
 `APPWRITE_SCAN_EVENTS_COLLECTION` may appear in code defaults for a future M4
 collection; setup does not create it.
+
+Publishing validates public storage config and fails closed if neither complete
+R2 settings nor a **separate** Appwrite public assets bucket is configured.
+Never use `source-drawings` as a public fallback.
 
 ## GitHub Actions secrets (CI / E2E project only)
 

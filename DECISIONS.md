@@ -32,6 +32,11 @@
 - **Legacy document scopes:** the `kidar` database is a legacy document
   database; API keys must include `documents.read` and `documents.write` in
   addition to any newer `documentsdb.*` labels.
+- **M4.1 job delivery:** Appwrite job claim uses update-then-re-read lock tokens
+  (no SQL CAS). Delivery is at-least-once; artifact writers must be idempotent.
+- **M4.1 public artifacts:** Cloudflare R2 is the preferred public store.
+  Appwrite fallback requires a bucket distinct from private `source-drawings`
+  and is unavailable on the single-bucket Free plan without a second bucket.
 - **M2 Appwrite SSR sessions:** `node-appwrite` creates magic-URL sessions
   server-side and stores the session secret in an httpOnly cookie.
 - **M2 e2e dependency:** `@playwright/test` covers auth/project flows; E2E
