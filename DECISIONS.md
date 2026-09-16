@@ -74,6 +74,10 @@
 - **Asset visibility boundary:** source drawings and studio-only assets stay
   private and are previewed through same-origin `/api/files/...` proxies; M4
   AR HTML, MindAR, GLB, QR, and PDF outputs will use public R2/CDN URLs.
+- **M4.4a local generators:** `@kidar/core` exposes pure `renderArPage`,
+  `generateArQrPng`, and `generateA4PrintPdf` (MindAR/A-Frame HTML, QR PNG,
+  A4 PDF). No public uploads, `/ar/:slug` routes, scan analytics, or
+  `page_render` job wiring — those belong to M4.4b+.
 
 ## M3 pop-out bug fix
 

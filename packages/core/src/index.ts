@@ -72,6 +72,31 @@ export {
 } from "./mind";
 export type { MindCompileInputParts } from "./mind";
 
+export {
+  PublicUrlError,
+  assertPublicAbsoluteUrl,
+  escapeHtml,
+  escapeHtmlAttr,
+  escapeJsString
+} from "./public-url";
+export type { PublicUrlOptions } from "./public-url";
+
+export {
+  AFRAME_CDN_VERSION,
+  AFRAME_SCRIPT_URL,
+  MINDAR_AFRAME_SCRIPT_URL,
+  DEFAULT_AR_INSTRUCTIONS_RO,
+  AR_START_BUTTON_LABEL_RO,
+  AR_CAMERA_PERMISSION_HINT_RO,
+  AR_CAMERA_DENIED_RO,
+  AR_WATERMARK_RO,
+  ArPageConfigError,
+  normalizeArPageConfig,
+  buildArPageCsp,
+  renderArPage
+} from "./templates/ar-page";
+export type { ArPageConfig, ArPageVec3, NormalizedArPageConfig } from "./templates/ar-page";
+
 export type ProjectMode = "popout" | "gallery" | "upload";
 export type ProjectStatus = "draft" | "processing" | "ready" | "error";
 

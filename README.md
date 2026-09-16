@@ -9,7 +9,9 @@ PDF.
 - `apps/web` — Next.js App Router marketing site, creator dashboard, studio,
   auth, API routes, and static AR page routes.
 - `apps/worker` — Railway worker for the asynchronous publish pipeline.
-- `packages/core` — shared types, quota/settings/slug logic, and AR template.
+- `packages/core` — shared types, quota/settings/slug logic, MindAR/popout
+  validation, and M4.4a local AR/print generators (`renderArPage`, QR, A4 PDF).
+  Public publishing / consumer routes are M4.4b+.
 - `APPWRITE.md` — authoritative Appwrite setup, scopes, and environment roles.
 
 ## Local setup
