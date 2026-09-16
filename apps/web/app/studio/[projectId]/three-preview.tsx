@@ -15,14 +15,24 @@ import type { ProjectSettings } from "@kidar/core";
 type PreviewMode = "popout" | "gallery" | "upload";
 
 async function createCutout(sourceUrl: string) {
-  const ort = await import("onnxruntime-web");
-  ort.env.wasm.wasmPaths =
+  // Pin WASM to an absolute CDN prefix so Next's RelativeURL shim never sees
+  // a relative `import.meta.url` path (that path throws url.replace errors).
+  const ort = (await import("onnxruntime-web")) as {
+    env: { wasm: { wasmPaths: string } };
+    default?: { env: { wasm: { wasmPaths: string } } };
+  };
+  const runtime = ort.default ?? ort;
+  runtime.env.wasm.wasmPaths =
     "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/";
   const { removeBackground } = await import("@imgly/background-removal");
   const sourceResponse = await fetch(sourceUrl);
   if (!sourceResponse.ok) throw new Error("Could not load source drawing");
   const sourceBlob = await sourceResponse.blob();
-  const cutoutBlob = await removeBackground(sourceBlob, {
+  const typedBlob =
+    sourceBlob.type && sourceBlob.type !== "application/octet-stream"
+      ? sourceBlob
+      : new Blob([sourceBlob], { type: "image/jpeg" });
+  const cutoutBlob = await removeBackground(typedBlob, {
     publicPath:
       "https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/"
   });
