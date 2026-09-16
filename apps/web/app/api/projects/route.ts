@@ -1,64 +1,53 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getLoggedInUser } from "@/lib/appwrite/client";
+import { countProjectsForOwner, getProfile, listProjectsForOwner } from "@/lib/appwrite/db";
 import { createProjectWithUniqueSlug } from "@/lib/projects";
 
 export async function GET() {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-
+  const user = await getLoggedInUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("owner", user.id)
-    .order("created_at", { ascending: false });
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ projects: data });
+  try {
+    const projects = await listProjectsForOwner(user.$id);
+    return NextResponse.json({ projects });
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : "Failed to list projects";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-
+  const user = await getLoggedInUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = (await request.json()) as { name?: string; mode?: "popout" | "gallery" | "upload" };
   const name = body.name?.trim();
   if (!name) return NextResponse.json({ error: "Project name is required" }, { status: 400 });
 
-  const { count, error: countError } = await supabase
-    .from("projects")
-    .select("id", { count: "exact", head: true })
-    .eq("owner", user.id);
-  if (countError) return NextResponse.json({ error: countError.message }, { status: 500 });
+  try {
+    const [used, profile] = await Promise.all([
+      countProjectsForOwner(user.$id),
+      getProfile(user.$id)
+    ]);
+    const quota = profile.plan === "paid" ? 30 : 3;
+    if (used >= quota) {
+      return NextResponse.json(
+        { error: "quota_exceeded", message: "Free plan allows 3 projects.", upgrade: true },
+        { status: 403 }
+      );
+    }
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("plan")
-    .eq("id", user.id)
-    .single();
-  if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
-
-  const quota = profile.plan === "paid" ? 30 : 3;
-  if ((count ?? 0) >= quota) {
-    return NextResponse.json(
-      { error: "quota_exceeded", message: "Free plan allows 3 projects.", upgrade: true },
-      { status: 403 }
+    const { data, error } = await createProjectWithUniqueSlug(
+      user.$id,
+      name,
+      body.mode ?? "popout"
     );
+    if (error || !data) {
+      return NextResponse.json({ error: error?.message ?? "Create failed" }, { status: 500 });
+    }
+    return NextResponse.json({ project: data }, { status: 201 });
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : "Failed to create project";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const { data, error } = await createProjectWithUniqueSlug(
-    supabase,
-    user.id,
-    name,
-    body.mode ?? "popout"
-  );
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ project: data }, { status: 201 });
 }

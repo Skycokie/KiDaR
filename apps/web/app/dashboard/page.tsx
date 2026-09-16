@@ -1,25 +1,23 @@
 import { redirect } from "next/navigation";
 import { DashboardClient } from "./dashboard-client";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getLoggedInUser } from "@/lib/appwrite/client";
+import { getProfile, listProjectsForOwner } from "@/lib/appwrite/db";
 
 export default async function DashboardPage() {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const user = await getLoggedInUser();
   if (!user) redirect("/login");
 
-  const [{ data: projects }, { data: profile }] = await Promise.all([
-    supabase.from("projects").select("*").eq("owner", user.id).order("created_at", { ascending: false }),
-    supabase.from("profiles").select("plan").eq("id", user.id).single()
+  const [projects, profile] = await Promise.all([
+    listProjectsForOwner(user.$id),
+    getProfile(user.$id)
   ]);
-  const plan = profile?.plan === "paid" ? "paid" : "free";
+  const plan = profile.plan === "paid" ? "paid" : "free";
   const limit = plan === "paid" ? 30 : 3;
 
   return (
     <DashboardClient
-      initialProjects={projects ?? []}
-      initialQuota={{ plan, used: projects?.length ?? 0, limit, canCreate: (projects?.length ?? 0) < limit }}
+      initialProjects={projects}
+      initialQuota={{ plan, used: projects.length, limit, canCreate: projects.length < limit }}
     />
   );
 }

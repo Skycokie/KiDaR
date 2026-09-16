@@ -12,21 +12,24 @@
   publish critical path.
 - **Optional AI 3D:** `AI3DProvider` is an interface only. It is disabled when
   `AI3D_API_KEY` is absent and is never used by tests.
-- **Static delivery:** generated AR pages are uploaded to R2 when configured,
-  otherwise Supabase public storage is the fallback. Consumer page requests
-  do not call the application API.
-- **M2 Supabase client dependencies:** `@supabase/ssr` and
-  `@supabase/supabase-js` are required for secure App Router cookie sessions.
-- **M2 e2e dependency:** `@playwright/test` provides browser coverage for the
-  auth and project flows required by the CI gate.
+- **Static delivery:** generated AR pages are uploaded to R2 when configured.
+  Consumer page requests do not call the application API.
+- **Backend host:** kidAR Studio replaced the prior Supabase implementation to
+  consolidate the MVP backend workflow around Appwrite Cloud and avoid
+  maintaining the prior local service setup path during active product
+  development. Supabase artifacts under `supabase/` are historical only.
+  <!-- OWNER-CONFIRM: replace this bullet with a more exact rationale if needed. -->
+- **M2 Appwrite SSR sessions:** `node-appwrite` creates magic-URL sessions
+  server-side and stores the session secret in an httpOnly cookie.
+- **M2 e2e dependency:** `@playwright/test` covers auth/project flows; E2E
+  signs in via `/api/auth/e2e-session` using the Appwrite Users API.
 - **M3 preview dependencies:** `three` and `react-dropzone` provide the
   client-only scene preview and reliable drag/drop input without a server GPU.
 - **M3 local ML dependency:** `@imgly/background-removal` runs background
   removal in-browser, keeping pop-out generation free of paid AI APIs.
 - **Asset visibility boundary:** source drawings and studio-only assets stay
-  private with short-lived signed preview URLs; M4 AR HTML, MindAR, GLB, QR,
-  and PDF outputs will use public R2/CDN or public Supabase storage URLs and
-  never signed URLs.
+  private and are previewed through same-origin `/api/files/...` proxies; M4
+  AR HTML, MindAR, GLB, QR, and PDF outputs will use public R2/CDN URLs.
 
 ## M3 pop-out bug fix
 

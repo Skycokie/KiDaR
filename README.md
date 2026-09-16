@@ -10,21 +10,19 @@ PDF.
   auth, API routes, and static AR page routes.
 - `apps/worker` — Railway worker for the asynchronous publish pipeline.
 - `packages/core` — shared types, quota/settings/slug logic, and AR template.
-- `supabase` — local Supabase configuration, schema, RLS policies, and seeds.
+- `APPWRITE.md` — Appwrite Cloud Free console setup (database, buckets, auth).
 
 ## Local setup
 
-1. Install Node 22+, pnpm 10+, and the Supabase CLI.
-2. Copy `.env.example` to `.env.local` and provide local Supabase keys.
-3. Run `pnpm install`.
-4. Run `supabase start`.
+1. Install Node 22+ and pnpm 10+.
+2. Create the Appwrite resources listed in [`APPWRITE.md`](APPWRITE.md).
+3. Copy `.env.example` to `.env.local` and `apps/web/.env.local`, then set
+   `APPWRITE_API_KEY` and confirm the project ID.
+4. Run `pnpm install`.
 5. Run `pnpm dev`.
 
-The project is deliberately scaffolded milestone-by-milestone. M1 establishes
-the monorepo, shared core, database schema/RLS, optional-provider boundary, and
- CI. M2 adds magic-link auth, project CRUD, quota enforcement, and private
- source-drawing uploads. The worker's end-to-end demo pipeline is delivered in
- M4.
+Auth uses Appwrite magic URL email. Local E2E signs in through
+`/api/auth/e2e-session` with the API key (no Mailpit required).
 
 ## Commands
 
@@ -32,6 +30,7 @@ the monorepo, shared core, database schema/RLS, optional-provider boundary, and
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm test:e2e
 pnpm build
 pnpm pipeline:demo
 ```

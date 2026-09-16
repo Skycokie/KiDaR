@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -12,12 +11,13 @@ export default function LoginPage() {
     event.preventDefault();
     setLoading(true);
     setMessage("");
-    const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` }
+    const response = await fetch("/api/auth/magic-link", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email })
     });
-    setMessage(error?.message ?? "Check your email for the magic link.");
+    const payload = (await response.json()) as { message?: string; error?: string };
+    setMessage(payload.error ?? payload.message ?? "Check your email for the magic link.");
     setLoading(false);
   }
 

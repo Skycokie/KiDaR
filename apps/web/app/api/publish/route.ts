@@ -1,41 +1,32 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getLoggedInUser } from "@/lib/appwrite/client";
+import { createJobDocument, getProjectForOwner, updateProjectDocument } from "@/lib/appwrite/db";
 
 export async function POST(request: Request) {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const user = await getLoggedInUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = (await request.json()) as { projectId?: string };
   if (!body.projectId) return NextResponse.json({ error: "projectId is required" }, { status: 400 });
 
-  const { data: project, error: projectError } = await supabase
-    .from("projects")
-    .select("id")
-    .eq("id", body.projectId)
-    .eq("owner", user.id)
-    .single();
-  if (projectError || !project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  const project = await getProjectForOwner(body.projectId, user.$id);
+  if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
-  const { data: job, error } = await supabase
-    .from("jobs")
-    .insert({
+  try {
+    const job = await createJobDocument({
       project_id: body.projectId,
       step: "popout_build",
       status: "queued",
-      payload: { source: "studio" }
-    })
-    .select("*")
-    .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  await supabase
-    .from("projects")
-    .update({ status: "processing" })
-    .eq("id", body.projectId)
-    .eq("owner", user.id);
-
-  return NextResponse.json({ job, message: "Publish queued. The worker pipeline will process it." }, { status: 202 });
+      payload: { source: "studio" },
+      owner: user.$id
+    });
+    await updateProjectDocument(body.projectId, { status: "processing" });
+    return NextResponse.json(
+      { job, message: "Publish queued. The worker pipeline will process it." },
+      { status: 202 }
+    );
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : "Publish failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

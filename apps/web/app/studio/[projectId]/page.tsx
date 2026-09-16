@@ -1,32 +1,23 @@
 import { redirect, notFound } from "next/navigation";
 import { StudioClient } from "./studio-client";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getLoggedInUser } from "@/lib/appwrite/client";
+import { getProfile, getProjectForOwner } from "@/lib/appwrite/db";
+import { createSignedAssetUrl, createSignedSourceUrl } from "@/lib/appwrite/storage";
 
 export default async function StudioPage({
   params
 }: {
   params: { projectId: string };
 }) {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const user = await getLoggedInUser();
   if (!user) redirect("/login");
 
-  const { data: project, error } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("id", params.projectId)
-    .eq("owner", user.id)
-    .single();
-  if (error || !project) notFound();
+  const project = await getProjectForOwner(params.projectId, user.$id);
+  if (!project) notFound();
 
   let sourceUrl: string | null = null;
   if (project.source_image_path) {
-    const signed = await supabase.storage
-      .from("source-drawings")
-      .createSignedUrl(project.source_image_path, 60 * 15);
-    sourceUrl = signed.data?.signedUrl ?? null;
+    sourceUrl = await createSignedSourceUrl(project.source_image_path, 60 * 15);
   }
 
   const settings = project.settings ?? {};
@@ -37,22 +28,17 @@ export default async function StudioPage({
     soundUrl: settings.soundPath
   })) {
     if (typeof path !== "string") continue;
-    const signed = await supabase.storage.from("project-assets").createSignedUrl(path, 60 * 15);
-    if (signed.data?.signedUrl) assetUrls[key] = signed.data.signedUrl;
+    assetUrls[key] = await createSignedAssetUrl(path, 60 * 15);
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("plan")
-    .eq("id", user.id)
-    .single();
+  const profile = await getProfile(user.$id);
 
   return (
     <StudioClient
       project={project}
       sourceUrl={sourceUrl}
       assetUrls={assetUrls}
-      plan={profile?.plan === "paid" ? "paid" : "free"}
+      plan={profile.plan === "paid" ? "paid" : "free"}
     />
   );
 }

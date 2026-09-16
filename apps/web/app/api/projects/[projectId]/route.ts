@@ -1,31 +1,32 @@
 import { NextResponse } from "next/server";
 import { mergeSettings, type ProjectSettingsPatch } from "@kidar/core";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getLoggedInUser } from "@/lib/appwrite/client";
+import {
+  deleteProjectDocument,
+  getProjectForOwner,
+  updateProjectDocument
+} from "@/lib/appwrite/db";
+import {
+  APPWRITE_ASSETS_BUCKET,
+  APPWRITE_SOURCE_BUCKET,
+  createSignedAssetUrl,
+  createSignedSourceUrl,
+  deleteStorageFiles
+} from "@/lib/appwrite/storage";
 
 type Context = { params: { projectId: string } };
 
 export async function GET(_request: Request, { params }: Context) {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const user = await getLoggedInUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: project, error } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("id", params.projectId)
-    .eq("owner", user.id)
-    .single();
-  if (error || !project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  const project = await getProjectForOwner(params.projectId, user.$id);
+  if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
   let sourceUrl: string | null = null;
   const assetUrls: Record<string, string> = {};
   if (project.source_image_path) {
-    const signed = await supabase.storage
-      .from("source-drawings")
-      .createSignedUrl(project.source_image_path, 60 * 15);
-    sourceUrl = signed.data?.signedUrl ?? null;
+    sourceUrl = await createSignedSourceUrl(project.source_image_path, 60 * 15);
   }
 
   const settings = project.settings ?? {};
@@ -35,18 +36,14 @@ export async function GET(_request: Request, { params }: Context) {
     soundUrl: settings.soundPath
   })) {
     if (typeof path !== "string") continue;
-    const signed = await supabase.storage.from("project-assets").createSignedUrl(path, 60 * 15);
-    if (signed.data?.signedUrl) assetUrls[key] = signed.data.signedUrl;
+    assetUrls[key] = await createSignedAssetUrl(path, 60 * 15);
   }
 
   return NextResponse.json({ project, sourceUrl, assetUrls });
 }
 
 export async function PATCH(request: Request, { params }: Context) {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const user = await getLoggedInUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = (await request.json()) as {
@@ -59,76 +56,47 @@ export async function PATCH(request: Request, { params }: Context) {
     return NextResponse.json({ error: "Project name or settings are required" }, { status: 400 });
   }
 
-  if (body.settings) {
-    const { data: existing, error: existingError } = await supabase
-      .from("projects")
-      .select("settings")
-      .eq("id", params.projectId)
-      .eq("owner", user.id)
-      .single();
-    if (existingError) return NextResponse.json({ error: existingError.message }, { status: 404 });
-    const settings = mergeSettings(
-      existing.settings,
-      body.settings
-    );
-    const { data, error } = await supabase
-      .from("projects")
-      .update({ ...(name ? { name } : {}), ...(body.mode ? { mode: body.mode } : {}), settings })
-      .eq("id", params.projectId)
-      .eq("owner", user.id)
-      .select("*")
-      .single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ project: data });
+  const existing = await getProjectForOwner(params.projectId, user.$id);
+  if (!existing) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+
+  try {
+    const patch: Record<string, unknown> = {
+      ...(name ? { name } : {}),
+      ...(body.mode ? { mode: body.mode } : {})
+    };
+    if (body.settings) {
+      patch.settings = mergeSettings(existing.settings, body.settings);
+    }
+    const project = await updateProjectDocument(params.projectId, patch);
+    return NextResponse.json({ project });
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : "Update failed";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const { data, error } = await supabase
-    .from("projects")
-    .update({ ...(name ? { name } : {}), ...(body.mode ? { mode: body.mode } : {}) })
-    .eq("id", params.projectId)
-    .eq("owner", user.id)
-    .select("*")
-    .single();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ project: data });
 }
 
 export async function DELETE(_request: Request, { params }: Context) {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const user = await getLoggedInUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: project, error: projectError } = await supabase
-    .from("projects")
-    .select("id, source_image_path, settings")
-    .eq("id", params.projectId)
-    .eq("owner", user.id)
-    .single();
-  if (projectError) return NextResponse.json({ error: projectError.message }, { status: 404 });
+  const project = await getProjectForOwner(params.projectId, user.$id);
+  if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
-  const paths = [project.source_image_path].filter((path): path is string => Boolean(path));
-  if (paths.length) {
-    const { error: storageError } = await supabase.storage.from("source-drawings").remove(paths);
-    if (storageError) return NextResponse.json({ error: storageError.message }, { status: 500 });
-  }
-  const assetPaths = [
+  const sourceIds = [project.source_image_path].filter((path): path is string => Boolean(path));
+  if (sourceIds.length) await deleteStorageFiles(APPWRITE_SOURCE_BUCKET, sourceIds);
+
+  const assetIds = [
     project.settings?.uploadModelPath,
     project.settings?.logoPath,
     project.settings?.soundPath
   ].filter((path): path is string => Boolean(path));
-  if (assetPaths.length) {
-    const { error: assetError } = await supabase.storage.from("project-assets").remove(assetPaths);
-    if (assetError) return NextResponse.json({ error: assetError.message }, { status: 500 });
-  }
+  if (assetIds.length) await deleteStorageFiles(APPWRITE_ASSETS_BUCKET, assetIds);
 
-  const { error } = await supabase
-    .from("projects")
-    .delete()
-    .eq("id", params.projectId)
-    .eq("owner", user.id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return new NextResponse(null, { status: 204 });
+  try {
+    await deleteProjectDocument(params.projectId);
+    return new NextResponse(null, { status: 204 });
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : "Delete failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

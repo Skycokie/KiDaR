@@ -1,5 +1,5 @@
 import { generateUniqueSlug, type ProjectMode, type ProjectSettings } from "@kidar/core";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createProjectDocument, slugExists } from "@/lib/appwrite/db";
 
 export const DEFAULT_SETTINGS: ProjectSettings = {
   title: "",
@@ -9,34 +9,26 @@ export const DEFAULT_SETTINGS: ProjectSettings = {
 };
 
 export async function createProjectWithUniqueSlug(
-  supabase: SupabaseClient,
   owner: string,
   name: string,
   mode: ProjectMode = "popout"
 ) {
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    const slug = await generateUniqueSlug(name, async (candidate) => {
-      const { data } = await supabase
-        .from("projects")
-        .select("id")
-        .eq("slug", candidate)
-        .maybeSingle();
-      return Boolean(data);
-    });
-
-    const result = await supabase
-      .from("projects")
-      .insert({
-        owner,
+    const slug = await generateUniqueSlug(name, slugExists);
+    try {
+      const project = await createProjectDocument(owner, {
         name: name.trim(),
         slug,
         mode,
         settings: { ...DEFAULT_SETTINGS, title: name.trim() }
-      })
-      .select("*")
-      .single();
-
-    if (result.error?.code !== "23505") return result;
+      });
+      return { data: project, error: null };
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      if (!/unique|already exists|Conflict/i.test(message)) {
+        return { data: null, error: { message, code: "create_failed" } };
+      }
+    }
   }
 
   return {

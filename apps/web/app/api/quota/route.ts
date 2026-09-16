@@ -1,32 +1,26 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getLoggedInUser } from "@/lib/appwrite/client";
+import { countProjectsForOwner, getProfile } from "@/lib/appwrite/db";
 
 export async function GET() {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const user = await getLoggedInUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const [{ count, error: projectsError }, { data: profile, error: profileError }] =
-    await Promise.all([
-      supabase.from("projects").select("id", { count: "exact", head: true }).eq("owner", user.id),
-      supabase.from("profiles").select("plan").eq("id", user.id).single()
+  try {
+    const [used, profile] = await Promise.all([
+      countProjectsForOwner(user.$id),
+      getProfile(user.$id)
     ]);
-
-  if (projectsError || profileError) {
-    return NextResponse.json(
-      { error: projectsError?.message ?? profileError?.message },
-      { status: 500 }
-    );
+    const plan = profile.plan === "paid" ? "paid" : "free";
+    const limit = plan === "paid" ? 30 : 3;
+    return NextResponse.json({
+      plan,
+      used,
+      limit,
+      canCreate: used < limit
+    });
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : "Quota lookup failed";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const plan = profile.plan === "paid" ? "paid" : "free";
-  const limit = plan === "paid" ? 30 : 3;
-  return NextResponse.json({
-    plan,
-    used: count ?? 0,
-    limit,
-    canCreate: (count ?? 0) < limit
-  });
 }

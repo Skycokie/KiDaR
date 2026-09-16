@@ -1,25 +1,18 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { projectSourcePath } from "@/lib/projects";
+import { getLoggedInUser } from "@/lib/appwrite/client";
+import { getProjectForOwner, updateProjectDocument } from "@/lib/appwrite/db";
+import { createSignedSourceUrl, uploadSourceDrawing } from "@/lib/appwrite/storage";
 
 type Context = { params: { projectId: string } };
 const allowedTypes = new Set(["image/png", "image/jpeg"]);
 const maxBytes = 10 * 1024 * 1024;
 
 export async function POST(request: Request, { params }: Context) {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const user = await getLoggedInUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: project, error: projectError } = await supabase
-    .from("projects")
-    .select("id")
-    .eq("id", params.projectId)
-    .eq("owner", user.id)
-    .single();
-  if (projectError || !project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  const project = await getProjectForOwner(params.projectId, user.$id);
+  if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
   const formData = await request.formData();
   const file = formData.get("file");
@@ -29,25 +22,15 @@ export async function POST(request: Request, { params }: Context) {
   }
   if (file.size > maxBytes) return NextResponse.json({ error: "Image must be 10 MB or smaller" }, { status: 413 });
 
-  const path = projectSourcePath(user.id, params.projectId);
-  const { error: uploadError } = await supabase.storage
-    .from("source-drawings")
-    .upload(path, file, { contentType: file.type, upsert: true });
-  if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 });
-
-  const { data: updatedProject, error: updateError } = await supabase
-    .from("projects")
-    .update({ source_image_path: path })
-    .eq("id", params.projectId)
-    .eq("owner", user.id)
-    .select("*")
-    .single();
-  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
-
-  const { data: signed, error: signedError } = await supabase.storage
-    .from("source-drawings")
-    .createSignedUrl(path, 60 * 60);
-  if (signedError) return NextResponse.json({ error: signedError.message }, { status: 500 });
-
-  return NextResponse.json({ project: updatedProject, sourceUrl: signed.signedUrl });
+  try {
+    const fileId = await uploadSourceDrawing(user.$id, params.projectId, file);
+    const updatedProject = await updateProjectDocument(params.projectId, {
+      source_image_path: fileId
+    });
+    const sourceUrl = await createSignedSourceUrl(fileId, 60 * 60);
+    return NextResponse.json({ project: updatedProject, sourceUrl });
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : "Upload failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
