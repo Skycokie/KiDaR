@@ -2,45 +2,21 @@ import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const mailpitUrl = process.env.MAILPIT_URL ?? "http://127.0.0.1:54334";
-
-async function waitForMagicLink(request: {
-  get(url: string): Promise<{ ok(): boolean; json(): Promise<any> }>;
-}, email: string) {
-  for (let attempt = 0; attempt < 30; attempt += 1) {
-    const response = await request.get(`${mailpitUrl}/api/v1/search?query=to:${email}`);
-    if (response.ok()) {
-      const result = await response.json();
-      const message = result.messages?.[0];
-      if (message?.ID) {
-        const detail = await request.get(`${mailpitUrl}/api/v1/message/${message.ID}`);
-        const body = await detail.json();
-        const link = `${body.Text ?? ""} ${body.HTML ?? ""}`.match(
-          /https?:\/\/[^"'\s<>]+\/auth\/v1\/verify\?token=[^"'\s<>]+/
-        )?.[0];
-        if (link) return link;
-      }
-    }
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
-  throw new Error(`Magic link was not delivered for ${email}`);
-}
-
-async function signIn(page: import("@playwright/test").Page, request: import("@playwright/test").APIRequestContext) {
+async function signIn(page: import("@playwright/test").Page) {
   const email = `e2e-${Date.now()}@kidar.local`;
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
-  await page.getByRole("button", { name: "Send magic link" }).click();
-  await expect(page.getByRole("status")).toContainText("Check your email");
-  await page.goto(await waitForMagicLink(request, email));
+  const response = await page.request.post("/api/auth/e2e-session", {
+    data: { email }
+  });
+  expect(response.ok()).toBeTruthy();
+  await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/dashboard$/);
 }
 
-test("signup, create project, upload source drawing, and list it", async ({ page, request }) => {
+test("signup, create project, upload source drawing, and list it", async ({ page }) => {
   const projectName = `E2E Drawing ${Date.now()}`;
   const projectSlug = projectName.toLowerCase().replaceAll(" ", "-");
 
-  await signIn(page, request);
+  await signIn(page);
 
   await page.getByLabel("Project name").fill(projectName);
   await page.getByRole("button", { name: "Create project" }).click();
@@ -59,13 +35,11 @@ test("signup, create project, upload source drawing, and list it", async ({ page
   const project = (await projects.json()).projects.find(
     (candidate: { name: string }) => candidate.name === projectName
   );
-  expect(project?.source_image_path).toMatch(
-    /^[0-9a-f-]+\/[0-9a-f-]+\/source\.png$/
-  );
+  expect(project?.source_image_path).toMatch(/^src_/);
 });
 
-test("persists gallery selection and transform settings after reload", async ({ page, request }) => {
-  await signIn(page, request);
+test("persists gallery selection and transform settings after reload", async ({ page }) => {
+  await signIn(page);
   const projectName = `Gallery Drawing ${Date.now()}`;
 
   await page.getByLabel("Project name").fill(projectName);
@@ -101,9 +75,9 @@ test("persists gallery selection and transform settings after reload", async ({ 
   await expect(page.locator("#scale")).toHaveValue("1.75");
 });
 
-test("real photo pop-out uses foreground coverage and silhouette bounds", async ({ page, request }) => {
+test("real photo pop-out uses foreground coverage and silhouette bounds", async ({ page }) => {
   test.setTimeout(180_000);
-  await signIn(page, request);
+  await signIn(page);
   const projectName = `Real Photo ${Date.now()}`;
 
   await page.getByLabel("Project name").fill(projectName);

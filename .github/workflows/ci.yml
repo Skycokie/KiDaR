@@ -25,6 +25,18 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    if: ${{ secrets.APPWRITE_API_KEY != '' }}
+    env:
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
+      NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_PROJECT_ID }}
+      APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
+      APPWRITE_DATABASE_ID: ${{ secrets.APPWRITE_DATABASE_ID }}
+      APPWRITE_PROFILES_COLLECTION: ${{ secrets.APPWRITE_PROFILES_COLLECTION }}
+      APPWRITE_PROJECTS_COLLECTION: ${{ secrets.APPWRITE_PROJECTS_COLLECTION }}
+      APPWRITE_JOBS_COLLECTION: ${{ secrets.APPWRITE_JOBS_COLLECTION }}
+      APPWRITE_SOURCE_BUCKET: ${{ secrets.APPWRITE_SOURCE_BUCKET }}
+      APPWRITE_ASSETS_BUCKET: ${{ secrets.APPWRITE_ASSETS_BUCKET }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -34,19 +46,6 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - uses: supabase/setup-cli@v1
-        with:
-          version: 2.67.1
       - run: pnpm install --frozen-lockfile=false
-      - run: supabase start
-      - name: Export local Supabase environment
-        shell: bash
-        run: |
-          get_env() {
-            supabase status -o env | awk -F= -v key="$1" '$1 == key { gsub(/"/, "", $2); print $2 }'
-          }
-          echo "NEXT_PUBLIC_SUPABASE_URL=$(get_env API_URL)" >> "$GITHUB_ENV"
-          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(get_env ANON_KEY)" >> "$GITHUB_ENV"
-          echo "MAILPIT_URL=$(get_env MAILPIT_URL)" >> "$GITHUB_ENV"
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
