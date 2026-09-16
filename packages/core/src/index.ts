@@ -46,6 +46,16 @@ export type {
   PublicStorageEnv
 } from "./storage";
 
+export {
+  POPOUT_COVERAGE_REJECT,
+  POPOUT_ARTIFACT_KIND,
+  PopoutBuildError,
+  assertPopoutInputs,
+  assertPopoutCoverage,
+  popoutArtifactKey,
+  popoutPipelineLabel
+} from "./popout";
+
 export type ProjectMode = "popout" | "gallery" | "upload";
 export type ProjectStatus = "draft" | "processing" | "ready" | "error";
 

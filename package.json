@@ -12,7 +12,16 @@
     "test:e2e": "playwright test",
     "appwrite:setup": "node scripts/setup-appwrite.mjs",
     "appwrite:verify": "node scripts/setup-appwrite.mjs --verify",
+    "worker": "pnpm --filter @kidar/worker start",
     "pipeline:demo": "pnpm --filter @kidar/worker pipeline:demo"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "onnxruntime-node",
+      "protobufjs",
+      "sharp"
+    ]
   },
   "devDependencies": {
     "prettier": "^3.6.2",
