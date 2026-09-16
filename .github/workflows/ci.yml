@@ -22,21 +22,35 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      - name: Production start smoke
+        run: |
+          set -euo pipefail
+          pnpm start &
+          SERVER_PID=$!
+          cleanup() { kill "$SERVER_PID" 2>/dev/null || true; }
+          trap cleanup EXIT
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:3000/ >/dev/null; then
+              echo "smoke ok: GET / returned success"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "smoke failed: server did not become ready on :3000"
+          exit 1
 
   e2e:
     runs-on: ubuntu-latest
-    if: ${{ secrets.APPWRITE_API_KEY != '' }}
+    # Dedicated CI/E2E Appwrite project only — never Development/Production.
+    if: ${{ secrets.APPWRITE_E2E_API_KEY != '' }}
     env:
       NEXT_PUBLIC_APP_URL: http://localhost:3000
-      NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
-      NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_PROJECT_ID }}
-      APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
-      APPWRITE_DATABASE_ID: ${{ secrets.APPWRITE_DATABASE_ID }}
-      APPWRITE_PROFILES_COLLECTION: ${{ secrets.APPWRITE_PROFILES_COLLECTION }}
-      APPWRITE_PROJECTS_COLLECTION: ${{ secrets.APPWRITE_PROJECTS_COLLECTION }}
-      APPWRITE_JOBS_COLLECTION: ${{ secrets.APPWRITE_JOBS_COLLECTION }}
-      APPWRITE_SOURCE_BUCKET: ${{ secrets.APPWRITE_SOURCE_BUCKET }}
-      APPWRITE_ASSETS_BUCKET: ${{ secrets.APPWRITE_ASSETS_BUCKET }}
+      NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.APPWRITE_E2E_ENDPOINT }}
+      NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_E2E_PROJECT_ID }}
+      APPWRITE_API_KEY: ${{ secrets.APPWRITE_E2E_API_KEY }}
+      # Resource IDs default in code (kidar / profiles / projects / jobs /
+      # source-drawings). Set optional APPWRITE_E2E_* secrets only when the
+      # dedicated CI project uses different IDs — applied below when present.
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -46,6 +60,28 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      - name: Apply optional Appwrite E2E resource overrides
+        env:
+          APPWRITE_E2E_DATABASE_ID: ${{ secrets.APPWRITE_E2E_DATABASE_ID }}
+          APPWRITE_E2E_PROFILES_COLLECTION: ${{ secrets.APPWRITE_E2E_PROFILES_COLLECTION }}
+          APPWRITE_E2E_PROJECTS_COLLECTION: ${{ secrets.APPWRITE_E2E_PROJECTS_COLLECTION }}
+          APPWRITE_E2E_JOBS_COLLECTION: ${{ secrets.APPWRITE_E2E_JOBS_COLLECTION }}
+          APPWRITE_E2E_SOURCE_BUCKET: ${{ secrets.APPWRITE_E2E_SOURCE_BUCKET }}
+          APPWRITE_E2E_ASSETS_BUCKET: ${{ secrets.APPWRITE_E2E_ASSETS_BUCKET }}
+        run: |
+          set_if_present() {
+            local target="$1"
+            local value="$2"
+            if [ -n "$value" ]; then
+              echo "${target}=${value}" >> "$GITHUB_ENV"
+            fi
+          }
+          set_if_present APPWRITE_DATABASE_ID "$APPWRITE_E2E_DATABASE_ID"
+          set_if_present APPWRITE_PROFILES_COLLECTION "$APPWRITE_E2E_PROFILES_COLLECTION"
+          set_if_present APPWRITE_PROJECTS_COLLECTION "$APPWRITE_E2E_PROJECTS_COLLECTION"
+          set_if_present APPWRITE_JOBS_COLLECTION "$APPWRITE_E2E_JOBS_COLLECTION"
+          set_if_present APPWRITE_SOURCE_BUCKET "$APPWRITE_E2E_SOURCE_BUCKET"
+          set_if_present APPWRITE_ASSETS_BUCKET "$APPWRITE_E2E_ASSETS_BUCKET"
       - run: pnpm install --frozen-lockfile=false
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
