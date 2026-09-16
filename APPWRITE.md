@@ -1,90 +1,129 @@
 # Appwrite Cloud setup for kidAR Studio
 
-## Environment roles (Free plan)
+Authoritative guide for reproducible Development / CI-E2E / future Production
+Appwrite environments. Supabase is historical only and must not be reintroduced.
+
+## Environment roles
 
 Appwrite Cloud Free allows **one organization** and **two projects**.
 
 | Role | Project ID | Status |
 | --- | --- | --- |
-| **Development** (local creator flows + local E2E) | `6aaa61b4000e4035f26e` | Active — use this for `pnpm dev` and local Playwright |
-| **CI / E2E (non-production)** | *(create with the second Free slot)* | Required before GitHub Actions E2E secrets are set |
-| Production | *(not on this Free project)* | Do not point CI or local E2E at a future production project |
+| **Development** | `6aaa61b4000e4035f26e` | Active — local `pnpm dev` and local Playwright |
+| **CI / E2E** | *(second Free project slot — owner creates)* | Dedicated non-production project for GitHub Actions only |
+| **Production** | *(owner designates before public launch)* | Must not be assumed to exist today; never used by CI |
 
-Console (development): https://appwrite.io/projects/6aaa61b4000e4035f26e
+Console (Development): https://cloud.appwrite.io/console/project-fra-6aaa61b4000e4035f26e
 
-GitHub Actions `e2e` must use secrets for the **CI / E2E** project only, never for production.
-Until that second project exists, leave `APPWRITE_API_KEY` unset in GitHub so the e2e job stays skipped.
+After the CI/E2E project exists, GitHub Actions must use only `APPWRITE_E2E_*`
+secrets for that project. Until those secrets exist, the `e2e` job **skips**.
+Do not point CI at Development or Production credentials.
 
-## 1. Platform
+## Setup order
 
-In **Auth → Settings → Platforms**, add a Web platform:
+1. **One-time Console bootstrap** (SDK cannot do these safely for a new project):
+   - Create the Appwrite project (Development or CI/E2E).
+   - Add a Web platform hostname (`localhost` for local; CI hostnames as needed).
+   - Enable **Email magic URL** auth and allow redirect
+     `http://localhost:3000/auth/callback` (plus production callback later).
+   - Create an API key with the scopes below.
+2. Copy `.env.example` → `.env.local` and `apps/web/.env.local`. Fill non-secret
+   IDs and set `APPWRITE_API_KEY` locally (never commit it).
+3. Run `pnpm appwrite:setup` to create/verify database, collections, attributes,
+   indexes, and the private studio bucket.
+4. Run `pnpm appwrite:verify` (read-only), then `pnpm lint`, `pnpm typecheck`,
+   `pnpm test`, `pnpm build`.
 
-- Hostname: `localhost`
-- Also add your production hostname later
+## Manual Console bootstrap (required)
 
-In **Auth → Settings**, enable **Email magic URL**.
+These remain Console-only because they are project identity / auth / secret
+bootstrap steps outside the Server SDK path used by kidAR Studio:
 
-Add redirect URL:
+| Item | Why Console remains required |
+| --- | --- |
+| Create project | Organization/project provisioning is a Console (or org-admin) action |
+| Web platform hostname | Auth platform allowlist is Console configuration |
+| Enable magic URL + redirect URLs | Auth method and redirect allowlist are Console settings |
+| Create API key + scopes | First key must be minted in Console; never commit the secret |
 
-- `http://localhost:3000/auth/callback`
+`pnpm appwrite:setup` automates everything else listed under **Automated resources**.
 
-## 2. API key
+## API key scopes
 
-Create an API key with scopes:
+### Runtime (app + local/CI E2E)
+
+The web app uses the **legacy Databases document API** (`Databases` /
+`databases.*Document` via `node-appwrite@29`) against the legacy `kidar`
+database. Verified in E2E:
+
+- Console **Allow all** may grant newer `documentsdb.*` labels but **does not**
+  necessarily grant legacy `documents.read` / `documents.write`.
+- Without those legacy scopes, document calls return unauthorized even when
+  `documentsdb.*` appears enabled.
+
+Minimum runtime scopes:
 
 - `users.read`, `users.write`
 - `sessions.write`
+- `documents.read`, `documents.write` ← **required for legacy `kidar`**
+- `files.read`, `files.write`
+
+### Setup script (`pnpm appwrite:setup`)
+
+Additionally required to create/verify schema:
+
 - `databases.read`, `databases.write`
 - `collections.read`, `collections.write`
 - `attributes.read`, `attributes.write`
 - `indexes.read`, `indexes.write`
-- `documents.read`, `documents.write`
-- `files.read`, `files.write`
 - `buckets.read`, `buckets.write`
 
-Put the secret in `.env.local` as `APPWRITE_API_KEY` (never commit it).
+Do not rely solely on “Allow all” or `documentsdb.*` for this project’s
+legacy database.
 
-## 3. Database `kidar`
+## Automated resources (`pnpm appwrite:setup`)
 
-Create database ID: `kidar`
+Safe to re-run. Does **not** delete documents, attributes, or files. Creates
+missing resources and aligns collection/bucket permission flags when needed.
 
-### Collection `profiles`
+### Database
+
+- ID: `kidar` (override with `APPWRITE_DATABASE_ID`)
+- Type: **legacy** document database (existing Development project)
+
+### Collections
+
+Document security is **enabled**. Collection-level permission is only
+`create("users")` so signed-in creators can insert rows. Each document gets
+owner `read` / `update` / `delete` from application code
+(`Permission.*` + `Role.user(ownerId)`).
+
+#### `profiles`
+
+| Key | Type | Required |
+| --- | --- | --- |
+| `plan` | string (16) | yes |
+| `stripe_customer_id` | string (128) | no |
 
 Document ID = Appwrite user ID.
 
-Attributes:
+#### `projects`
 
-| Key | Type | Required | Default |
-| --- | --- | --- | --- |
-| `plan` | string (size 16) | yes | `free` |
-| `stripe_customer_id` | string (size 128) | no | |
+| Key | Type | Required |
+| --- | --- | --- |
+| `owner` | string (36) | yes |
+| `name` | string (128) | yes |
+| `slug` | string (80) | yes |
+| `mode` | string (16) | yes |
+| `source_image_path` | string (64) | no |
+| `mind_path` | string (64) | no |
+| `glb_path` | string (64) | no |
+| `status` | string (32) | yes |
+| `settings` | string (10000) | yes |
 
-Permissions: document-level only (created by the app for the owner).
+Indexes: unique `slug_unique` on `slug`; key `owner_idx` on `owner`.
 
-### Collection `projects`
-
-Attributes:
-
-| Key | Type | Required | Default |
-| --- | --- | --- | --- |
-| `owner` | string (36) | yes | |
-| `name` | string (128) | yes | |
-| `slug` | string (80) | yes | |
-| `mode` | string (16) | yes | |
-| `source_image_path` | string (64) | no | |
-| `mind_path` | string (64) | no | |
-| `glb_path` | string (64) | no | |
-| `status` | string (32) | yes | `draft` |
-| `settings` | string (10000) | yes | `{}` |
-
-Indexes:
-
-- unique index on `slug`
-- key index on `owner`
-
-### Collection `jobs`
-
-Attributes:
+#### `jobs`
 
 | Key | Type | Required |
 | --- | --- | --- |
@@ -94,41 +133,82 @@ Attributes:
 | `payload` | string (5000) | no |
 | `log` | string (10000) | no |
 
-Index on `project_id`.
+Index: key `project_id_idx` on `project_id`.
 
-### Collection `scan_events` (reserved)
+#### Not created
 
-Attributes:
+- `scan_events` — reserved for M4 analytics; do not provision in this setup.
 
-| Key | Type | Required |
-| --- | --- | --- |
-| `project_id` | string (36) | yes |
-| `country` | string (8) | no |
+### Storage
 
-## 4. Storage buckets
+Free plan allows **one** bucket. Use a single private bucket for source drawings
+and studio assets:
 
-Free plan allows **1 bucket**. Use a single private bucket:
+- ID `source-drawings` (override with `APPWRITE_SOURCE_BUCKET` /
+  `APPWRITE_ASSETS_BUCKET`; keep them equal on Free)
+- `fileSecurity: true`
+- Bucket permission: `create("users")`
+- Max size 25 MB; extensions `png,jpg,jpeg,glb,svg,mp3`
+- File permissions set by the app for the owning user
 
-- ID `source-drawings` — max 25 MB, extensions `png,jpg,jpeg,glb,svg,mp3`, File Security enabled
+## Environment variables
 
-Set both env vars to the same ID:
+Placeholders only — never commit real keys.
 
 ```env
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APPWRITE_ENDPOINT=https://fra.cloud.appwrite.io/v1
+NEXT_PUBLIC_APPWRITE_PROJECT_ID=6aaa61b4000e4035f26e
+APPWRITE_API_KEY=
+
+APPWRITE_DATABASE_ID=kidar
+APPWRITE_PROFILES_COLLECTION=profiles
+APPWRITE_PROJECTS_COLLECTION=projects
+APPWRITE_JOBS_COLLECTION=jobs
 APPWRITE_SOURCE_BUCKET=source-drawings
 APPWRITE_ASSETS_BUCKET=source-drawings
+
+# E2E-only (CI or intentional production smoke of e2e-session)
+ALLOW_E2E_AUTH=
 ```
 
-## 5. Local env
+`APPWRITE_SCAN_EVENTS_COLLECTION` may appear in code defaults for a future M4
+collection; setup does not create it.
+
+## GitHub Actions secrets (CI / E2E project only)
+
+After the owner creates the dedicated CI/E2E Appwrite project, configure:
+
+| Secret | Maps to runtime env |
+| --- | --- |
+| `APPWRITE_E2E_ENDPOINT` | `NEXT_PUBLIC_APPWRITE_ENDPOINT` |
+| `APPWRITE_E2E_PROJECT_ID` | `NEXT_PUBLIC_APPWRITE_PROJECT_ID` |
+| `APPWRITE_E2E_API_KEY` | `APPWRITE_API_KEY` |
+
+Optional overrides (only if the CI project uses non-default IDs):
+
+- `APPWRITE_E2E_DATABASE_ID`
+- `APPWRITE_E2E_PROFILES_COLLECTION`
+- `APPWRITE_E2E_PROJECTS_COLLECTION`
+- `APPWRITE_E2E_JOBS_COLLECTION`
+- `APPWRITE_E2E_SOURCE_BUCKET`
+- `APPWRITE_E2E_ASSETS_BUCKET`
+
+If `APPWRITE_E2E_API_KEY` is unset, the `e2e` job skips. CI must never fall
+back to Development or Production keys.
+
+## Commands
 
 ```bash
-cp .env.example .env.local
-cp .env.example apps/web/.env.local
+pnpm appwrite:setup          # idempotent create/verify
+pnpm appwrite:verify         # read-only check
+pnpm appwrite:setup -- --dry-run
+pnpm lint && pnpm typecheck && pnpm test && pnpm build
+pnpm start                   # production Next.js server after build
 ```
 
-Use regional endpoint for this project:
+## Historical note: Supabase
 
-```env
-NEXT_PUBLIC_APPWRITE_ENDPOINT=https://fra.cloud.appwrite.io/v1
-```
-
-Fill `APPWRITE_API_KEY`, then run `pnpm dev`.
+Supabase is **not** an active runtime dependency. Any remaining `supabase/`
+artifacts or obsolete migration docs are historical only. Do not run Supabase
+setup commands as part of current onboarding.

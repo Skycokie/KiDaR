@@ -17,8 +17,21 @@
 - **Backend host:** kidAR Studio replaced the prior Supabase implementation to
   consolidate the MVP backend workflow around Appwrite Cloud and avoid
   maintaining the prior local service setup path during active product
-  development. Supabase artifacts under `supabase/` are historical only.
+  development. Supabase artifacts under `supabase/` are historical only and
+  are not active runtime infrastructure.
   <!-- OWNER-CONFIRM: replace this bullet with a more exact rationale if needed. -->
+- **Appwrite environment isolation:** Development (`6aaa61b4000e4035f26e`),
+  a dedicated CI/E2E project (second Free slot), and a future Production
+  project must use separate credentials. CI must never access production
+  resources. GitHub E2E uses only `APPWRITE_E2E_*` secrets; the job skips when
+  those secrets are absent.
+- **Appwrite setup trade-offs:** dependency on Appwrite Cloud; limited one-time
+  Console bootstrap (project, platform, magic URL, API key) where Server SDK
+  automation is unavailable; schema/buckets provisioned via idempotent
+  `pnpm appwrite:setup`.
+- **Legacy document scopes:** the `kidar` database is a legacy document
+  database; API keys must include `documents.read` and `documents.write` in
+  addition to any newer `documentsdb.*` labels.
 - **M2 Appwrite SSR sessions:** `node-appwrite` creates magic-URL sessions
   server-side and stores the session secret in an httpOnly cookie.
 - **M2 e2e dependency:** `@playwright/test` covers auth/project flows; E2E
