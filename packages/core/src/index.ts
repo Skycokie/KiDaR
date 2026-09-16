@@ -56,6 +56,22 @@ export {
   popoutPipelineLabel
 } from "./popout";
 
+export {
+  MIND_PIPELINE_VERSION,
+  MIND_AR_PACKAGE_VERSION,
+  MIND_ARTIFACT_KIND,
+  MIND_COMPILER_SETTINGS,
+  MindCompileError,
+  assertMindCompileInputs,
+  detectSupportedSourceImageMime,
+  assertSupportedSourceImage,
+  buildMindCompileInputDocument,
+  mindArtifactKey,
+  mindPipelineLabel,
+  assertMindArtifactBytes
+} from "./mind";
+export type { MindCompileInputParts } from "./mind";
+
 export type ProjectMode = "popout" | "gallery" | "upload";
 export type ProjectStatus = "draft" | "processing" | "ready" | "error";
 

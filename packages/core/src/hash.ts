@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { buildMindCompileInputDocument, type MindCompileInputParts } from "./mind";
 
 /** Bump when pipeline inputs or templates change meaning for public artifacts. */
 export const PIPELINE_INPUT_VERSION = "m4.1.0";
@@ -146,4 +147,8 @@ export function computeArtifactHash(parts: {
   pipelineVersion?: string;
 }): string {
   return hashCanonical(buildArtifactHashDocument(parts));
+}
+
+export function computeMindCompileInputHash(parts: MindCompileInputParts): string {
+  return hashCanonical(buildMindCompileInputDocument(parts));
 }
