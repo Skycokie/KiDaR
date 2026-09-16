@@ -121,7 +121,7 @@ export class R2PublicArtifactStorage implements PublicArtifactStorage {
 
 /**
  * Create the configured public storage provider.
- * Appwrite fallback remains unsupported for writes in M4.2 (R2 only).
+ * Appwrite fallback remains unsupported for writes in M4.2/M4.3 (R2 only).
  */
 export function createWorkerPublicStorage(
   env: NodeJS.ProcessEnv = process.env
@@ -129,7 +129,7 @@ export function createWorkerPublicStorage(
   const config = resolvePublicStorageConfig(env);
   if (config.provider !== "r2") {
     throw new PublicStorageConfigError(
-      "M4.2 worker requires R2 public artifact storage. Appwrite public fallback is not wired for uploads yet, and source-drawings must stay private."
+      "M4.3 worker requires R2 public artifact storage. Appwrite public fallback is not wired for uploads yet, and source-drawings must stay private."
     );
   }
   return new R2PublicArtifactStorage(config);

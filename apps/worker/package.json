@@ -10,7 +10,10 @@
     "lint": "tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
-    "pipeline:demo": "tsx src/demo.ts"
+    "pipeline:demo": "tsx src/demo.ts",
+    "fixture:popout": "tsx src/popout/run-fixture.ts",
+    "fixture:mind": "tsx src/mindar/run-fixture.ts",
+    "fixtures:linux": "node scripts/run-linux-fixtures.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.787.0",
@@ -19,6 +22,8 @@
     "@gltf-transform/functions": "4.5.0",
     "@imgly/background-removal-node": "1.4.5",
     "@kidar/core": "workspace:*",
+    "canvas": "2.11.2",
+    "mind-ar": "1.2.5",
     "node-appwrite": "29.0.0",
     "pngjs": "7.0.0",
     "sharp": "0.35.4",

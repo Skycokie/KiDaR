@@ -1,11 +1,13 @@
 import {
+  MindCompileError,
   PopoutBuildError,
   PublicStorageConfigError,
   type PipelineJob
 } from "@kidar/core";
-import { claimNextJob } from "./appwrite/jobs";
+import { claimNextJob, failJob } from "./appwrite/jobs";
 import { createWorkerPublicStorage } from "./storage/public";
 import { handlePopoutJobFailure, runPopoutBuildStage } from "./popout/stage";
+import { handleMindJobFailure, runMindCompileStage } from "./mindar/stage";
 
 export interface AI3DProvider {
   generateModel(input: { imagePath: string }): Promise<{ glbPath: string }>;
@@ -25,28 +27,44 @@ function idleBackoffMs(emptyStreak: number): number {
   return Math.min(base * Math.max(1, emptyStreak), 15_000);
 }
 
+async function failUnsupportedJob(job: PipelineJob): Promise<void> {
+  if (!job.lockToken) return;
+  await failJob({
+    jobId: job.id,
+    lockToken: job.lockToken,
+    error: `Unsupported job type: ${job.type}`,
+    terminal: true
+  });
+}
+
 async function processClaimedJob(job: PipelineJob): Promise<void> {
-  if (job.type !== "popout_build") {
-    await handlePopoutJobFailure(
-      job,
-      new PopoutBuildError(`Unsupported job type in M4.2: ${job.type}`, {
-        retryable: false,
-        code: "UNSUPPORTED_JOB_TYPE"
-      })
-    );
+  if (job.type === "popout_build") {
+    try {
+      const storage = createWorkerPublicStorage();
+      await runPopoutBuildStage(job, { storage });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Lock token mismatch")) {
+        return;
+      }
+      await handlePopoutJobFailure(job, error);
+    }
     return;
   }
 
-  try {
-    const storage = createWorkerPublicStorage();
-    await runPopoutBuildStage(job, { storage });
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("Lock token mismatch")) {
-      // Another worker owns the claim — do not mutate.
-      return;
+  if (job.type === "mind_compile") {
+    try {
+      const storage = createWorkerPublicStorage();
+      await runMindCompileStage(job, { storage });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Lock token mismatch")) {
+        return;
+      }
+      await handleMindJobFailure(job, error);
     }
-    await handlePopoutJobFailure(job, error);
+    return;
   }
+
+  await failUnsupportedJob(job);
 }
 
 /** Process at most one eligible job (tests / one-shot runs). */
@@ -61,7 +79,7 @@ export async function runWorkerOnce(): Promise<"processed" | "idle"> {
 export async function runWorkerLoop(signal?: AbortSignal): Promise<void> {
   let emptyStreak = 0;
   console.log(
-    `[worker] polling for popout_build jobs every ${pollIntervalMs()}ms (backoff when idle)`
+    `[worker] polling for popout_build|mind_compile jobs every ${pollIntervalMs()}ms (backoff when idle)`
   );
   while (!signal?.aborted) {
     try {
@@ -77,6 +95,9 @@ export async function runWorkerLoop(signal?: AbortSignal): Promise<void> {
         console.error(`[worker] public storage misconfigured: ${error.message}`);
         await sleep(idleBackoffMs(5));
         continue;
+      }
+      if (error instanceof PopoutBuildError || error instanceof MindCompileError) {
+        console.error(`[worker] stage error (${error.code}): ${error.message}`);
       }
       console.error("[worker] loop error", error);
       await sleep(idleBackoffMs(3));

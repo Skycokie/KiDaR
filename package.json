@@ -17,11 +17,18 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "canvas",
       "esbuild",
       "onnxruntime-node",
       "protobufjs",
       "sharp"
-    ]
+    ],
+    "peerDependencyRules": {
+      "ignoreMissing": ["vite"],
+      "allowedVersions": {
+        "vite": "*"
+      }
+    }
   },
   "devDependencies": {
     "prettier": "^3.6.2",
