@@ -1,11 +1,15 @@
 /**
- * Public consumer artifact storage boundary (M4.1).
+ * Public consumer artifact storage boundary.
  *
  * Studio source drawings stay in the private Appwrite bucket (`source-drawings`).
- * Public AR outputs must use R2 (preferred) or a *separate* public Appwrite bucket.
- * This module validates configuration and exposes interfaces; upload adapters may
- * be stubs that fail until M4.2+ wires real providers.
+ * Public AR outputs must use Cloudflare R2. Appwrite public fallback is not used
+ * on the current Free plan (single private bucket).
  */
+
+import { PublicStorageConfigError } from "./storage-error";
+import { assertR2UrlRoles, publicArtifactUrl } from "./storage-keys";
+
+export { PublicStorageConfigError } from "./storage-error";
 
 export type PublicStorageProviderId = "r2" | "appwrite";
 
@@ -33,14 +37,6 @@ export interface PublicArtifactStorage {
   exists(key: string): Promise<boolean>;
   getPublicUrl(key: string): string;
   getMetadata(key: string): Promise<PublicArtifactMetadata | null>;
-}
-
-export class PublicStorageConfigError extends Error {
-  readonly code = "PUBLIC_STORAGE_CONFIG";
-  constructor(message: string) {
-    super(message);
-    this.name = "PublicStorageConfigError";
-  }
 }
 
 export interface R2PublicStorageConfig {
@@ -133,14 +129,20 @@ function resolveR2(env: PublicStorageEnv): R2PublicStorageConfig {
       "R2 public artifact storage requires R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, and R2_PUBLIC_BASE_URL."
     );
   }
+  const accountId = env.R2_ACCOUNT_ID!.trim();
+  const roles = assertR2UrlRoles({
+    publicBaseUrl: env.R2_PUBLIC_BASE_URL!.trim(),
+    endpoint: present(env.R2_ENDPOINT) ? env.R2_ENDPOINT.trim() : undefined,
+    accountId
+  });
   return {
     provider: "r2",
-    accountId: env.R2_ACCOUNT_ID!.trim(),
+    accountId,
     accessKeyId: env.R2_ACCESS_KEY_ID!.trim(),
     secretAccessKey: env.R2_SECRET_ACCESS_KEY!.trim(),
     bucket: env.R2_BUCKET!.trim(),
-    publicBaseUrl: env.R2_PUBLIC_BASE_URL!.trim().replace(/\/$/, ""),
-    endpoint: present(env.R2_ENDPOINT) ? env.R2_ENDPOINT.trim() : undefined
+    publicBaseUrl: roles.publicBaseUrl,
+    endpoint: roles.endpoint
   };
 }
 
@@ -177,9 +179,12 @@ export function resolvePublicStorageConfig(
   );
 }
 
-/** Adapter that always fails — used until a real R2/Appwrite public writer is wired. */
+/** Config-only handle for web fail-closed checks. Runtime R2 writes use the worker adapter. */
 export function createUnimplementedPublicStorage(config: PublicStorageConfig): PublicArtifactStorage {
-  const message = `Public artifact storage provider "${config.provider}" is configured but not implemented in M4.1. Configure validation passed; upload arrives in a later milestone.`;
+  const message =
+    config.provider === "r2"
+      ? "R2 is configured. Object writes run in the worker R2 adapter, not this config handle."
+      : `Public artifact storage provider "${config.provider}" is not implemented. R2 is required for consumer artifacts.`;
   return {
     provider: config.provider,
     async write() {
@@ -190,7 +195,7 @@ export function createUnimplementedPublicStorage(config: PublicStorageConfig): P
     },
     getPublicUrl(key: string) {
       if (config.provider === "r2") {
-        return `${config.publicBaseUrl}/${key.replace(/^\//, "")}`;
+        return publicArtifactUrl(config.publicBaseUrl, key);
       }
       throw new PublicStorageConfigError(message);
     },
@@ -201,8 +206,8 @@ export function createUnimplementedPublicStorage(config: PublicStorageConfig): P
 }
 
 /**
- * Validate env and return a storage handle.
- * M4.1 returns an unimplemented adapter after successful config validation.
+ * Validate env and return a config handle.
+ * R2 object I/O is implemented by the worker (`createWorkerPublicStorage`).
  */
 export function createPublicArtifactStorage(
   env: PublicStorageEnv | Record<string, string | undefined> = {}

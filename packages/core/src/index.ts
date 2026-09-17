@@ -29,8 +29,8 @@ export {
 } from "./jobs";
 export type { JobType, JobStatus, JobResult, PipelineJob, JobTransition } from "./jobs";
 
+export { PublicStorageConfigError } from "./storage-error";
 export {
-  PublicStorageConfigError,
   resolvePublicStorageConfig,
   createUnimplementedPublicStorage,
   createPublicArtifactStorage
@@ -45,6 +45,22 @@ export type {
   PublicStorageConfig,
   PublicStorageEnv
 } from "./storage";
+
+export {
+  IMMUTABLE_CACHE_CONTROL,
+  R2_VERIFY_KEY_PREFIX,
+  PUBLIC_ARTIFACT_CONTENT_TYPES,
+  PublicObjectKeyError,
+  defaultR2ApiEndpoint,
+  isR2ApiHostname,
+  normalizePublicObjectKey,
+  publicArtifactUrl,
+  assertR2UrlRoles
+} from "./storage-keys";
+export type { PublicArtifactContentType } from "./storage-keys";
+
+export { MemoryR2ObjectStore, R2PublicArtifactStorage } from "./r2-adapter";
+export type { R2ObjectHead, R2ObjectStore } from "./r2-adapter";
 
 export {
   POPOUT_COVERAGE_REJECT,

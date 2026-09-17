@@ -1,15 +1,19 @@
 import {
+  DeleteObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
-  S3Client,
-  type HeadObjectCommandOutput
+  S3Client
 } from "@aws-sdk/client-s3";
 import {
   PublicStorageConfigError,
+  R2PublicArtifactStorage,
+  normalizePublicObjectKey,
+  publicArtifactUrl,
   resolvePublicStorageConfig,
   type PublicArtifactMetadata,
   type PublicArtifactStorage,
   type PublicArtifactWriteInput,
+  type R2ObjectStore,
   type R2PublicStorageConfig
 } from "@kidar/core";
 
@@ -23,27 +27,29 @@ export class MemoryPublicArtifactStorage implements PublicArtifactStorage {
   constructor(private readonly publicBaseUrl = "https://memory.local") {}
 
   async write(input: PublicArtifactWriteInput) {
-    this.objects.set(input.key, {
+    const key = normalizePublicObjectKey(input.key);
+    this.objects.set(key, {
       body: input.body,
       contentType: input.contentType,
       checksum: input.checksum
     });
-    return { key: input.key, publicUrl: this.getPublicUrl(input.key) };
+    return { key, publicUrl: this.getPublicUrl(key) };
   }
 
   async exists(key: string) {
-    return this.objects.has(key);
+    return this.objects.has(normalizePublicObjectKey(key));
   }
 
   getPublicUrl(key: string) {
-    return `${this.publicBaseUrl.replace(/\/$/, "")}/${key.replace(/^\//, "")}`;
+    return publicArtifactUrl(this.publicBaseUrl, key, { allowLocalOrigins: true });
   }
 
   async getMetadata(key: string): Promise<PublicArtifactMetadata | null> {
-    const hit = this.objects.get(key);
+    const normalized = normalizePublicObjectKey(key);
+    const hit = this.objects.get(normalized);
     if (!hit) return null;
     return {
-      key,
+      key: normalized,
       size: hit.body.byteLength,
       contentType: hit.contentType,
       checksum: hit.checksum
@@ -51,12 +57,71 @@ export class MemoryPublicArtifactStorage implements PublicArtifactStorage {
   }
 }
 
+function isNotFound(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as {
+    name?: string;
+    Code?: string;
+    $metadata?: { httpStatusCode?: number };
+  };
+  const status = candidate.$metadata?.httpStatusCode;
+  const name = `${candidate.name || ""} ${candidate.Code || ""}`;
+  return (
+    status === 404 ||
+    /notfound|nosuchkey|nosuchbucket/i.test(name)
+  );
+}
+
+export class S3R2ObjectStore implements R2ObjectStore {
+  constructor(
+    private readonly client: S3Client,
+    private readonly bucket: string
+  ) {}
+
+  async put(input: {
+    key: string;
+    body: Uint8Array;
+    contentType: string;
+    cacheControl: string;
+    checksum?: string;
+  }): Promise<void> {
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: input.key,
+        Body: input.body,
+        ContentType: input.contentType,
+        CacheControl: input.cacheControl,
+        Metadata: input.checksum
+          ? { checksum: input.checksum, sha256: input.checksum }
+          : undefined
+      })
+    );
+  }
+
+  async head(key: string) {
+    try {
+      const result = await this.client.send(
+        new HeadObjectCommand({ Bucket: this.bucket, Key: key })
+      );
+      return {
+        size: result.ContentLength,
+        contentType: result.ContentType,
+        cacheControl: result.CacheControl,
+        checksum: result.Metadata?.checksum || result.Metadata?.sha256,
+        updatedAt: result.LastModified?.toISOString()
+      };
+    } catch (error) {
+      if (isNotFound(error)) return null;
+      throw error;
+    }
+  }
+}
+
 function r2Client(config: R2PublicStorageConfig) {
-  const endpoint =
-    config.endpoint || `https://${config.accountId}.r2.cloudflarestorage.com`;
   return new S3Client({
     region: "auto",
-    endpoint,
+    endpoint: config.endpoint,
     credentials: {
       accessKeyId: config.accessKeyId,
       secretAccessKey: config.secretAccessKey
@@ -64,64 +129,9 @@ function r2Client(config: R2PublicStorageConfig) {
   });
 }
 
-export class R2PublicArtifactStorage implements PublicArtifactStorage {
-  readonly provider = "r2" as const;
-  private readonly client: S3Client;
-
-  constructor(private readonly config: R2PublicStorageConfig) {
-    this.client = r2Client(config);
-  }
-
-  getPublicUrl(key: string) {
-    return `${this.config.publicBaseUrl.replace(/\/$/, "")}/${key.replace(/^\//, "")}`;
-  }
-
-  async exists(key: string) {
-    try {
-      await this.client.send(
-        new HeadObjectCommand({ Bucket: this.config.bucket, Key: key })
-      );
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  async getMetadata(key: string): Promise<PublicArtifactMetadata | null> {
-    try {
-      const head: HeadObjectCommandOutput = await this.client.send(
-        new HeadObjectCommand({ Bucket: this.config.bucket, Key: key })
-      );
-      return {
-        key,
-        size: head.ContentLength,
-        contentType: head.ContentType,
-        checksum: head.Metadata?.checksum || head.Metadata?.sha256,
-        updatedAt: head.LastModified?.toISOString()
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  async write(input: PublicArtifactWriteInput) {
-    await this.client.send(
-      new PutObjectCommand({
-        Bucket: this.config.bucket,
-        Key: input.key,
-        Body: input.body,
-        ContentType: input.contentType,
-        CacheControl: input.cacheControl ?? "public, max-age=31536000, immutable",
-        Metadata: input.checksum ? { checksum: input.checksum, sha256: input.checksum } : undefined
-      })
-    );
-    return { key: input.key, publicUrl: this.getPublicUrl(input.key) };
-  }
-}
-
 /**
  * Create the configured public storage provider.
- * Appwrite fallback remains unsupported for writes in M4.2/M4.3 (R2 only).
+ * Appwrite fallback remains unsupported for writes (R2 only).
  */
 export function createWorkerPublicStorage(
   env: NodeJS.ProcessEnv = process.env
@@ -129,8 +139,21 @@ export function createWorkerPublicStorage(
   const config = resolvePublicStorageConfig(env);
   if (config.provider !== "r2") {
     throw new PublicStorageConfigError(
-      "M4.3 worker requires R2 public artifact storage. Appwrite public fallback is not wired for uploads yet, and source-drawings must stay private."
+      "Worker requires R2 public artifact storage. Appwrite public fallback is not wired for uploads, and source-drawings must stay private."
     );
   }
-  return new R2PublicArtifactStorage(config);
+  return new R2PublicArtifactStorage(config, new S3R2ObjectStore(r2Client(config), config.bucket));
+}
+
+/** Delete only `__kidar_verify__/` objects from the verify probe. Not a runtime API. */
+export async function deleteR2VerifyObject(input: {
+  config: R2PublicStorageConfig;
+  key: string;
+}): Promise<void> {
+  const key = normalizePublicObjectKey(input.key);
+  if (!key.startsWith("__kidar_verify__/")) {
+    throw new PublicStorageConfigError("Refusing to delete a key outside __kidar_verify__/");
+  }
+  const client = r2Client(input.config);
+  await client.send(new DeleteObjectCommand({ Bucket: input.config.bucket, Key: key }));
 }

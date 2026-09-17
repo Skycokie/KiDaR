@@ -13,7 +13,8 @@
     "pipeline:demo": "tsx src/demo.ts",
     "fixture:popout": "tsx src/popout/run-fixture.ts",
     "fixture:mind": "tsx src/mindar/run-fixture.ts",
-    "fixtures:linux": "node scripts/run-linux-fixtures.mjs"
+    "fixtures:linux": "node scripts/run-linux-fixtures.mjs",
+    "storage:r2:verify": "tsx src/storage/verify-r2.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.787.0",

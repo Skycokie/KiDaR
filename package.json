@@ -13,7 +13,8 @@
     "appwrite:setup": "node scripts/setup-appwrite.mjs",
     "appwrite:verify": "node scripts/setup-appwrite.mjs --verify",
     "worker": "pnpm --filter @kidar/worker start",
-    "pipeline:demo": "pnpm --filter @kidar/worker pipeline:demo"
+    "pipeline:demo": "pnpm --filter @kidar/worker pipeline:demo",
+    "storage:r2:verify": "pnpm --filter @kidar/worker storage:r2:verify"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
