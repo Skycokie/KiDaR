@@ -38,26 +38,43 @@ describe("public storage configuration", () => {
     ).toThrow(/R2_ACCESS_KEY_ID/);
   });
 
-  it("accepts complete R2 configuration and returns unimplemented adapter", async () => {
+  it("accepts complete R2 configuration and keeps writes off the config handle", async () => {
     const config = resolvePublicStorageConfig({
       R2_ACCOUNT_ID: "acct",
       R2_ACCESS_KEY_ID: "ak",
       R2_SECRET_ACCESS_KEY: "sk",
-      R2_BUCKET: "kidar-ar",
-      R2_PUBLIC_BASE_URL: "https://cdn.example.com"
+      R2_BUCKET: "kidar-public-ar",
+      R2_PUBLIC_BASE_URL: "https://ar.example.com"
     });
     expect(config.provider).toBe("r2");
+    if (config.provider === "r2") {
+      expect(config.endpoint).toBe("https://acct.r2.cloudflarestorage.com");
+      expect(config.publicBaseUrl).toBe("https://ar.example.com");
+    }
     const storage = createPublicArtifactStorage({
       R2_ACCOUNT_ID: "acct",
       R2_ACCESS_KEY_ID: "ak",
       R2_SECRET_ACCESS_KEY: "sk",
-      R2_BUCKET: "kidar-ar",
-      R2_PUBLIC_BASE_URL: "https://cdn.example.com"
+      R2_BUCKET: "kidar-public-ar",
+      R2_PUBLIC_BASE_URL: "https://ar.example.com"
     });
-    expect(storage.getPublicUrl("a/b.glb")).toBe("https://cdn.example.com/a/b.glb");
+    expect(storage.getPublicUrl("a/b.glb")).toBe("https://ar.example.com/a/b.glb");
     await expect(
       storage.write({ key: "a/b.glb", body: new Uint8Array([1]), contentType: "model/gltf-binary" })
-    ).rejects.toThrow(/not implemented in M4.1/);
+    ).rejects.toThrow(/worker R2 adapter/i);
+  });
+
+  it("rejects using the R2 S3 API host as the public base URL", () => {
+    expect(() =>
+      resolvePublicStorageConfig({
+        PUBLIC_ARTIFACT_STORAGE: "r2",
+        R2_ACCOUNT_ID: "acct",
+        R2_ACCESS_KEY_ID: "ak",
+        R2_SECRET_ACCESS_KEY: "sk",
+        R2_BUCKET: "kidar-public-ar",
+        R2_PUBLIC_BASE_URL: "https://acct.r2.cloudflarestorage.com"
+      })
+    ).toThrow(/public HTTPS delivery origin|must differ from R2_ENDPOINT/i);
   });
 
   it("accepts Appwrite fallback only with a distinct assets bucket", () => {
