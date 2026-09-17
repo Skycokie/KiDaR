@@ -60,9 +60,15 @@
   includes source checksum, `mind-ar` version, pipeline version `m4.3.0`, and
   static compiler settings. Compilation stays local/headless with no paid AI
   APIs. Windows may not run canvas/TFJS reliably; combined Linux acceptance
-  gate is `pnpm -C apps/worker fixtures:linux` (popout + mind). Until that
-  report passes on Linux, status is **code complete, Linux fixture validation
-  pending** — not pipeline production complete.
+  gate is `pnpm -C apps/worker fixtures:linux` (popout + mind). Linux fixture
+  validation passed in the worker Docker image for the tracked real-photo
+  fixture (2026-09-17, `linux/x64`, `test-photo.jpg`): Pop-out optimized GLB
+  363156 B (report SHA-256
+  `a9f94a5f1d5c53e9ad433fc9daf6162f6cf88fa1c2ed2d795194bdfb63bfa1d2`); MindAR
+  `targets.mind` 231205 B (SHA-256
+  `9965113bd51c81334eeec9d31eadec6cd0ea917c4e654e4f49fe49c13f9c9b4c`). Public
+  artifact publishing and consumer AR delivery remain unimplemented pending
+  R2 configuration and M4.4b.
 - **M2 Appwrite SSR sessions:** `node-appwrite` creates magic-URL sessions
   server-side and stores the session secret in an httpOnly cookie.
 - **M2 e2e dependency:** `@playwright/test` covers auth/project flows; E2E

@@ -44,9 +44,11 @@ pnpm pipeline:demo
 pnpm -C apps/worker fixtures:linux
 ```
 
-Worker Linux fixtures (`fixtures:linux`) validate M4.2 popout + M4.3 MindAR
-against `e2e/fixtures/test-photo.jpg`. Until that report passes on Linux,
-treat the pipeline as **code complete, Linux fixture validation pending**.
+Linux fixture validation passed in the worker Docker image for the tracked
+real-photo fixture. The Pop-out stage produced a 363,156-byte optimized GLB,
+and the MindAR stage produced a 231,205-byte `targets.mind` file. Public
+artifact publishing and consumer AR delivery remain unimplemented pending R2
+configuration and M4.4b. See `apps/worker/README.md`.
 
 No paid AI service is required or called by default. The optional AI provider
 is disabled unless an explicit API key is configured.

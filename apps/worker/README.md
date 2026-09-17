@@ -7,10 +7,21 @@ Railway / Linux process for async publish pipeline stages:
 
 ## Status
 
-**Code complete, Linux fixture validation pending** until
-`pnpm -C apps/worker fixtures:linux` produces a real Linux report with
-`verdict.popout=pass` and `verdict.mind=pass`. That is **not** the same as
-“pipeline production complete”.
+Linux fixture validation passed in the worker Docker image for the tracked
+real-photo fixture. The Pop-out stage produced a 363,156-byte optimized GLB,
+and the MindAR stage produced a 231,205-byte `targets.mind` file. Public
+artifact publishing and consumer AR delivery remain unimplemented pending R2
+configuration and M4.4b.
+
+Recorded report (`status: linux_fixtures_passed`, Docker `linux/x64`,
+2026-09-17, `e2e/fixtures/test-photo.jpg`):
+
+| Stage | Verdict | Metrics |
+| --- | --- | --- |
+| popout | pass | coverage `0.15564727783203125`; GLB raw `398892` B; optimized `363156` B (`dedup`/`weld`/`prune`); under 1.5 MB; report SHA-256 `a9f94a5f1d5c53e9ad433fc9daf6162f6cf88fa1c2ed2d795194bdfb63bfa1d2` |
+| mind | pass | `targets.mind` `231205` B; SHA-256 `9965113bd51c81334eeec9d31eadec6cd0ea917c4e654e4f49fe49c13f9c9b4c` |
+
+The fixture JSON does not currently emit vertex/triangle counts.
 
 ## Required non-secret configuration
 
@@ -63,8 +74,12 @@ Docker (from repo root; no secrets required for fixtures):
 
 ```bash
 docker build -f apps/worker/Dockerfile -t kidar-worker .
-docker run --rm kidar-worker pnpm fixtures:linux
+docker run --rm -w /app kidar-worker pnpm -C apps/worker fixtures:linux
 ```
+
+The image `WORKDIR` is `/app/apps/worker`. The `-w /app` override is required
+for `pnpm -C apps/worker`. Without that override, `pnpm fixtures:linux` also
+works because it already runs from the image workdir.
 
 Record from the structured report:
 
