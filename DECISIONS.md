@@ -34,9 +34,15 @@
   addition to any newer `documentsdb.*` labels.
 - **M4.1 job delivery:** Appwrite job claim uses update-then-re-read lock tokens
   (no SQL CAS). Delivery is at-least-once; artifact writers must be idempotent.
-- **M4.1 public artifacts:** Cloudflare R2 is the preferred public store.
-  Appwrite fallback requires a bucket distinct from private `source-drawings`
-  and is unavailable on the single-bucket Free plan without a second bucket.
+- **M4.1 public artifacts:** Cloudflare R2 is the exclusive public consumer
+  store. Appwrite fallback requires a bucket distinct from private
+  `source-drawings` and is unavailable on the single-bucket Free plan; do not
+  enable it. The worker R2 adapter uploads immutable objects with
+  `Cache-Control: public, max-age=31536000, immutable` and unsigned
+  `R2_PUBLIC_BASE_URL` URLs. `R2_ENDPOINT` is the S3 API host and must differ
+  from the public CDN origin. Probe: `pnpm storage:r2:verify` (optional
+  `--write` only under `__kidar_verify__/`). M4.4b still owns page_render and
+  `/ar/:slug`.
 - **M4.2 worker polling:** the Railway worker uses Appwrite document polling
   (configurable `WORKER_POLL_INTERVAL_MS`, idle backoff up to 15s) instead of
   Realtime subscriptions. Polling keeps claim/retry tests deterministic and

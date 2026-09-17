@@ -34,11 +34,32 @@ The fixture JSON does not currently emit vertex/triangle counts.
 | `APPWRITE_JOBS_COLLECTION` | Default `jobs` |
 | `APPWRITE_PROJECTS_COLLECTION` | Default `projects` |
 | `APPWRITE_SOURCE_BUCKET` | Private sources only (`source-drawings`) |
-| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL` | Public artifact store |
+| `R2_ACCOUNT_ID` | Cloudflare account id (server-side) |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Bucket-scoped Object Read & Object Write token (server-side; never `NEXT_PUBLIC_*`) |
+| `R2_BUCKET` | Dedicated public bucket (example `kidar-public-ar`); never `source-drawings` |
+| `R2_ENDPOINT` | Optional S3 API origin `https://<account-id>.r2.cloudflarestorage.com` |
+| `R2_PUBLIC_BASE_URL` | HTTPS CDN/custom domain origin for unsigned consumer URLs |
 | `WORKER_POLL_INTERVAL_MS` | Poll interval (default `1000`; idle backoff ≤15s) |
 
-Public artifacts **must** use R2 (or a future separate public Appwrite bucket).
-Never point public storage at `source-drawings`.
+Public artifacts **must** use R2. Never point public storage at `source-drawings`.
+Do not enable an Appwrite public-bucket fallback on the single-bucket Free plan.
+
+Immutable objects use `Cache-Control: public, max-age=31536000, immutable`.
+That is safe only for content-addressed keys (`…/<inputHash>/…`).
+
+Verify config (no bucket writes):
+
+```bash
+pnpm storage:r2:verify
+```
+
+Non-destructive probe (creates and deletes only `__kidar_verify__/<unique>.txt`):
+
+```bash
+pnpm storage:r2:verify --write
+```
+
+R2 integration does **not** publish AR pages, QR, or PDFs until M4.4b.
 
 ## MindAR compiler (M4.3)
 

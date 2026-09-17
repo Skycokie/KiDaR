@@ -187,12 +187,15 @@ APPWRITE_JOBS_COLLECTION=jobs
 APPWRITE_SOURCE_BUCKET=source-drawings
 APPWRITE_ASSETS_BUCKET=source-drawings
 
-# Public consumer artifacts (preferred: Cloudflare R2). Required before publish.
-PUBLIC_ARTIFACT_STORAGE=
+# Public consumer artifacts (Cloudflare R2). Server-side only — never NEXT_PUBLIC_*.
+# R2_ENDPOINT = S3 API (https://<account-id>.r2.cloudflarestorage.com)
+# R2_PUBLIC_BASE_URL = HTTPS CDN/custom hostname origin (not the S3 API host)
+PUBLIC_ARTIFACT_STORAGE=r2
 R2_ACCOUNT_ID=
 R2_ACCESS_KEY_ID=
 R2_SECRET_ACCESS_KEY=
-R2_BUCKET=kidar-ar
+R2_BUCKET=kidar-public-ar
+R2_ENDPOINT=
 R2_PUBLIC_BASE_URL=
 
 # E2E-only (CI or intentional production smoke of e2e-session)
@@ -202,9 +205,13 @@ ALLOW_E2E_AUTH=
 `APPWRITE_SCAN_EVENTS_COLLECTION` may appear in code defaults for a future M4
 collection; setup does not create it.
 
-Publishing validates public storage config and fails closed if neither complete
-R2 settings nor a **separate** Appwrite public assets bucket is configured.
-Never use `source-drawings` as a public fallback.
+Publishing validates public storage config and fails closed if complete R2
+settings are missing. Do not use `source-drawings` as a public fallback; the
+Appwrite Free plan does not provide a separate public artifact bucket.
+
+R2 object writes are performed by the worker adapter. `pnpm storage:r2:verify`
+validates `R2_*` config; pass `--write` to PUT/GET/DELETE a unique object only
+under `__kidar_verify__/`. That probe does not publish AR pages (M4.4b).
 
 ## GitHub Actions secrets (CI / E2E project only)
 
