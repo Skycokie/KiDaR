@@ -22,5 +22,10 @@ export async function GET(request: Request) {
     await ensureProfile(userId);
   }
 
-  return NextResponse.redirect(new URL("/dashboard", requestUrl.origin));
+  const nextCookie = cookies().get("kidar_next")?.value;
+  if (nextCookie) {
+    cookies().delete("kidar_next");
+  }
+  const nextPath = nextCookie === "/creaza" ? "/creaza" : "/dashboard";
+  return NextResponse.redirect(new URL(nextPath, requestUrl.origin));
 }
