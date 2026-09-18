@@ -1,9 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
-import { S3R2ObjectStore } from "./public";
+import { S3R2ObjectStore, r2ClientOptions } from "./public";
 import { IMMUTABLE_CACHE_CONTROL } from "@kidar/core";
 
 describe("S3R2ObjectStore", () => {
+  it("disables AWS SDK default checksums that R2 rejects", () => {
+    const options = r2ClientOptions({
+      provider: "r2",
+      accountId: "acct",
+      accessKeyId: "ak",
+      secretAccessKey: "sk",
+      bucket: "kidar-public-ar",
+      endpoint: "https://acct.r2.cloudflarestorage.com",
+      publicBaseUrl: "https://pub-example.r2.dev"
+    });
+    expect(options.requestChecksumCalculation).toBe("WHEN_REQUIRED");
+    expect(options.responseChecksumValidation).toBe("WHEN_REQUIRED");
+  });
+
   it("maps put/head to unsigned bucket commands with cache-control metadata", async () => {
     const sent: unknown[] = [];
     const client = {

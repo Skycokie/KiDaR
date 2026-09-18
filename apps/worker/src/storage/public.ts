@@ -118,15 +118,22 @@ export class S3R2ObjectStore implements R2ObjectStore {
   }
 }
 
-function r2Client(config: R2PublicStorageConfig) {
-  return new S3Client({
-    region: "auto",
+export function r2ClientOptions(config: R2PublicStorageConfig) {
+  return {
+    region: "auto" as const,
     endpoint: config.endpoint,
     credentials: {
       accessKeyId: config.accessKeyId,
       secretAccessKey: config.secretAccessKey
-    }
-  });
+    },
+    // AWS SDK 3.729+ signs default CRC32 checksums; R2 returns AccessDenied.
+    requestChecksumCalculation: "WHEN_REQUIRED" as const,
+    responseChecksumValidation: "WHEN_REQUIRED" as const
+  };
+}
+
+function r2Client(config: R2PublicStorageConfig) {
+  return new S3Client(r2ClientOptions(config));
 }
 
 /**
