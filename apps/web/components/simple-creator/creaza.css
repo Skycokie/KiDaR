@@ -1,0 +1,260 @@
+/* kidAR Simple Creator tokens.
+ *
+ * Contrast (WCAG 2.2, relative luminance):
+ *   --ink on --paper            15.98:1  (AAA body)
+ *   --accent-ink on --accent     5.77:1  (AA normal text; keep #5B4FE0)
+ *   --danger on --paper          7.37:1  (AAA)
+ * Accent was not darkened: white on #5B4FE0 already meets AA.
+ */
+
+.creaza-shell {
+  --ink: #1b1726;
+  --paper: #f7f4ee;
+  --paper-raised: #fffcf7;
+  --accent: #5b4fe0;
+  --accent-ink: #ffffff;
+  --line: #d9d3c8;
+  --ok: #1f6b4a;
+  --danger: #9b1c2c;
+  --focus: #1b1726;
+  --touch: 48px;
+  --body-size: 1.125rem;
+  --line-height: 1.45;
+
+  box-sizing: border-box;
+  min-height: 100vh;
+  margin: 0;
+  padding: 1.5rem;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: system-ui, "Segoe UI", sans-serif;
+  font-size: var(--body-size);
+  line-height: var(--line-height);
+}
+
+.creaza-shell *,
+.creaza-shell *::before,
+.creaza-shell *::after {
+  box-sizing: border-box;
+}
+
+.creaza-shell a {
+  color: var(--accent);
+}
+
+.creaza-shell a.creaza-btn-primary {
+  color: var(--accent-ink);
+}
+
+.creaza-shell a.creaza-btn-secondary {
+  color: var(--ink);
+}
+
+.creaza-skip {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.75rem;
+  transform: translateY(-200%);
+  padding: 0.5rem 0.75rem;
+  background: var(--paper-raised);
+  color: var(--ink);
+  z-index: 10;
+}
+
+.creaza-skip:focus {
+  transform: none;
+}
+
+.creaza-frame {
+  width: min(40rem, 100%);
+  margin: 0 auto;
+}
+
+.creaza-progress {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.creaza-shell h1 {
+  margin: 0 0 0.75rem;
+  font-size: 1.75rem;
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+.creaza-lead {
+  margin: 0 0 1.5rem;
+  max-width: 40ch;
+}
+
+.creaza-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.creaza-card-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  list-style: none;
+}
+
+.creaza-choice {
+  display: block;
+  width: 100%;
+  min-height: var(--touch);
+  margin: 0;
+  padding: 1rem 1.1rem;
+  text-align: left;
+  background: var(--paper-raised);
+  color: var(--ink);
+  border: 2px solid var(--line);
+  border-radius: 1rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.creaza-choice[aria-pressed="true"] {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+.creaza-choice-title {
+  display: block;
+  font-weight: 700;
+}
+
+.creaza-choice-copy {
+  display: block;
+  margin-top: 0.35rem;
+}
+
+.creaza-actions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.creaza-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch);
+  min-width: var(--touch);
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.creaza-btn:disabled,
+.creaza-btn[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.creaza-btn-primary {
+  width: 100%;
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.creaza-btn-secondary {
+  width: 100%;
+  border: 2px solid var(--line);
+  background: var(--paper-raised);
+  color: var(--ink);
+}
+
+.creaza-field {
+  display: grid;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.creaza-field input[type="email"] {
+  width: 100%;
+  min-height: var(--touch);
+  padding: 0.6rem 0.85rem;
+  border: 2px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--paper-raised);
+  color: var(--ink);
+  font: inherit;
+}
+
+.creaza-field input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.creaza-error {
+  margin: 0;
+  color: var(--danger);
+}
+
+.creaza-status {
+  margin: 1rem 0 0;
+}
+
+.creaza-use-cases {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1.75rem 0;
+  padding: 0;
+}
+
+.creaza-use-case {
+  padding: 1rem 1.1rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+}
+
+.creaza-use-case h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.2rem;
+}
+
+.creaza-steps {
+  margin: 1.5rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.creaza-note {
+  margin: 1.25rem 0 0;
+  font-size: 1rem;
+}
+
+.creaza-hero-actions {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.creaza-shell :focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .creaza-shell *,
+  .creaza-shell *::before,
+  .creaza-shell *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+@media (min-width: 40rem) {
+  .creaza-hero-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .creaza-btn-secondary {
+    width: 100%;
+  }
+}
