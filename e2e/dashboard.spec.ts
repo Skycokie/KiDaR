@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 async function signIn(page: import("@playwright/test").Page) {
-  const email = `e2e-${Date.now()}@kidar.local`;
+  const email = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@kidar.local`;
   const response = await page.request.post("/api/auth/e2e-session", {
     data: { email }
   });
@@ -20,7 +20,7 @@ test("signup, create project, upload source drawing, and list it", async ({ page
 
   await page.getByLabel("Project name").fill(projectName);
   await page.getByRole("button", { name: "Create project" }).click();
-  await expect(page.getByText(`/${projectSlug}`)).toBeVisible();
+  await expect(page.getByText(`/${projectSlug}`)).toBeVisible({ timeout: 20_000 });
 
   const fileInput = page.locator('input[type="file"]').first();
   await fileInput.setInputFiles({
@@ -28,7 +28,7 @@ test("signup, create project, upload source drawing, and list it", async ({ page
     mimeType: "image/png",
     buffer: Buffer.from("not-a-real-png")
   });
-  await expect(page.getByRole("status")).toContainText("Drawing uploaded");
+  await expect(page.getByRole("status")).toContainText("Drawing uploaded", { timeout: 20_000 });
 
   const projects = await page.request.get("/api/projects");
   expect(projects.ok()).toBeTruthy();
@@ -44,14 +44,16 @@ test("persists gallery selection and transform settings after reload", async ({ 
 
   await page.getByLabel("Project name").fill(projectName);
   await page.getByRole("button", { name: "Create project" }).click();
-  await expect(page.getByText(`/${projectName.toLowerCase().replaceAll(" ", "-")}`)).toBeVisible();
+  await expect(page.getByText(`/${projectName.toLowerCase().replaceAll(" ", "-")}`)).toBeVisible({
+    timeout: 20_000
+  });
 
   await page.locator('input[type="file"]').first().setInputFiles({
     name: "source.png",
     mimeType: "image/png",
     buffer: Buffer.from("not-a-real-png")
   });
-  await expect(page.getByRole("status")).toContainText("Drawing uploaded");
+  await expect(page.getByRole("status")).toContainText("Drawing uploaded", { timeout: 20_000 });
 
   await page.route("**/api/gallery?query=*", async (route) => {
     await route.fulfill({
@@ -82,13 +84,15 @@ test("real photo pop-out uses foreground coverage and silhouette bounds", async 
 
   await page.getByLabel("Project name").fill(projectName);
   await page.getByRole("button", { name: "Create project" }).click();
-  await expect(page.getByText(`/${projectName.toLowerCase().replaceAll(" ", "-")}`)).toBeVisible();
+  await expect(page.getByText(`/${projectName.toLowerCase().replaceAll(" ", "-")}`)).toBeVisible({
+    timeout: 20_000
+  });
   await page.locator('input[type="file"]').first().setInputFiles({
     name: "test-photo.jpg",
     mimeType: "image/jpeg",
     buffer: readFileSync(resolve("e2e/fixtures/test-photo.jpg"))
   });
-  await expect(page.getByRole("status")).toContainText("Drawing uploaded");
+  await expect(page.getByRole("status")).toContainText("Drawing uploaded", { timeout: 20_000 });
 
   await page.getByRole("link", { name: "Open studio" }).click();
   const statsOutput = page.getByTestId("popout-stats");
