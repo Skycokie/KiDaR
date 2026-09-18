@@ -20,9 +20,18 @@ export async function POST(request: Request) {
   const user = await getLoggedInUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = (await request.json()) as { name?: string; mode?: "popout" | "gallery" | "upload" };
+  const body = (await request.json()) as {
+    name?: string;
+    mode?: "popout" | "gallery" | "upload";
+    settings?: { preset?: "coloring" | "story" | "mission" | "studio" };
+  };
   const name = body.name?.trim();
   if (!name) return NextResponse.json({ error: "Project name is required" }, { status: 400 });
+
+  const preset = body.settings?.preset;
+  if (preset && !["coloring", "story", "mission", "studio"].includes(preset)) {
+    return NextResponse.json({ error: "Invalid preset" }, { status: 400 });
+  }
 
   try {
     const [used, profile] = await Promise.all([
@@ -40,7 +49,8 @@ export async function POST(request: Request) {
     const { data, error } = await createProjectWithUniqueSlug(
       user.$id,
       name,
-      body.mode ?? "popout"
+      body.mode ?? "popout",
+      preset ? { preset } : undefined
     );
     if (error || !data) {
       return NextResponse.json({ error: error?.message ?? "Create failed" }, { status: 500 });

@@ -127,10 +127,13 @@ export type { GenerateA4PrintPdfInput, PrintImageMime } from "./print/pdf";
 
 export type ProjectMode = "popout" | "gallery" | "upload";
 export type ProjectStatus = "draft" | "processing" | "ready" | "error";
+export type CreatorPreset = "coloring" | "story" | "mission" | "studio";
 
 export interface ProjectSettings {
   title: string;
   theme: string;
+  /** Simple Creator intent; does not change the technical pipeline `mode`. */
+  preset?: CreatorPreset;
   logoUrl?: string;
   ctaText?: string;
   ctaUrl?: string;

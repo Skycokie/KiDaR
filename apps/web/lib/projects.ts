@@ -11,16 +11,17 @@ export const DEFAULT_SETTINGS: ProjectSettings = {
 export async function createProjectWithUniqueSlug(
   owner: string,
   name: string,
-  mode: ProjectMode = "popout"
+  mode: ProjectMode = "popout",
+  settings?: Partial<ProjectSettings>
 ) {
-  for (let attempt = 0; attempt < 5; attempt += 1) {
+  for (let attempt = 0; attempt < 24; attempt += 1) {
     const slug = await generateUniqueSlug(name, slugExists);
     try {
       const project = await createProjectDocument(owner, {
         name: name.trim(),
         slug,
         mode,
-        settings: { ...DEFAULT_SETTINGS, title: name.trim() }
+        settings: { ...DEFAULT_SETTINGS, ...settings, title: name.trim() }
       });
       return { data: project, error: null };
     } catch (cause) {

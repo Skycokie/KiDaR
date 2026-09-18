@@ -33,6 +33,21 @@ describe("core policies", () => {
     expect(result.offset).toEqual({ x: 0, y: 2, z: 0 });
   });
 
+  it("keeps Simple Creator preset on settings merge", () => {
+    const result = mergeSettings(
+      {
+        title: "Demo",
+        theme: "#ff0",
+        preset: "story",
+        scale: 1,
+        offset: { x: 0, y: 0, z: 0 }
+      },
+      { title: "Poveste" }
+    );
+    expect(result.preset).toBe("story");
+    expect(result.title).toBe("Poveste");
+  });
+
   it("creates stable URL slugs", () => {
     expect(slugify("  Mărțișor & friends! ")).toBe("martisor-friends");
   });
