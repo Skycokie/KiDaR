@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { buildMindCompileInputDocument, type MindCompileInputParts } from "./mind";
+import { POPOUT_PIPELINE_VERSION } from "./popout";
 
 /** Bump when pipeline inputs or templates change meaning for public artifacts. */
 export const PIPELINE_INPUT_VERSION = "m4.1.0";
@@ -91,6 +92,8 @@ export function buildPipelineInputDocument(parts: PipelineInputParts): Record<st
   const settings = parts.settings;
   return {
     pipelineVersion: parts.pipelineVersion ?? PIPELINE_INPUT_VERSION,
+    // Pop-out UV pipeline only. Gallery/mind hashes stay null so MindAR is not rebuilt.
+    popoutPipelineVersion: parts.mode === "popout" ? POPOUT_PIPELINE_VERSION : null,
     projectId: parts.projectId,
     mode: parts.mode,
     source: parts.source
@@ -120,6 +123,33 @@ export function buildPipelineInputDocument(parts: PipelineInputParts): Record<st
 
 export function computeInputHash(parts: PipelineInputParts): string {
   return hashCanonical(buildPipelineInputDocument(parts));
+}
+
+/**
+ * Hash of inputs that actually change the Pop-out GLB (cutout + theme + UV pipeline).
+ * Page copy, CTA, and runtime transform are excluded so they do not rewrite GLB keys.
+ */
+export function buildPopoutInputDocument(parts: {
+  projectId: string;
+  source: SourceInputRef;
+  theme: string;
+  pipelineVersion?: string;
+}): Record<string, JsonValue> {
+  return {
+    popoutPipelineVersion: parts.pipelineVersion ?? POPOUT_PIPELINE_VERSION,
+    projectId: parts.projectId,
+    source: { fileId: parts.source.fileId, checksum: parts.source.checksum },
+    theme: parts.theme
+  };
+}
+
+export function computePopoutInputHash(parts: {
+  projectId: string;
+  source: SourceInputRef;
+  theme: string;
+  pipelineVersion?: string;
+}): string {
+  return hashCanonical(buildPopoutInputDocument(parts));
 }
 
 /**

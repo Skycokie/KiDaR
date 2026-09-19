@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   buildPipelineInputDocument,
   computeInputHash,
+  computePopoutInputHash,
   stableStringify
 } from "./hash";
+import { POPOUT_PIPELINE_VERSION, popoutArtifactKey } from "./popout";
 
 const settings = {
   title: "Hello",
@@ -82,6 +84,100 @@ describe("canonical input hashing", () => {
       settings
     });
     expect(doc).not.toHaveProperty("createdAt");
+    expect(doc.popoutPipelineVersion).toBeNull();
     expect(JSON.stringify(doc)).not.toMatch(/secret|password|signed/i);
+  });
+
+  it("includes popout-uv-v2 only for pop-out mode and invalidates that hash", () => {
+    const popout = buildPipelineInputDocument({
+      projectId: "p1",
+      mode: "popout",
+      source: { fileId: "src_1", checksum: "deadbeef" },
+      settings
+    });
+    expect(popout.popoutPipelineVersion).toBe(POPOUT_PIPELINE_VERSION);
+    const gallery = computeInputHash({
+      projectId: "p1",
+      mode: "gallery",
+      source: { fileId: "src_1", checksum: "deadbeef" },
+      settings
+    });
+    const popoutHash = computeInputHash({
+      projectId: "p1",
+      mode: "popout",
+      source: { fileId: "src_1", checksum: "deadbeef" },
+      settings
+    });
+    expect(popoutHash).not.toBe(gallery);
+  });
+
+  it("pop-out GLB hash ignores page copy and changes with UV pipeline version", () => {
+    const source = { fileId: "src_1", checksum: "deadbeef" };
+    const a = computePopoutInputHash({ projectId: "p1", source, theme: "#111111" });
+    const b = computePopoutInputHash({ projectId: "p1", source, theme: "#111111" });
+    expect(a).toBe(b);
+    expect(
+      computePopoutInputHash({
+        projectId: "p1",
+        source,
+        theme: "#111111",
+        pipelineVersion: "popout-uv-v1"
+      })
+    ).not.toBe(a);
+    expect(
+      computePopoutInputHash({ projectId: "p1", source, theme: "#222222" })
+    ).not.toBe(a);
+    expect(
+      popoutArtifactKey("p1", a)
+    ).not.toBe(
+      popoutArtifactKey(
+        "p1",
+        computePopoutInputHash({
+          projectId: "p1",
+          source,
+          theme: "#111111",
+          pipelineVersion: "popout-uv-v1"
+        })
+      )
+    );
+    const pageCopyDoesNotMatter = computePopoutInputHash({
+      projectId: "p1",
+      source,
+      theme: "#111111"
+    });
+    expect(pageCopyDoesNotMatter).toBe(a);
+    expect(
+      computePopoutInputHash({
+        projectId: "p1",
+        source,
+        theme: "#111111"
+      })
+    ).toBe(a);
+    const shared = computeInputHash({
+      projectId: "p1",
+      mode: "popout",
+      source,
+      settings
+    });
+    const titleChanged = computeInputHash({
+      projectId: "p1",
+      mode: "popout",
+      source,
+      settings: { ...settings, title: "Other title", ctaText: "Other" }
+    });
+    expect(titleChanged).not.toBe(shared);
+    expect(
+      computePopoutInputHash({
+        projectId: "p1",
+        source,
+        theme: settings.theme
+      })
+    ).toBe(
+      computePopoutInputHash({
+        projectId: "p1",
+        source,
+        theme: settings.theme
+      })
+    );
   });
 });

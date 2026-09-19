@@ -1,10 +1,12 @@
 import type { SilhouetteStats } from "./sticker-geometry";
 
-/** Keep in sync with PIPELINE_INPUT_VERSION in hash.ts (avoid node:crypto in client barrel). */
-const POPOUT_PIPELINE_VERSION = "m4.1.0";
+/** Keep in sync with hash.ts popoutPipelineVersion (avoid node:crypto in client barrel). */
+export const POPOUT_PIPELINE_VERSION = "popout-uv-v2";
 
 export const POPOUT_COVERAGE_REJECT = 0.9;
 export const POPOUT_ARTIFACT_KIND = "popout.glb";
+/** Shape XY scale used when extruding normalized silhouette points (−0.5…0.5). */
+export const POPOUT_SHAPE_SCALE = 2.7;
 
 export class PopoutBuildError extends Error {
   readonly retryable: boolean;
@@ -77,4 +79,24 @@ export function popoutArtifactKey(projectId: string, inputHash: string): string 
 
 export function popoutPipelineLabel(): string {
   return `popout@${POPOUT_PIPELINE_VERSION}`;
+}
+
+/**
+ * Map extruded shape XY (before geometry.center) onto the full cutout PNG.
+ *
+ * Silhouette points are image-normalized: nx = px/width - 0.5, ny = 0.5 - py/height
+ * (image y=0 is the top). ExtrudeGeometry's default cap UVs are raw XY, which
+ * sampled only a corner of the drawing. Convert back to [0,1] image UVs:
+ *   u = nx + 0.5 = px/width
+ *   v = ny + 0.5 = 1 - py/height
+ *
+ * v=0 is the image bottom. That matches WebGL/glTF and Three.js CanvasTexture
+ * with the default flipY=true. Do not extra-flip the PNG in the GLB writer.
+ */
+export function popoutCapUv(
+  x: number,
+  y: number,
+  scale = POPOUT_SHAPE_SCALE
+): { u: number; v: number } {
+  return { u: x / scale + 0.5, v: y / scale + 0.5 };
 }

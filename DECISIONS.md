@@ -110,3 +110,16 @@
 - **Fix direction:** cleaned alpha masks now drive connected-component
   contours; each contour becomes a beveled `ExtrudeGeometry`, and only the
   cutout canvas is used as the cap texture.
+
+## Pop-out UV mapping (`popout-uv-v2`)
+
+- **Broken behavior:** ExtrudeGeometry cap UVs were raw shape XY. After the
+  2.7 scale they sat mostly outside `[0,1]`, so the cutout texture showed
+  only a fragment of the drawing.
+- **Fix:** assign UVs with `popoutCapUv` (`u = x/scale + 0.5`, `v = y/scale + 0.5`)
+  **before** `geometry.center()`. `v=0` is the image bottom (glTF / CanvasTexture
+  `flipY=true`). Studio preview and worker GLB share this helper.
+- **Hash:** `POPOUT_PIPELINE_VERSION = "popout-uv-v2"` is stored as
+  `popoutPipelineVersion` on pop-out-mode pipeline hashes so old GLBs are not
+  reused. Gallery/mind-only hashes are unchanged. Page copy is not part of
+  `computePopoutInputHash`.

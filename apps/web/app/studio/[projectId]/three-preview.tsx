@@ -5,9 +5,11 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
+  POPOUT_SHAPE_SCALE,
   alphaMaskFromRgba,
   extractSilhouettePolygons,
   getSilhouetteStats,
+  popoutCapUv,
   type StickerPolygon
 } from "@kidar/core";
 import type { ProjectSettings } from "@kidar/core";
@@ -60,6 +62,18 @@ async function createCutout(sourceUrl: string) {
   return { canvas, polygons, stats };
 }
 
+/** Image-space UVs must be written before geometry.center() mutates XY. */
+function applyCutoutUvs(geometry: THREE.BufferGeometry) {
+  const position = geometry.getAttribute("position");
+  const uv = geometry.getAttribute("uv");
+  if (!position || !uv) return;
+  for (let i = 0; i < position.count; i += 1) {
+    const mapped = popoutCapUv(position.getX(i), position.getY(i));
+    uv.setXY(i, mapped.u, mapped.v);
+  }
+  uv.needsUpdate = true;
+}
+
 function makeExtrudedSticker(
   polygon: StickerPolygon,
   texture: THREE.CanvasTexture,
@@ -67,8 +81,8 @@ function makeExtrudedSticker(
 ) {
   const shape = new THREE.Shape();
   polygon.points.forEach((point, index) => {
-    const x = point.x * 2.7;
-    const y = point.y * 2.7;
+    const x = point.x * POPOUT_SHAPE_SCALE;
+    const y = point.y * POPOUT_SHAPE_SCALE;
     if (index === 0) shape.moveTo(x, y);
     else shape.lineTo(x, y);
   });
@@ -82,6 +96,7 @@ function makeExtrudedSticker(
     bevelThickness: 0.04,
     curveSegments: 4
   });
+  applyCutoutUvs(geometry);
   geometry.center();
 
   const front = new THREE.MeshStandardMaterial({
@@ -161,6 +176,9 @@ export function ThreePreview({
         onPopoutStats?.(stats);
         const texture = new THREE.CanvasTexture(canvas);
         texture.colorSpace = THREE.SRGBColorSpace;
+        // Default flipY=true: v=0 is the canvas bottom. popoutCapUv uses the same
+        // convention as glTF (v=0 = image bottom). Do not set flipY=false here.
+        texture.flipY = true;
         polygons.forEach((polygon) => {
           root.add(makeExtrudedSticker(polygon, texture, settings.theme));
         });

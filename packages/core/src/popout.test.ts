@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   POPOUT_COVERAGE_REJECT,
+  POPOUT_PIPELINE_VERSION,
   PopoutBuildError,
   assertPopoutCoverage,
   assertPopoutInputs,
-  popoutArtifactKey
+  popoutArtifactKey,
+  popoutCapUv,
+  popoutPipelineLabel,
+  POPOUT_SHAPE_SCALE
 } from "./popout";
 
 describe("popout build validation", () => {
@@ -64,5 +68,24 @@ describe("popout build validation", () => {
     const b = popoutArtifactKey("proj-1", "deadbeef".repeat(8));
     expect(a).toBe(b);
     expect(a).toBe(`models/proj-1/${"deadbeef".repeat(8)}/popout.glb`);
+  });
+
+  it("maps extruded XY back onto the source cutout", () => {
+    expect(popoutCapUv(0, 0)).toEqual({ u: 0.5, v: 0.5 });
+    expect(popoutCapUv(POPOUT_SHAPE_SCALE * 0.2, POPOUT_SHAPE_SCALE * -0.1).u).toBeCloseTo(0.7);
+    expect(popoutCapUv(POPOUT_SHAPE_SCALE * 0.2, POPOUT_SHAPE_SCALE * -0.1).v).toBeCloseTo(0.4);
+    const mapped = popoutCapUv(POPOUT_SHAPE_SCALE * 0.2, POPOUT_SHAPE_SCALE * -0.1);
+    expect(Number.isFinite(mapped.u)).toBe(true);
+    expect(Number.isFinite(mapped.v)).toBe(true);
+  });
+
+  it("uses glTF/WebGL v-up from image bottom (no extra flip-Y)", () => {
+    const imageTop = popoutCapUv(0, POPOUT_SHAPE_SCALE * 0.4);
+    const imageBottom = popoutCapUv(0, POPOUT_SHAPE_SCALE * -0.4);
+    expect(imageTop.v).toBeGreaterThan(imageBottom.v);
+    expect(imageTop.v).toBeCloseTo(0.9);
+    expect(imageBottom.v).toBeCloseTo(0.1);
+    expect(popoutPipelineLabel()).toBe(`popout@${POPOUT_PIPELINE_VERSION}`);
+    expect(POPOUT_PIPELINE_VERSION).toBe("popout-uv-v2");
   });
 });

@@ -1,12 +1,24 @@
 import * as THREE from "three";
 import { Document, NodeIO } from "@gltf-transform/core";
-import type { StickerPolygon } from "@kidar/core";
+import { POPOUT_SHAPE_SCALE, popoutCapUv, type StickerPolygon } from "@kidar/core";
+
+/** Image-space UVs must be written before geometry.center() mutates XY. */
+function applyCutoutUvs(geometry: THREE.BufferGeometry) {
+  const position = geometry.getAttribute("position");
+  const uv = geometry.getAttribute("uv");
+  if (!position || !uv) return;
+  for (let i = 0; i < position.count; i += 1) {
+    const mapped = popoutCapUv(position.getX(i), position.getY(i));
+    uv.setXY(i, mapped.u, mapped.v);
+  }
+  uv.needsUpdate = true;
+}
 
 function makeExtrudedGeometry(polygon: StickerPolygon) {
   const shape = new THREE.Shape();
   polygon.points.forEach((point, index) => {
-    const x = point.x * 2.7;
-    const y = point.y * 2.7;
+    const x = point.x * POPOUT_SHAPE_SCALE;
+    const y = point.y * POPOUT_SHAPE_SCALE;
     if (index === 0) shape.moveTo(x, y);
     else shape.lineTo(x, y);
   });
@@ -20,6 +32,7 @@ function makeExtrudedGeometry(polygon: StickerPolygon) {
     bevelThickness: 0.04,
     curveSegments: 4
   });
+  applyCutoutUvs(geometry);
   geometry.center();
   geometry.computeVertexNormals();
   return geometry;

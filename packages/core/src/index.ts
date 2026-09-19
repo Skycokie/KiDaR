@@ -65,11 +65,14 @@ export type { R2ObjectHead, R2ObjectStore } from "./r2-adapter";
 export {
   POPOUT_COVERAGE_REJECT,
   POPOUT_ARTIFACT_KIND,
+  POPOUT_SHAPE_SCALE,
+  POPOUT_PIPELINE_VERSION,
   PopoutBuildError,
   assertPopoutInputs,
   assertPopoutCoverage,
   popoutArtifactKey,
-  popoutPipelineLabel
+  popoutPipelineLabel,
+  popoutCapUv
 } from "./popout";
 
 export {
