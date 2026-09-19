@@ -20,15 +20,15 @@ export default async function CreazaSavedPage({
   const label = isSimpleCreatorPreset(preset) ? CREATOR_PRESET_COPY[preset].title : "surpriza";
 
   return (
-    <SimpleCreatorShell progress="Pasul 1 din 5">
+    <SimpleCreatorShell progress="Pasul 4 din 5">
       <h1>Am salvat alegerea ta</h1>
       <p className="creaza-lead">
-        Ai ales: {label}. Următorul pas — fotografia paginii — urmează. Nu am pregătit încă
-        linkul pe telefon, codul QR sau trimiterea pe email.
+        Ai ales: {label}. Pregătirea experienței va fi disponibilă în pasul următor. Nu am pregătit
+        încă linkul pe telefon, codul QR sau trimiterea pe email.
       </p>
       <div className="creaza-actions">
-        <Link className="creaza-btn creaza-btn-primary" href="/creaza">
-          Alege din nou
+        <Link className="creaza-btn creaza-btn-secondary" href={`/creaza/${project.id}/experienta`}>
+          Înapoi
         </Link>
         <Link className="creaza-btn creaza-btn-secondary" href="/dashboard">
           Deschide Studio (English)
