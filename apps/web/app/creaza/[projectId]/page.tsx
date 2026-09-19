@@ -3,7 +3,6 @@ import { notFound, redirect } from "next/navigation";
 import { SimpleCreatorShell } from "@/components/simple-creator/shell";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import { getProjectForOwner } from "@/lib/appwrite/db";
-import { CREATOR_PRESET_COPY, isSimpleCreatorPreset } from "@/lib/simple-creator";
 
 export default async function CreazaSavedPage({
   params
@@ -16,22 +15,16 @@ export default async function CreazaSavedPage({
   const project = await getProjectForOwner(params.projectId, user.$id);
   if (!project) notFound();
 
-  const preset = project.settings.preset;
-  const label = isSimpleCreatorPreset(preset) ? CREATOR_PRESET_COPY[preset].title : "surpriza";
-
   return (
     <SimpleCreatorShell progress="Pasul 4 din 5">
-      <h1>Am salvat alegerea ta</h1>
-      <p className="creaza-lead">
-        Ai ales: {label}. Pregătirea experienței va fi disponibilă în pasul următor. Nu am pregătit
-        încă linkul pe telefon, codul QR sau trimiterea pe email.
-      </p>
+      <h1>Am salvat alegerea ta.</h1>
+      <p className="creaza-lead">Pregătirea experienței va fi disponibilă în pasul următor.</p>
       <div className="creaza-actions">
-        <Link className="creaza-btn creaza-btn-secondary" href={`/creaza/${project.id}/experienta`}>
-          Înapoi
+        <Link className="creaza-btn creaza-btn-primary" href="/creaza">
+          Creează altă surpriză
         </Link>
-        <Link className="creaza-btn creaza-btn-secondary" href="/dashboard">
-          Deschide Studio (English)
+        <Link className="creaza-btn creaza-btn-secondary" href={`/studio/${project.id}`}>
+          Opțiuni avansate în Studio
         </Link>
       </div>
     </SimpleCreatorShell>

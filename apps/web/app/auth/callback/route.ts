@@ -26,6 +26,7 @@ export async function GET(request: Request) {
   if (nextCookie) {
     cookies().delete("kidar_next");
   }
-  const nextPath = nextCookie === "/creaza" ? "/creaza" : "/dashboard";
+  const nextQuery = requestUrl.searchParams.get("next");
+  const nextPath = nextCookie === "/creaza" || nextQuery === "/creaza" ? "/creaza" : "/dashboard";
   return NextResponse.redirect(new URL(nextPath, requestUrl.origin));
 }

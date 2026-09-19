@@ -1,7 +1,12 @@
+import { redirect } from "next/navigation";
 import { SimpleCreatorShell } from "@/components/simple-creator/shell";
+import { getLoggedInUser } from "@/lib/appwrite/client";
 import { IntraForm } from "./intra-form";
 
-export default function IntraPage() {
+export default async function IntraPage() {
+  const user = await getLoggedInUser();
+  if (user) redirect("/creaza");
+
   return (
     <SimpleCreatorShell>
       <h1>Intră în kidAR</h1>

@@ -9,7 +9,9 @@ export async function POST(request: Request) {
 
   const next = body.next === "/creaza" ? "/creaza" : null;
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
-  const redirectUrl = `${origin}/auth/callback`;
+  const redirectUrl = next
+    ? `${origin}/auth/callback?next=${encodeURIComponent(next)}`
+    : `${origin}/auth/callback`;
   const { account } = createAdminClient();
 
   try {

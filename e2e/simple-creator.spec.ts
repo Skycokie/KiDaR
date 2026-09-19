@@ -69,6 +69,20 @@ test("Romanian entry has a visible email label and status copy", async ({ page }
   await expect(page.getByLabel("Email")).toBeFocused();
 });
 
+function assertNotDashboard(page: import("@playwright/test").Page) {
+  expect(page.url()).not.toMatch(/\/dashboard(?:\/|$|\?)/);
+  return Promise.all([
+    expect(page.getByRole("heading", { name: "kidAR Studio" })).toHaveCount(0),
+    expect(page.getByRole("button", { name: "Create project" })).toHaveCount(0),
+    expect(page.getByRole("heading", { name: "New project" })).toHaveCount(0),
+    expect(page.getByText("free plan")).toHaveCount(0),
+    expect(page.getByText("Source drawing")).toHaveCount(0),
+    expect(page.getByRole("link", { name: "Open studio" })).toHaveCount(0),
+    expect(page.getByRole("button", { name: "Delete" })).toHaveCount(0),
+    expect(page.getByText(/^Status:\s/)).toHaveCount(0)
+  ]);
+}
+
 test("authenticated Simple Creator creates a project and opens the photo step", async ({
   page
 }) => {
@@ -90,8 +104,17 @@ test("authenticated Simple Creator creates a project and opens the photo step", 
   await minHeight(coloring);
   await minHeight(page.getByRole("button", { name: "Continuă" }));
 
+  const createdResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/projects") &&
+      response.request().method() === "POST" &&
+      response.status() === 201
+  );
   await page.getByRole("button", { name: "Continuă" }).click();
+  expect((await createdResponse).ok()).toBeTruthy();
   await expect(page).toHaveURL(/\/creaza\/[a-zA-Z0-9]+\/foto$/, { timeout: 20_000 });
+  expect(page.url()).not.toContain("/dashboard");
+  await assertNotDashboard(page);
   await expect(page.getByRole("heading", { name: "Fotografiază pagina" })).toBeVisible();
   await expect(page.getByText("Pasul 2 din 5")).toBeVisible();
   await expect(page.getByText("Nu fotografia un ecran.")).toBeVisible();
@@ -250,6 +273,66 @@ test("mission shows the optional message and stores ctaText", async ({ page }) =
   expect(project?.mode).toBe("popout");
   expect(project?.settings.preset).toBe("mission");
   expect(project?.settings.ctaText).toBe("Caută cheia roșie lângă hartă.");
+});
+
+test("Colorat continues through foto, experienta, and the Romanian placeholder", async ({
+  page
+}) => {
+  await signIn(page);
+  await page.goto("/creaza");
+  await page.getByRole("button", { name: /Colorat/ }).click();
+  await page.getByRole("button", { name: "Continuă" }).click();
+  await expect(page).toHaveURL(/\/creaza\/([a-zA-Z0-9]+)\/foto$/, { timeout: 20_000 });
+  expect(page.url()).not.toMatch(/\/dashboard/);
+  await assertNotDashboard(page);
+  await expect(page.getByRole("heading", { name: "Fotografiază pagina" })).toBeVisible();
+  const projectId = page.url().match(/\/creaza\/([a-zA-Z0-9]+)\/foto$/)?.[1];
+  expect(projectId).toBeTruthy();
+
+  await page.locator("#creaza-library").setInputFiles(photoFixture);
+  await expect(page.getByAltText("Pagina fotografiată")).toBeVisible();
+  await page.getByRole("button", { name: "Continuă" }).click();
+  await expect(page).toHaveURL(new RegExp(`/creaza/${projectId}/experienta$`), { timeout: 20_000 });
+  await assertNotDashboard(page);
+
+  await expect(page.getByRole("button", { name: /Iese din pagină/ })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+  await page.getByRole("button", { name: "Continuă" }).click();
+  await expect(page).toHaveURL(new RegExp(`/creaza/${projectId}$`), { timeout: 20_000 });
+  await expect(page.getByText("Pasul 4 din 5")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Am salvat alegerea ta/ })).toBeVisible();
+  await expect(page.getByText("Pregătirea experienței va fi disponibilă în pasul următor.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Creează altă surpriză" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Opțiuni avansate în Studio" })).toHaveAttribute(
+    "href",
+    `/studio/${projectId}`
+  );
+  await assertNotDashboard(page);
+  await expect(page.getByRole("link", { name: "Open studio" })).toHaveCount(0);
+});
+
+test("authenticated /intra continues to /creaza and /login stays on the English dashboard", async ({
+  page
+}) => {
+  await signIn(page);
+  await page.goto("/intra");
+  await expect(page).toHaveURL(/\/creaza$/, { timeout: 20_000 });
+  await expect(page.getByRole("heading", { name: "Ce vrei să prindă viață?" })).toBeVisible();
+  await assertNotDashboard(page);
+
+  await page.goto("/login");
+  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 20_000 });
+  await expect(page.getByRole("heading", { name: "kidAR Studio" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create project" })).toBeVisible();
+});
+
+test("unauthenticated English login remains English", async ({ page }) => {
+  await page.goto("/login");
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole("heading", { name: "Sign in to kidAR Studio" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send magic link" })).toBeVisible();
 });
 
 test("advanced link opens existing English Studio", async ({ page }) => {
