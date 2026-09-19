@@ -1,13 +1,15 @@
 import {
   MindCompileError,
+  PageRenderError,
   PopoutBuildError,
   PublicStorageConfigError,
   type PipelineJob
 } from "@kidar/core";
-import { claimNextJob, failJob } from "./appwrite/jobs";
+import { claimNextJob, downloadAssetFile, failJob, markProjectStatus } from "./appwrite/jobs";
 import { createWorkerPublicStorage } from "./storage/public";
 import { handlePopoutJobFailure, runPopoutBuildStage } from "./popout/stage";
 import { handleMindJobFailure, runMindCompileStage } from "./mindar/stage";
+import { handlePageRenderJobFailure, runPageRenderStage } from "./pagerender/stage";
 
 export interface AI3DProvider {
   generateModel(input: { imagePath: string }): Promise<{ glbPath: string }>;
@@ -25,6 +27,10 @@ function pollIntervalMs(): number {
 function idleBackoffMs(emptyStreak: number): number {
   const base = pollIntervalMs();
   return Math.min(base * Math.max(1, emptyStreak), 15_000);
+}
+
+function appOrigin(): string {
+  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 }
 
 async function failUnsupportedJob(job: PipelineJob): Promise<void> {
@@ -64,6 +70,25 @@ async function processClaimedJob(job: PipelineJob): Promise<void> {
     return;
   }
 
+  if (job.type === "page_render") {
+    try {
+      const storage = createWorkerPublicStorage();
+      await runPageRenderStage(job, {
+        storage,
+        appOrigin: appOrigin(),
+        allowLocalOrigins: /localhost|127\.0\.0\.1/.test(appOrigin()),
+        loadAsset: downloadAssetFile,
+        markProject: markProjectStatus
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Lock token mismatch")) {
+        return;
+      }
+      await handlePageRenderJobFailure(job, error, failJob, markProjectStatus);
+    }
+    return;
+  }
+
   await failUnsupportedJob(job);
 }
 
@@ -79,7 +104,7 @@ export async function runWorkerOnce(): Promise<"processed" | "idle"> {
 export async function runWorkerLoop(signal?: AbortSignal): Promise<void> {
   let emptyStreak = 0;
   console.log(
-    `[worker] polling for popout_build|mind_compile jobs every ${pollIntervalMs()}ms (backoff when idle)`
+    `[worker] polling for popout_build|mind_compile|page_render jobs every ${pollIntervalMs()}ms (backoff when idle)`
   );
   while (!signal?.aborted) {
     try {
@@ -96,7 +121,11 @@ export async function runWorkerLoop(signal?: AbortSignal): Promise<void> {
         await sleep(idleBackoffMs(5));
         continue;
       }
-      if (error instanceof PopoutBuildError || error instanceof MindCompileError) {
+      if (
+        error instanceof PopoutBuildError ||
+        error instanceof MindCompileError ||
+        error instanceof PageRenderError
+      ) {
         console.error(`[worker] stage error (${error.code}): ${error.message}`);
       }
       console.error("[worker] loop error", error);
@@ -106,7 +135,9 @@ export async function runWorkerLoop(signal?: AbortSignal): Promise<void> {
 }
 
 function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return Promise.resolve().then(
+    () => new Promise((resolve) => setTimeout(resolve, ms))
+  );
 }
 
 const isMain =

@@ -125,6 +125,31 @@ export {
 } from "./print/pdf";
 export type { GenerateA4PrintPdfInput, PrintImageMime } from "./print/pdf";
 
+export {
+  PAGE_RENDER_PIPELINE_VERSION,
+  PAGE_POINTER_CACHE_CONTROL,
+  PAGE_ARTIFACT_FILES,
+  PageRenderError,
+  safeExperienceSlug,
+  pageArtifactKey,
+  experiencePointerKey,
+  consumerArUrl,
+  pageRenderPipelineLabel,
+  requiredJobsForMode,
+  pageRenderDependsOn,
+  arePageRenderDependenciesSatisfied,
+  publicUrlFromJob,
+  assertPublicHtmlBundle,
+  assertModelUrlForMode,
+  mapSettingsToArPageConfig
+} from "./page-render";
+export type { PageRenderDependsOn, MapArPageInput } from "./page-render";
+
+export { PublishPlanError, planPublishJobs } from "./publish-plan";
+export type { PublishPlanInput, PublishPlan } from "./publish-plan";
+
+export { resolveExperienceRedirect } from "./experience-route";
+
 export type ProjectMode = "popout" | "gallery" | "upload";
 export type ProjectStatus = "draft" | "processing" | "ready" | "error";
 export type CreatorPreset = "coloring" | "story" | "mission" | "studio";
@@ -145,6 +170,11 @@ export interface ProjectSettings {
   scale: number;
   offset: { x: number; y: number; z: number };
   soundUrl?: string;
+  /** Public consumer URLs written by page_render; not part of inputHash. */
+  publicHtmlUrl?: string;
+  publicQrUrl?: string;
+  publicPdfUrl?: string;
+  publicExperienceUrl?: string;
 }
 
 export type ProjectSettingsPatch = Partial<

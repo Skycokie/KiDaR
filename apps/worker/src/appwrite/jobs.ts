@@ -3,9 +3,11 @@ import {
   JOB_LOCK_TTL_MS,
   JOB_MAX_ATTEMPTS,
   applyJobTransition,
+  arePageRenderDependenciesSatisfied,
   isEligibleToClaim,
   isJobStatus,
   isJobType,
+  pageRenderDependsOn,
   truncateJobError,
   type JobResult,
   type PipelineJob
@@ -99,6 +101,22 @@ export async function claimNextJob(nowMs = Date.now()): Promise<PipelineJob | nu
   const nowIso = new Date(nowMs).toISOString();
   for (const candidate of await listClaimCandidates(nowIso)) {
     if (!isEligibleToClaim(candidate, nowMs)) continue;
+    if (candidate.type === "page_render") {
+      try {
+        const project = await getProjectRecord(candidate.projectId);
+        const siblings = await listJobsForProject(candidate.projectId);
+        if (
+          !arePageRenderDependenciesSatisfied(
+            pageRenderDependsOn(project.mode, candidate.inputHash),
+            siblings
+          )
+        ) {
+          continue;
+        }
+      } catch {
+        continue;
+      }
+    }
     const lockToken = ID.unique();
     const transitioned = applyJobTransition(candidate, {
       action: "claim",
@@ -193,17 +211,95 @@ export async function downloadSourceFile(fileId: string): Promise<Uint8Array> {
   return new Uint8Array(arrayBuffer);
 }
 
-export async function getProjectSource(projectId: string): Promise<{
+export async function downloadAssetFile(fileId: string): Promise<Uint8Array | null> {
+  const { storage, sourceBucket } = createWorkerAppwrite();
+  const bucket = process.env.APPWRITE_ASSETS_BUCKET || sourceBucket;
+  try {
+    const arrayBuffer = await storage.getFileDownload(bucket, fileId);
+    return new Uint8Array(arrayBuffer);
+  } catch {
+    return null;
+  }
+}
+
+export async function getProjectRecord(projectId: string): Promise<{
   sourceImagePath: string | null;
-  mode: string;
+  mode: "popout" | "gallery" | "upload";
+  slug: string;
+  settings: import("@kidar/core").ProjectSettings;
   settingsRaw: string;
 }> {
   const { databases, databaseId, projectsCollection } = createWorkerAppwrite();
   const doc = await databases.getDocument(databaseId, projectsCollection, projectId);
   const data = doc as Models.Document & Record<string, unknown>;
+  const settingsRaw =
+    typeof data.settings === "string" ? data.settings : JSON.stringify(data.settings ?? {});
+  let settings: import("@kidar/core").ProjectSettings = {
+    title: "",
+    theme: "#6d5dfc",
+    scale: 1,
+    offset: { x: 0, y: 0, z: 0 }
+  };
+  try {
+    settings = { ...settings, ...(JSON.parse(settingsRaw) as import("@kidar/core").ProjectSettings) };
+  } catch {
+    // keep defaults
+  }
+  const modeRaw = String(data.mode ?? "popout");
+  const mode =
+    modeRaw === "gallery" || modeRaw === "upload" || modeRaw === "popout" ? modeRaw : "popout";
   return {
     sourceImagePath: (data.source_image_path as string | null) ?? null,
-    mode: String(data.mode ?? "popout"),
-    settingsRaw: typeof data.settings === "string" ? data.settings : JSON.stringify(data.settings ?? {})
+    mode,
+    slug: String(data.slug ?? ""),
+    settings,
+    settingsRaw
   };
+}
+
+export async function getProjectSource(projectId: string): Promise<{
+  sourceImagePath: string | null;
+  mode: string;
+  settingsRaw: string;
+}> {
+  const project = await getProjectRecord(projectId);
+  return {
+    sourceImagePath: project.sourceImagePath,
+    mode: project.mode,
+    settingsRaw: project.settingsRaw
+  };
+}
+
+export async function listJobsForProject(projectId: string): Promise<PipelineJob[]> {
+  const { databases, databaseId, jobsCollection } = createWorkerAppwrite();
+  const result = await databases.listDocuments(databaseId, jobsCollection, [
+    Query.equal("project_id", projectId),
+    Query.orderDesc("$createdAt"),
+    Query.limit(50)
+  ]);
+  return result.documents.map(mapJobDocument);
+}
+
+export async function markProjectStatus(
+  projectId: string,
+  status: "ready" | "error" | "processing",
+  settingsPatch?: Record<string, unknown>
+): Promise<void> {
+  const { databases, databaseId, projectsCollection } = createWorkerAppwrite();
+  const doc = await databases.getDocument(databaseId, projectsCollection, projectId);
+  const data = doc as Models.Document & Record<string, unknown>;
+  const payload: Record<string, unknown> = { status };
+  if (settingsPatch) {
+    let current: Record<string, unknown> = {};
+    try {
+      current =
+        typeof data.settings === "string"
+          ? (JSON.parse(data.settings) as Record<string, unknown>)
+          : ((data.settings as Record<string, unknown>) ?? {});
+    } catch {
+      current = {};
+    }
+    payload.settings = JSON.stringify({ ...current, ...settingsPatch });
+  }
+  await databases.updateDocument(databaseId, projectsCollection, projectId, payload);
 }
