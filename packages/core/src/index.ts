@@ -144,7 +144,8 @@ export {
   publicUrlFromJob,
   assertPublicHtmlBundle,
   assertModelUrlForMode,
-  mapSettingsToArPageConfig
+  mapSettingsToArPageConfig,
+  selectClickableCta
 } from "./page-render";
 export type { PageRenderDependsOn, MapArPageInput } from "./page-render";
 

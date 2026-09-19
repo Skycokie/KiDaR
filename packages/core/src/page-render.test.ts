@@ -11,6 +11,7 @@ import {
   experiencePointerKey,
   mapSettingsToArPageConfig,
   pageArtifactKey,
+  selectClickableCta,
   pageRenderDependsOn,
   requiredJobsForMode
 } from "./page-render";
@@ -127,6 +128,76 @@ describe("settings to AR page mapping", () => {
     expect(html).toContain(targetUrl);
     expect(() => assertPublicHtmlBundle(html, { modelUrl, targetUrl })).not.toThrow();
     expect(html.toLowerCase()).not.toMatch(/\/api\/files\/|source-drawings|x-amz-signature/);
+  });
+
+  it("omits incomplete CTA so Mission ctaText without ctaUrl can publish", () => {
+    expect(selectClickableCta({ ctaText: "Caută cheia" })).toEqual({});
+    expect(selectClickableCta({ ctaUrl: "https://example.com/info" })).toEqual({});
+    expect(selectClickableCta({ ctaText: "  ", ctaUrl: "https://example.com/info" })).toEqual({});
+    const modelUrl = "https://cdn.example.com/models/p/abc/popout.glb";
+    const targetUrl = "https://cdn.example.com/targets/p/abc/targets.mind";
+    const mapped = mapSettingsToArPageConfig({
+      settings: { ...settings(), ctaText: "Caută cheia", ctaUrl: undefined },
+      modelUrl,
+      targetUrl
+    });
+    expect(mapped.ctaText).toBeNull();
+    expect(mapped.ctaUrl).toBeNull();
+    const html = renderArPage({
+      title: mapped.title,
+      theme: mapped.theme,
+      modelUrl: mapped.modelUrl,
+      targetUrl: mapped.targetUrl,
+      ctaText: mapped.ctaText ?? undefined,
+      ctaUrl: mapped.ctaUrl ?? undefined
+    });
+    expect(html).not.toContain('class="cta"');
+    expect(html).not.toContain("Caută cheia");
+  });
+
+  it("omits CTA when only the URL is set", () => {
+    const mapped = mapSettingsToArPageConfig({
+      settings: { ...settings(), ctaText: undefined, ctaUrl: "https://example.com/info" },
+      modelUrl: "https://cdn.example.com/models/p/abc/popout.glb",
+      targetUrl: "https://cdn.example.com/targets/p/abc/targets.mind"
+    });
+    expect(mapped.ctaText).toBeNull();
+    expect(mapped.ctaUrl).toBeNull();
+  });
+
+  it("refuses private, signed, or non-https CTA URLs instead of omitting them", () => {
+    const base = {
+      settings: settings(),
+      modelUrl: "https://cdn.example.com/models/p/abc/popout.glb",
+      targetUrl: "https://cdn.example.com/targets/p/abc/targets.mind"
+    };
+    expect(() =>
+      mapSettingsToArPageConfig({
+        ...base,
+        settings: { ...settings(), ctaUrl: "javascript:alert(1)" }
+      })
+    ).toThrow(/unsupported scheme|https/i);
+    expect(() =>
+      mapSettingsToArPageConfig({
+        ...base,
+        settings: { ...settings(), ctaUrl: "data:text/html,hi" }
+      })
+    ).toThrow(/unsupported scheme|https/i);
+    expect(() =>
+      mapSettingsToArPageConfig({
+        ...base,
+        settings: { ...settings(), ctaUrl: "https://kidar.example/api/files/source-drawings/src_1" }
+      })
+    ).toThrow(/private or signed/i);
+    expect(() =>
+      mapSettingsToArPageConfig({
+        ...base,
+        settings: {
+          ...settings(),
+          ctaUrl: "https://cdn.example.com/cta?X-Amz-Signature=deadbeef"
+        }
+      })
+    ).toThrow(/private or signed/i);
   });
 });
 

@@ -259,4 +259,26 @@ describe("page_render stage", () => {
     });
     expect(complete).toHaveBeenCalledOnce();
   });
+
+  it("publishes Mission hint text without a clickable CTA", async () => {
+    const job = baseJob();
+    const complete = vi.fn(async (params) => ({ ...job, ...params, status: "done" as const }));
+    const result = await runPageRenderStage(job, {
+      storage: new MemoryPublicArtifactStorage("https://cdn.example.com"),
+      appOrigin: "http://localhost:3000",
+      allowLocalOrigins: true,
+      loadProject: async () => ({
+        sourceImagePath: "src_1",
+        mode: "popout",
+        slug: "demo-slug",
+        settings: { ...settings, ctaText: "Caută cheia", ctaUrl: undefined },
+        settingsRaw: JSON.stringify({ ...settings, ctaText: "Caută cheia" })
+      }),
+      loadSource: async () => tinyPng(),
+      listJobs: async () => siblingJobs("popout"),
+      complete
+    });
+    expect(result.kind).toBe("written");
+    expect(complete).toHaveBeenCalledOnce();
+  });
 });

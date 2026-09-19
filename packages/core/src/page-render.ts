@@ -220,15 +220,32 @@ export interface MapArPageInput {
   showWatermark?: boolean;
 }
 
+/**
+ * Clickable CTA is all-or-nothing. Mission preset stores ctaText as a hunt
+ * hint without a URL; that must not become an `<a>`. The AR template has no
+ * separate static-hint slot, so incomplete pairs are omitted rather than
+ * rendered. Unsafe URLs are refused later by `normalizeArPageConfig`.
+ */
+export function selectClickableCta(input: {
+  ctaText?: string | null;
+  ctaUrl?: string | null;
+}): { ctaText?: string; ctaUrl?: string } {
+  const ctaText = input.ctaText?.trim() ?? "";
+  const ctaUrl = input.ctaUrl?.trim() ?? "";
+  if (!ctaText || !ctaUrl) return {};
+  return { ctaText, ctaUrl };
+}
+
 export function mapSettingsToArPageConfig(input: MapArPageInput): NormalizedArPageConfig {
+  const cta = selectClickableCta(input.settings);
   const config: ArPageConfig = {
     title: input.settings.title?.trim() || "Surpriza kidAR",
     theme: input.settings.theme || "#6d5dfc",
     modelUrl: input.modelUrl,
     targetUrl: input.targetUrl,
     logoUrl: input.logoUrl || input.settings.logoUrl,
-    ctaText: input.settings.ctaText,
-    ctaUrl: input.settings.ctaUrl,
+    ctaText: cta.ctaText,
+    ctaUrl: cta.ctaUrl,
     audioUrl: input.audioUrl || input.settings.soundUrl,
     transform: {
       position: input.settings.offset,

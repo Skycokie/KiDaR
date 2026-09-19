@@ -123,3 +123,12 @@
   `popoutPipelineVersion` on pop-out-mode pipeline hashes so old GLBs are not
   reused. Gallery/mind-only hashes are unchanged. Page copy is not part of
   `computePopoutInputHash`.
+
+## Incomplete CTA on page render
+
+- Mission preset stores hunt-hint `ctaText` without `ctaUrl`. `page_render`
+  must omit a clickable CTA rather than fail with `INVALID_CTA`.
+- The AR template has no separate static-hint slot, so hint text is not
+  injected into HTML. A public HTTPS `ctaText`+`ctaUrl` pair still renders.
+- Unsafe CTA URLs (`javascript:`, `data:`, `/api/files/`, signed query) are
+  refused, not omitted.
