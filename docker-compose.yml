@@ -1,0 +1,24 @@
+# kidAR worker on a Linux host (Hetzner CX23 or local Docker).
+# Build context is the monorepo root. Secrets come from .env.local at runtime.
+# Do not publish ports: this process only polls Appwrite and writes R2.
+
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    image: kidar-worker:local
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env.local
+    environment:
+      NODE_ENV: production
+      PUBLIC_ARTIFACT_STORAGE: r2
+      WORKER_POLL_INTERVAL_MS: "1000"
+    mem_limit: 3g
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
