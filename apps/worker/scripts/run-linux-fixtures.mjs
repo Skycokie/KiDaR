@@ -87,7 +87,11 @@ const popoutPass =
   popoutJson.glbOk === true &&
   typeof popoutJson.optimizedBytes === "number" &&
   popoutJson.optimizedBytes > 0 &&
-  popoutJson.under1_5MB === true;
+  popoutJson.under1_5MB === true &&
+  popoutJson.texcoord0 === true &&
+  popoutJson.uvFinite === true &&
+  typeof popoutJson.uvCount === "number" &&
+  popoutJson.uvCount > 0;
 
 const mind = await runTsx("src/mindar/run-fixture.ts");
 const mindJson = extractJson(mind.stdout);
