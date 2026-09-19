@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
-import { createPublicArtifactStorage, PublicStorageConfigError } from "@kidar/core";
+import {
+  PublicStorageConfigError,
+  PublishPlanError,
+  createPublicArtifactStorage,
+  planPublishJobs,
+  type JobType
+} from "@kidar/core";
 import { computeInputHash, sha256Hex } from "@kidar/core/hash";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import { getProjectForOwner, updateProjectDocument } from "@/lib/appwrite/db";
 import { enqueueJob } from "@/lib/appwrite/jobs";
 import { APPWRITE_SOURCE_BUCKET } from "@/lib/appwrite/config";
 
-/**
- * Source content checksum: prefer hashing file bytes in later milestones.
- * Until then, derive a stable identifier digest so inputHash stays deterministic
- * without reading private object bodies on enqueue.
- */
 function sourceRef(sourceImagePath: string | null) {
   if (!sourceImagePath) return null;
   return {
@@ -30,7 +31,6 @@ export async function POST(request: Request) {
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
   try {
-    // Fail closed: publishing requires a valid public artifact store config.
     createPublicArtifactStorage(process.env);
 
     const inputHash = computeInputHash({
@@ -39,33 +39,51 @@ export async function POST(request: Request) {
       source: sourceRef(project.source_image_path),
       settings: project.settings
     });
+    const plan = planPublishJobs(
+      {
+        mode: project.mode,
+        sourceImagePath: project.source_image_path,
+        galleryModelUrl: project.settings?.galleryModelUrl,
+        uploadModelUrl: project.settings?.uploadModelUrl,
+        slug: project.slug,
+        allowLocalOrigins: /localhost|127\.0\.0\.1/.test(process.env.NEXT_PUBLIC_APP_URL ?? "")
+      },
+      inputHash
+    );
 
-    const enqueued = await enqueueJob({
-      projectId: project.id,
-      type: "popout_build",
-      inputHash,
-      ownerId: user.$id,
-      payload: { source: "studio" }
-    });
-
-    if (enqueued.kind !== "idempotent_done") {
-      await updateProjectDocument(body.projectId, { status: "processing" });
+    const jobs = [];
+    let anyActive = false;
+    for (const type of plan.jobs as JobType[]) {
+      const enqueued = await enqueueJob({
+        projectId: project.id,
+        type,
+        inputHash,
+        ownerId: user.$id,
+        payload: {
+          source: "studio",
+          dependsOn: type === "page_render" ? plan.dependsOn : undefined
+        }
+      });
+      jobs.push({ type, enqueue: enqueued.kind, job: enqueued.job });
+      if (enqueued.kind !== "idempotent_done") anyActive = true;
     }
+
+    await updateProjectDocument(body.projectId, { status: anyActive ? "processing" : "ready" });
 
     return NextResponse.json(
       {
-        job: enqueued.job,
-        enqueue: enqueued.kind,
-        message:
-          enqueued.kind === "idempotent_done"
-            ? "Publish inputs unchanged; returning existing completed job."
-            : enqueued.kind === "existing"
-              ? "Publish already queued or running for these inputs."
-              : "Publish queued. The worker pipeline will process it."
+        jobs,
+        enqueue: anyActive ? "queued" : "idempotent_done",
+        message: anyActive
+          ? "Publish queued. The worker will build public artifacts after each stage verifies."
+          : "Publish inputs unchanged; existing public artifacts remain."
       },
       { status: 202 }
     );
   } catch (cause) {
+    if (cause instanceof PublishPlanError) {
+      return NextResponse.json({ error: cause.message, code: cause.code }, { status: cause.status });
+    }
     if (cause instanceof PublicStorageConfigError) {
       return NextResponse.json({ error: cause.message, code: cause.code }, { status: 503 });
     }

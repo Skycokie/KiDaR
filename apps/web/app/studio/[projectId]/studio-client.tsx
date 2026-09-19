@@ -86,6 +86,24 @@ export function StudioClient({
   }, []);
 
   useEffect(() => {
+    if (project.status !== "processing") return;
+    const timer = setInterval(async () => {
+      const response = await fetch(`/api/projects/${project.id}`);
+      if (!response.ok) return;
+      const body = (await response.json()) as { project: ProjectRecord };
+      setProject(body.project);
+      setSettings((current) => ({
+        ...current,
+        ...body.project.settings,
+        offset: { ...current.offset, ...body.project.settings?.offset }
+      }));
+      if (body.project.status === "ready") setNotice("Publish ready.");
+      if (body.project.status === "error") setNotice("Publish failed.");
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [project.id, project.status]);
+
+  useEffect(() => {
     if (!galleryQuery.trim()) {
       setGalleryModels([]);
       return;
@@ -146,8 +164,13 @@ export function StudioClient({
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ projectId: project.id })
     });
-    const body = await response.json();
-    setNotice(response.ok ? "Publish queued." : body.error);
+    const body = (await response.json()) as { error?: string; message?: string };
+    if (!response.ok) {
+      setNotice(body.error ?? "Publish failed.");
+      return;
+    }
+    setProject((current) => ({ ...current, status: "processing" }));
+    setNotice(body.message ?? "Publish queued.");
   }
 
   const sourceDropzone = useDropzone({
@@ -339,6 +362,22 @@ export function StudioClient({
           </details>
 
           <button type="button" onClick={() => void publish()}>Publish experience</button>
+          {project.status === "processing" ? <p role="status">Processing…</p> : null}
+          {project.status === "ready" && settings.publicQrUrl && settings.publicPdfUrl ? (
+            <div>
+              {settings.publicExperienceUrl ? (
+                <p>
+                  <a href={settings.publicExperienceUrl}>Open experience</a>
+                </p>
+              ) : null}
+              <p>
+                <a href={settings.publicQrUrl}>Download QR</a>
+              </p>
+              <p>
+                <a href={settings.publicPdfUrl}>Download PDF</a>
+              </p>
+            </div>
+          ) : null}
           {notice && <p role="status">{notice}</p>}
         </aside>
       </div>
