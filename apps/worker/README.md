@@ -1,17 +1,23 @@
 # Worker (`@kidar/worker`)
 
-Railway / Linux process for async publish pipeline stages:
+Linux process (Hetzner CX22 Docker Compose, or Railway) for async publish pipeline stages:
 
 - `popout_build` (M4.2) — Node cutout → extruded GLB → public `models/.../popout.glb`
 - `mind_compile` (M4.3) — MindAR `OfflineCompiler` → public `targets/.../targets.mind`
+- `page_render` (M4.4b) — static AR HTML + QR + A4 PDF → `pages/...` + `/ar/{slug}` pointer
 
 ## Status
 
 Linux fixture validation passed in the worker Docker image for the tracked
 real-photo fixture. The Pop-out stage produced a 363,156-byte optimized GLB,
-and the MindAR stage produced a 231,205-byte `targets.mind` file. Public
-artifact publishing and consumer AR delivery remain unimplemented pending R2
-configuration and M4.4b.
+and the MindAR stage produced a 231,205-byte `targets.mind` file. `page_render`
+writes public HTML/QR/PDF through the R2 adapter. Live R2 delivery is confirmed
+only after an owner-approved `pnpm storage:r2:verify --write` probe. Until then,
+do not treat M4.4b as production-complete.
+
+Dependency strategy: publish enqueues `popout_build` (pop-out only),
+`mind_compile`, and `page_render`. The worker skips claiming `page_render`
+until upstream jobs with the same `inputHash` are `done` and expose a public URL.
 
 Recorded report (`status: linux_fixtures_passed`, Docker `linux/x64`,
 2026-09-17, `e2e/fixtures/test-photo.jpg`):
@@ -59,7 +65,8 @@ Non-destructive probe (creates and deletes only `__kidar_verify__/<unique>.txt`)
 pnpm storage:r2:verify --write
 ```
 
-R2 integration does **not** publish AR pages, QR, or PDFs until M4.4b.
+R2 integration includes `page_render` HTML/QR/PDF writes. Live public delivery
+still requires the owner-approved `__kidar_verify__/` probe.
 
 ## MindAR compiler (M4.3)
 
@@ -79,7 +86,7 @@ Single non-destructive entry that runs both fixtures and prints a structured
 report (raw/optimized GLB sizes, `targets.mind` size, SHA-256, pass/fail):
 
 ```bash
-# From repo root on Linux / Railway one-off / Docker
+# From repo root on Linux / Hetzner / Docker
 pnpm install
 pnpm -C apps/worker fixtures:linux
 ```
@@ -107,6 +114,29 @@ Record from the structured report:
 - `popout.rawBytes`, `popout.optimizedBytes`
 - `mind.mindBytes`, `mind.sha256`
 - `verdict.popout` / `verdict.mind`
+
+## Hetzner CX22 (always-on worker)
+
+Use a CX22 (2 vCPU / 4 GB / 40 GB, Falkenstein or Helsinki). Do not expose
+HTTP ports. Firewall: inbound SSH only; outbound HTTPS to Appwrite and R2.
+
+On the server (Ubuntu 24.04):
+
+```bash
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker "$USER"
+```
+
+Copy the repo and `.env.local` (never bake secrets into the image), then:
+
+```bash
+docker compose up -d --build
+docker compose logs -f worker
+docker compose exec worker pnpm storage:r2:verify
+```
+
+First image build needs several GB free. After deploy, stop the Railway worker
+so two pollers do not claim the same jobs.
 
 ## Local scripts
 

@@ -117,3 +117,23 @@ test("real photo pop-out uses foreground coverage and silhouette bounds", async 
 
   await page.screenshot({ path: resolve("test-results/popout-real.png"), fullPage: true });
 });
+
+test("studio hides QR and PDF until publish is ready", async ({ page }) => {
+  await signIn(page);
+  const projectName = `Publish Draft ${Date.now()}`;
+  await page.getByLabel("Project name").fill(projectName);
+  await page.getByRole("button", { name: "Create project" }).click();
+  await expect(page.getByText(`/${projectName.toLowerCase().replaceAll(" ", "-")}`)).toBeVisible({
+    timeout: 20_000
+  });
+  await page.getByRole("link", { name: "Open studio" }).click();
+  await expect(page.getByRole("button", { name: "Publish experience" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Download QR" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Download PDF" })).toHaveCount(0);
+});
+
+test("anonymous /ar slug is 404 without a public mapping", async ({ page }) => {
+  const response = await page.goto("/ar/no-public-mapping-yet");
+  expect(response?.status()).toBe(404);
+  await expect(page.getByText(/experiența nu este publică încă/i)).toBeVisible();
+});

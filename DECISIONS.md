@@ -86,10 +86,21 @@
 - **Asset visibility boundary:** source drawings and studio-only assets stay
   private and are previewed through same-origin `/api/files/...` proxies; M4
   AR HTML, MindAR, GLB, QR, and PDF outputs will use public R2/CDN URLs.
-- **M4.4a local generators:** `@kidar/core` exposes pure `renderArPage`,
-  `generateArQrPng`, and `generateA4PrintPdf` (MindAR/A-Frame HTML, QR PNG,
-  A4 PDF). No public uploads, `/ar/:slug` routes, scan analytics, or
-  `page_render` job wiring — those belong to M4.4b+.
+- **M4.4b public publishing:** Worker `page_render` builds standalone AR HTML,
+  QR PNG, and A4 PDF after `mind_compile` (and `popout_build` in pop-out mode)
+  are `done` with public URLs. Publish enqueues the whole chain in Appwrite
+  jobs; the worker **does not claim** `page_render` until those dependencies
+  succeed (same `inputHash`). Artifacts use immutable keys
+  `pages/<projectId>/<inputHash>/{index.html,qr.png,print.pdf}` plus existing
+  `models/` and `targets/` keys. A mutable pointer
+  `experiences/<slug>/target.txt` (`Cache-Control: public, max-age=60`) maps
+  `/ar/{slug}` to the immutable HTML URL. The Next.js `/ar/[slug]` route
+  fetches that public pointer only — no Appwrite, no signed URLs, no source
+  image. Gallery mode requires an already-public HTTPS model URL and never
+  copies private Appwrite files. R2 live probe remains a separate
+  `__kidar_verify__/` write; M4.4b code is not complete until that probe
+  passes.
+
 
 ## M3 pop-out bug fix
 
