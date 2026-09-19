@@ -49,7 +49,7 @@ export function CreazaPresetForm() {
         setError("generic");
         return;
       }
-      router.push(`/creaza/${body.project.id}`);
+      router.push(`/creaza/${body.project.id}/foto`);
     } catch {
       setError("generic");
     } finally {
