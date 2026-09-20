@@ -106,15 +106,28 @@ export {
   MINDAR_AFRAME_SCRIPT_URL,
   DEFAULT_AR_INSTRUCTIONS_RO,
   AR_START_BUTTON_LABEL_RO,
+  AR_RETRY_BUTTON_LABEL_RO,
   AR_CAMERA_PERMISSION_HINT_RO,
   AR_CAMERA_DENIED_RO,
   AR_WATERMARK_RO,
+  AR_RUNTIME_STATES,
+  AR_FAILURE_COPY_RO,
+  classifyArStartError,
+  createArStartGate,
   ArPageConfigError,
   normalizeArPageConfig,
   buildArPageCsp,
   renderArPage
 } from "./templates/ar-page";
-export type { ArPageConfig, ArPageVec3, NormalizedArPageConfig } from "./templates/ar-page";
+export type {
+  ArPageConfig,
+  ArPageVec3,
+  NormalizedArPageConfig,
+  ArRuntimeState,
+  ArFailureKind,
+  ArFailureSignal,
+  ArStartGate
+} from "./templates/ar-page";
 
 export { generateArQrPng, QrGenerateError } from "./print/qr";
 export type { GenerateArQrPngOptions } from "./print/qr";

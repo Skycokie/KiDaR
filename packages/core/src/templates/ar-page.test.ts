@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  AR_FAILURE_COPY_RO,
+  AR_RETRY_BUTTON_LABEL_RO,
   AR_START_BUTTON_LABEL_RO,
   ArPageConfigError,
   MINDAR_AFRAME_SCRIPT_URL,
   buildArPageCsp,
+  classifyArStartError,
+  createArStartGate,
   normalizeArPageConfig,
   renderArPage,
   type ArPageConfig
@@ -48,16 +52,24 @@ describe("renderArPage", () => {
     expect(html).toContain("autoStart: false");
   });
 
-  it("does not call getUserMedia or arSystem.start before Start handler", () => {
+  it("does not invoke getUserMedia or arSystem.start before the Start click handler", () => {
     const html = renderArPage(baseConfig());
-    expect(html).not.toMatch(/getUserMedia/);
     const startIdx = html.indexOf("function startExperience");
     const startCallIdx = html.indexOf("arSystem.start()");
     expect(startIdx).toBeGreaterThan(-1);
     expect(startCallIdx).toBeGreaterThan(startIdx);
-    // No eager start outside the Start click path
-    expect(html).not.toMatch(/arSystem\.start\(\)\s*;\s*\n\s*\}\)\s*\(\)/);
+    const startFn = extractFunction(html, "startExperience");
+    expect(startFn).toContain("arSystem.start()");
+    expect(startFn).not.toMatch(/\bawait\b/);
+    expect(startFn).not.toMatch(/setTimeout\s*\(/);
+    expect(startFn).not.toMatch(/Promise/);
     expect(html).toContain('startBtn.addEventListener("click", startExperience)');
+    const bootStart = html.indexOf("(function ()");
+    const clickIdx = html.indexOf('startBtn.addEventListener("click", startExperience)');
+    const eagerSlice = html.slice(bootStart, startIdx);
+    expect(eagerSlice).not.toContain("arSystem.start()");
+    expect(html.slice(clickIdx)).not.toMatch(/getUserMedia\([^)]*\)\s*;/);
+    expect(html).not.toContain("autoStart: true");
   });
 
   it("ties audio playback to targetFound, not page load or Start alone", () => {
@@ -216,8 +228,14 @@ describe("renderArPage", () => {
 
     const connectSrc = directives.get("connect-src") ?? [];
     expect(connectSrc).toContain("'self'");
+    expect(connectSrc).toContain("blob:");
     expect(connectSrc).toContain("https://cdn.example.com");
     expect(connectSrc).toContain("https://cdn.jsdelivr.net");
+
+    expect(workerSrc).toContain("data:");
+    expect(workerSrc).toContain("'wasm-unsafe-eval'");
+    expect(childSrc).toContain("data:");
+    expect(childSrc).toContain("'wasm-unsafe-eval'");
 
     expect(directives.get("default-src")).toEqual(["'none'"]);
     expect(scriptSrc).toEqual(expect.not.arrayContaining(["'unsafe-eval'"]));
@@ -230,6 +248,137 @@ describe("renderArPage", () => {
     );
   });
 });
+
+describe("AR start gate and error classification", () => {
+  it("invokes start only from the Start click handler", () => {
+    const html = renderArPage(baseConfig());
+    expect(html).toContain('startBtn.addEventListener("click", startExperience)');
+    expect(html.match(/arSystem\.start\(\)/g)).toEqual(["arSystem.start()"]);
+    const startFn = extractFunction(html, "startExperience");
+    expect(startFn).toContain("arSystem.start()");
+    expect(startFn.indexOf("arSystem.start()")).toBeGreaterThan(startFn.indexOf("function startExperience") === -1 ? -1 : 0);
+  });
+
+  it("allows exactly one init attempt while starting and retry after failure", () => {
+    const gate = createArStartGate();
+    expect(gate.getState()).toBe("idle");
+    expect(gate.tryBegin()).toBe(true);
+    expect(gate.getState()).toBe("starting");
+    expect(gate.tryBegin()).toBe(false);
+    gate.setState("camera-requested");
+    expect(gate.tryBegin()).toBe(false);
+    gate.setState("mindar-loading");
+    expect(gate.tryBegin()).toBe(false);
+    gate.succeed();
+    expect(gate.tryBegin()).toBe(false);
+    gate.fail();
+    expect(gate.getState()).toBe("failed");
+    expect(gate.tryBegin()).toBe(true);
+    expect(gate.getState()).toBe("starting");
+  });
+
+  it("keeps retry visible and enabled in generated markup after failure paths", () => {
+    const html = renderArPage(baseConfig());
+    expect(html).toContain(AR_RETRY_BUTTON_LABEL_RO);
+    expect(html).toContain("restoreRetry");
+    expect(html).toContain("startBtn.disabled = false");
+    expect(html).toContain("startPanel.hidden = false");
+    expect(html).toContain('id="kidar-start"');
+    expect(html).not.toContain("started = true");
+  });
+
+  it("maps permission errors separately from MindAR/A-Frame/runtime/network errors", () => {
+    expect(
+      classifyArStartError({ name: "NotAllowedError", message: "Permission denied", gumRequested: true })
+    ).toBe("permission");
+    expect(
+      classifyArStartError({ name: "NotReadableError", message: "Could not start video source" })
+    ).toBe("camera-unavailable");
+    expect(
+      classifyArStartError({ name: "OverconstrainedError", message: "facingMode" })
+    ).toBe("camera-unavailable");
+    expect(
+      classifyArStartError({
+        mindarError: "VIDEO_FAIL",
+        gumRequested: true,
+        name: "",
+        message: ""
+      })
+    ).toBe("ar-init");
+    expect(
+      classifyArStartError({
+        name: "KidarArError",
+        message: "mindar-image-system not ready"
+      })
+    ).toBe("ar-init");
+    expect(
+      classifyArStartError({
+        name: "TypeError",
+        message: "Failed to fetch",
+        httpStatus: 404
+      })
+    ).toBe("asset-network");
+    expect(
+      classifyArStartError({
+        mediaDevicesPresent: false,
+        mindarError: "VIDEO_FAIL",
+        gumRequested: false
+      })
+    ).toBe("unsupported");
+
+    const html = renderArPage(baseConfig());
+    expect(html).toContain(AR_FAILURE_COPY_RO.permission);
+    expect(html).toContain(AR_FAILURE_COPY_RO["camera-unavailable"]);
+    expect(html).toContain(AR_FAILURE_COPY_RO["ar-init"]);
+    expect(html).toContain(AR_FAILURE_COPY_RO.unsupported);
+    expect(html).toContain(AR_FAILURE_COPY_RO["asset-network"]);
+    expect(html).not.toContain("Accesul la cameră a fost refuzat");
+    const arErrorHandler = html.slice(html.indexOf('addEventListener("arError"'));
+    expect(arErrorHandler).not.toContain(AR_FAILURE_COPY_RO.permission + ")");
+    expect(html).toContain('return "ar-init"');
+  });
+
+  it("shows the debug panel only when debug=1 is present", () => {
+    const html = renderArPage(baseConfig());
+    expect(html).toContain('id="kidar-debug" hidden');
+    expect(html).toContain("(?:^|[?&])debug=1(?:&|$)");
+    expect(html).toContain("[kidar-ar]");
+    expect(html).toContain("debugEnabled");
+    const boot = html.slice(html.indexOf("(function ()"));
+    expect(boot).toMatch(/if \(!debugEnabled \|\| !debugEl\) return/);
+    expect(boot).toContain("debugEl.hidden = false");
+    expect(html).not.toContain("APPWRITE");
+    expect(html).not.toContain("token=");
+  });
+
+  it("does not claim iPhone camera success", () => {
+    const html = renderArPage(baseConfig());
+    expect(html.toLowerCase()).not.toMatch(/iphone camera success|camera works on ios/);
+    expect(classifyArStartError({ mindarError: "VIDEO_FAIL" })).not.toBe("permission");
+  });
+});
+
+function extractFunction(html: string, name: string): string {
+  const start = html.indexOf(`function ${name}`);
+  if (start < 0) {
+    throw new Error(`function ${name} not found`);
+  }
+  let depth = 0;
+  let started = false;
+  for (let i = start; i < html.length; i++) {
+    const ch = html[i];
+    if (ch === "{") {
+      depth += 1;
+      started = true;
+    } else if (ch === "}") {
+      depth -= 1;
+      if (started && depth === 0) {
+        return html.slice(start, i + 1);
+      }
+    }
+  }
+  throw new Error(`function ${name} not closed`);
+}
 
 function extractCspMetaContent(html: string): string {
   const match = html.match(
