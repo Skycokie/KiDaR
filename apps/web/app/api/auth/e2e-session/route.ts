@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   const session = await users.createSession(userId);
   cookies().set(SESSION_COOKIE, session.secret, {
     httpOnly: true,
-    secure: false,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     expires: new Date(session.expire)

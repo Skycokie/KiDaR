@@ -2,13 +2,18 @@ import { ID, Query, type Models } from "node-appwrite";
 import {
   JOB_LOCK_TTL_MS,
   JOB_MAX_ATTEMPTS,
+  JobLockMismatchError,
   applyJobTransition,
   arePageRenderDependenciesSatisfied,
+  assertJobLockHeld,
   isEligibleToClaim,
   isJobStatus,
   isJobType,
+  pageRenderDeferralIso,
   parsePageRenderDependsOn,
+  prioritizeClaimCandidates,
   resolvePageRenderDependsOn,
+  selectPageRenderClaimAction,
   truncateJobError,
   type JobResult,
   type PipelineJob
@@ -101,24 +106,30 @@ async function listClaimCandidates(nowIso: string, limit = 10): Promise<Pipeline
 export async function claimNextJob(nowMs = Date.now()): Promise<PipelineJob | null> {
   const { databases, databaseId, jobsCollection } = createWorkerAppwrite();
   const nowIso = new Date(nowMs).toISOString();
-  for (const candidate of await listClaimCandidates(nowIso)) {
+  const candidates = prioritizeClaimCandidates(await listClaimCandidates(nowIso));
+  for (const candidate of candidates) {
     if (!isEligibleToClaim(candidate, nowMs)) continue;
+
     if (candidate.type === "page_render") {
+      const claimAction = selectPageRenderClaimAction(candidate, null);
+      if (claimAction === "reject_missing_depends_on") {
+        await rejectMalformedPageRender(candidate);
+        continue;
+      }
       try {
         const project = await getProjectRecord(candidate.projectId);
         const siblings = await listJobsForProject(candidate.projectId);
-        if (
-          !arePageRenderDependenciesSatisfied(
-            resolvePageRenderDependsOn(project.mode, candidate),
-            siblings
-          )
-        ) {
+        const dependsOn = resolvePageRenderDependsOn(project.mode, candidate);
+        const satisfied = arePageRenderDependenciesSatisfied(dependsOn, siblings);
+        if (selectPageRenderClaimAction(candidate, satisfied) === "defer") {
+          await deferQueuedJob(candidate.id, pageRenderDeferralIso(nowMs));
           continue;
         }
       } catch {
         continue;
       }
     }
+
     const lockToken = ID.unique();
     const transitioned = applyJobTransition(candidate, {
       action: "claim",
@@ -142,6 +153,46 @@ export async function claimNextJob(nowMs = Date.now()): Promise<PipelineJob | nu
   return null;
 }
 
+/**
+ * Push an unready queued page_render out of the immediate claim window so
+ * upstream popout/mind jobs remain visible to the poller.
+ */
+async function deferQueuedJob(jobId: string, nextRunAt: string): Promise<void> {
+  const { databases, databaseId, jobsCollection } = createWorkerAppwrite();
+  const current = mapJobDocument(await databases.getDocument(databaseId, jobsCollection, jobId));
+  if (current.status !== "queued") return;
+  await databases.updateDocument(databaseId, jobsCollection, jobId, {
+    next_run_at: nextRunAt
+  });
+}
+
+/** Fail-closed: malformed page_render without dependsOn must not block the queue forever. */
+async function rejectMalformedPageRender(job: PipelineJob): Promise<void> {
+  const { databases, databaseId, jobsCollection } = createWorkerAppwrite();
+  if (job.status !== "queued") return;
+  const bag = parsePayloadBag(
+    (await databases.getDocument(databaseId, jobsCollection, job.id)).payload
+  );
+  const { input_hash: _a, artifact_hash: _b, last_error: _c, result: _d, ...extra } = bag;
+  await databases.updateDocument(databaseId, jobsCollection, job.id, {
+    status: "error",
+    locked_at: null,
+    lock_token: null,
+    next_run_at: null,
+    payload: buildPayloadString(
+      {
+        inputHash: job.inputHash,
+        artifactHash: job.artifactHash,
+        lastError: truncateJobError(
+          "page_render missing payload.dependsOn.mind_compile (content hash)"
+        ),
+        result: job.result
+      },
+      extra
+    )
+  });
+}
+
 export async function completeJob(params: {
   jobId: string;
   lockToken: string;
@@ -149,11 +200,13 @@ export async function completeJob(params: {
   result?: JobResult;
 }): Promise<PipelineJob> {
   const { databases, databaseId, jobsCollection } = createWorkerAppwrite();
+  // Optimistic lock check only: Appwrite updateDocument has no conditional
+  // WHERE on lock_token, so this is not atomic CAS. A stale worker can still
+  // overwrite between re-read and write; post-write checks detect some losses
+  // but cannot roll back a successful blind update. Safe under single-worker.
   const currentDoc = await databases.getDocument(databaseId, jobsCollection, params.jobId);
   const current = mapJobDocument(currentDoc);
-  if (current.lockToken !== params.lockToken) {
-    throw new Error("Lock token mismatch on complete");
-  }
+  assertJobLockHeld(current, params.lockToken, "complete");
   const next = applyJobTransition(current, {
     action: "complete",
     lockToken: params.lockToken,
@@ -162,13 +215,22 @@ export async function completeJob(params: {
   });
   const bag = parsePayloadBag(currentDoc.payload);
   const { input_hash: _a, artifact_hash: _b, last_error: _c, result: _d, ...extra } = bag;
-  const updated = await databases.updateDocument(databaseId, jobsCollection, params.jobId, {
+  await databases.updateDocument(databaseId, jobsCollection, params.jobId, {
     status: next.status,
     locked_at: null,
     lock_token: null,
-    payload: buildPayloadString(next, extra)
+    payload: buildPayloadString(next, {
+      ...extra,
+      completed_by_lock: params.lockToken
+    })
   });
-  return mapJobDocument(updated);
+  const refreshed = mapJobDocument(
+    await databases.getDocument(databaseId, jobsCollection, params.jobId)
+  );
+  if (refreshed.status !== "done" || refreshed.lockToken !== null) {
+    throw new JobLockMismatchError("Complete lost race after write");
+  }
+  return refreshed;
 }
 
 export async function failJob(params: {
@@ -181,9 +243,7 @@ export async function failJob(params: {
   const { databases, databaseId, jobsCollection } = createWorkerAppwrite();
   const currentDoc = await databases.getDocument(databaseId, jobsCollection, params.jobId);
   const current = mapJobDocument(currentDoc);
-  if (current.lockToken !== params.lockToken) {
-    throw new Error("Lock token mismatch on fail");
-  }
+  assertJobLockHeld(current, params.lockToken, "fail");
   const nowIso = new Date(params.nowMs ?? Date.now()).toISOString();
   const forTransition: PipelineJob = params.terminal
     ? { ...current, attempt: current.maxAttempts }
@@ -196,7 +256,7 @@ export async function failJob(params: {
   });
   const bag = parsePayloadBag(currentDoc.payload);
   const { input_hash: _a, artifact_hash: _b, last_error: _c, result: _d, ...extra } = bag;
-  const updated = await databases.updateDocument(databaseId, jobsCollection, params.jobId, {
+  await databases.updateDocument(databaseId, jobsCollection, params.jobId, {
     status: next.status,
     locked_at: null,
     lock_token: null,
@@ -204,7 +264,16 @@ export async function failJob(params: {
     attempt: next.attempt,
     payload: buildPayloadString(next, extra)
   });
-  return mapJobDocument(updated);
+  const refreshed = mapJobDocument(
+    await databases.getDocument(databaseId, jobsCollection, params.jobId)
+  );
+  if (refreshed.status !== next.status) {
+    throw new JobLockMismatchError("Fail lost race after write");
+  }
+  if (refreshed.lockToken !== null) {
+    throw new JobLockMismatchError("Fail lost race: lock still held");
+  }
+  return refreshed;
 }
 
 export async function downloadSourceFile(fileId: string): Promise<Uint8Array> {

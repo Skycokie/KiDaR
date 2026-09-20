@@ -3,6 +3,8 @@ import { PNG } from "pngjs";
 import {
   PageRenderError,
   PublicStorageConfigError,
+  AFRAME_RUNTIME_OBJECT_KEY,
+  MINDAR_RUNTIME_OBJECT_KEY,
   type PipelineJob,
   type ProjectSettings
 } from "@kidar/core";
@@ -34,6 +36,7 @@ function baseJob(overrides: Partial<PipelineJob> = {}): PipelineJob {
     result: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    dependsOn: { popout_build: hash, mind_compile: hash },
     ...overrides
   };
 }
@@ -43,6 +46,13 @@ const settings: ProjectSettings = {
   theme: "#6d5dfc",
   scale: 1,
   offset: { x: 0, y: 0, z: 0 }
+};
+
+const stubArRuntime = {
+  loadArRuntimeScripts: async () => [
+    { key: AFRAME_RUNTIME_OBJECT_KEY, body: new TextEncoder().encode("/*aframe*/") },
+    { key: MINDAR_RUNTIME_OBJECT_KEY, body: new TextEncoder().encode("/*mindar*/") }
+  ]
 };
 
 function siblingJobs(mode: "popout" | "gallery") {
@@ -74,6 +84,7 @@ describe("page_render stage", () => {
       storage,
       appOrigin: "http://localhost:3000",
       allowLocalOrigins: true,
+      ...stubArRuntime,
       loadProject: async () => ({
         sourceImagePath: "src_1",
         mode: "popout",
@@ -108,6 +119,8 @@ describe("page_render stage", () => {
     );
     // MemoryPublicArtifactStorage doesn't expose objects; fetch via getPublicUrl path
     expect(result.experienceUrl).toBe("http://localhost:3000/ar/demo-slug");
+    expect(await storage.getMetadata(AFRAME_RUNTIME_OBJECT_KEY)).toBeTruthy();
+    expect(await storage.getMetadata(MINDAR_RUNTIME_OBJECT_KEY)).toBeTruthy();
   });
 
   it("reuses matching artifacts instead of rewriting", async () => {
@@ -119,6 +132,7 @@ describe("page_render stage", () => {
       storage,
       appOrigin: "http://localhost:3000",
       allowLocalOrigins: true,
+      ...stubArRuntime,
       loadProject: async () => ({
         sourceImagePath: "src_1",
         mode: "popout" as const,
@@ -149,6 +163,7 @@ describe("page_render stage", () => {
       storage: new MemoryPublicArtifactStorage("https://cdn.example.com"),
       appOrigin: "http://localhost:3000",
       allowLocalOrigins: true,
+      ...stubArRuntime,
       loadProject: async () => ({
         sourceImagePath: "src_1",
         mode: "popout",
@@ -169,13 +184,11 @@ describe("page_render stage", () => {
     const job = baseJob();
     const complete = vi.fn();
     const markProject = vi.fn();
-    let writes = 0;
     const stored = new Map<string, { checksum: string }>();
     const storage = {
       provider: "r2" as const,
       async write(input: { key: string; checksum?: string; body: Uint8Array; contentType: string }) {
-        writes += 1;
-        if (writes >= 3) throw new PublicStorageConfigError("R2 write failed");
+        if (input.key.includes("print.pdf")) throw new PublicStorageConfigError("R2 write failed");
         stored.set(input.key, { checksum: input.checksum ?? "x" });
         return { key: input.key, publicUrl: `https://cdn.example.com/${input.key}` };
       },
@@ -195,6 +208,7 @@ describe("page_render stage", () => {
         storage,
         appOrigin: "http://localhost:3000",
         allowLocalOrigins: true,
+      ...stubArRuntime,
         loadProject: async () => ({
           sourceImagePath: "src_1",
           mode: "popout",
@@ -222,6 +236,7 @@ describe("page_render stage", () => {
         storage: new MemoryPublicArtifactStorage("https://cdn.example.com"),
         appOrigin: "http://localhost:3000",
         allowLocalOrigins: true,
+      ...stubArRuntime,
         loadProject: async () => ({
           sourceImagePath: "src_1",
           mode: "popout",
@@ -243,6 +258,7 @@ describe("page_render stage", () => {
         storage: new MemoryPublicArtifactStorage("https://cdn.example.com"),
         appOrigin: "http://localhost:3000",
         allowLocalOrigins: true,
+        ...stubArRuntime,
         loadProject: async () => ({
           sourceImagePath: "src_1",
           mode: "popout",
@@ -264,6 +280,34 @@ describe("page_render stage", () => {
     ).rejects.toBeInstanceOf(PageRenderError);
   });
 
+  it("fails closed when page_render lacks dependsOn instead of using page hash as GLB/.mind identity", async () => {
+    const pageHash = "e".repeat(64);
+    const job = baseJob({
+      inputHash: pageHash,
+      dependsOn: undefined
+    });
+    const listJobs = vi.fn(async () => siblingJobs("popout"));
+    await expect(
+      runPageRenderStage(job, {
+        storage: new MemoryPublicArtifactStorage("https://cdn.example.com"),
+        appOrigin: "http://localhost:3000",
+        allowLocalOrigins: true,
+        ...stubArRuntime,
+        loadProject: async () => ({
+          sourceImagePath: "src_1",
+          mode: "popout",
+          slug: "demo-slug",
+          settings,
+          settingsRaw: "{}"
+        }),
+        loadSource: async () => tinyPng(),
+        listJobs,
+        complete: vi.fn()
+      })
+    ).rejects.toMatchObject({ code: "MISSING_DEPENDS_ON", retryable: false });
+    expect(listJobs).not.toHaveBeenCalled();
+  });
+
   it("uses a preexisting public gallery URL and does not require popout_build", async () => {
     const job = baseJob();
     const complete = vi.fn(async (params) => ({ ...job, ...params, status: "done" as const }));
@@ -271,6 +315,7 @@ describe("page_render stage", () => {
       storage: new MemoryPublicArtifactStorage("https://cdn.example.com"),
       appOrigin: "http://localhost:3000",
       allowLocalOrigins: true,
+      ...stubArRuntime,
       loadProject: async () => ({
         sourceImagePath: "src_1",
         mode: "gallery",
@@ -295,6 +340,7 @@ describe("page_render stage", () => {
       storage: new MemoryPublicArtifactStorage("https://cdn.example.com"),
       appOrigin: "http://localhost:3000",
       allowLocalOrigins: true,
+      ...stubArRuntime,
       loadProject: async () => ({
         sourceImagePath: "src_1",
         mode: "popout",

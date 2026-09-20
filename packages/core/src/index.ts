@@ -14,7 +14,9 @@ export {
   JOB_RETRY_BASE_DELAY_MS,
   JOB_RETRY_MAX_DELAY_MS,
   JOB_LOCK_TTL_MS,
+  PAGE_RENDER_DEFER_MS,
   LAST_ERROR_MAX_LENGTH,
+  JobLockMismatchError,
   isJobType,
   isJobStatus,
   canTransition,
@@ -25,7 +27,11 @@ export {
   isLockExpired,
   isEligibleToClaim,
   applyJobTransition,
-  isIdempotentHit
+  isIdempotentHit,
+  assertJobLockHeld,
+  prioritizeClaimCandidates,
+  pageRenderDeferralIso,
+  selectPageRenderClaimAction
 } from "./jobs";
 export type { JobType, JobStatus, JobResult, PipelineJob, JobTransition } from "./jobs";
 
@@ -103,17 +109,27 @@ export type { PublicUrlOptions } from "./public-url";
 export {
   AFRAME_CDN_VERSION,
   AFRAME_SCRIPT_URL,
+  AFRAME_UPSTREAM_SCRIPT_URL,
+  AFRAME_RUNTIME_OBJECT_KEY,
   MINDAR_AFRAME_SCRIPT_URL,
+  MINDAR_UPSTREAM_SCRIPT_URL,
+  MINDAR_RUNTIME_OBJECT_KEY,
+  AFRAME_RUNTIME_SCRIPT_PATH,
+  MINDAR_RUNTIME_SCRIPT_PATH,
+  arRuntimeScriptUrls,
   AR_PAGE_TEMPLATE_VERSION,
   DEFAULT_AR_INSTRUCTIONS_RO,
   AR_START_BUTTON_LABEL_RO,
   AR_RETRY_BUTTON_LABEL_RO,
+  AR_IDLE_START_HINT_RO,
+  AR_CAMERA_PROMPT_RO,
   AR_CAMERA_PERMISSION_HINT_RO,
   AR_CAMERA_DENIED_RO,
   AR_WATERMARK_RO,
   AR_RUNTIME_STATES,
   AR_FAILURE_COPY_RO,
   classifyArStartError,
+  isArSceneReady,
   createArStartGate,
   ArPageConfigError,
   normalizeArPageConfig,
@@ -127,7 +143,8 @@ export type {
   ArRuntimeState,
   ArFailureKind,
   ArFailureSignal,
-  ArStartGate
+  ArStartGate,
+  ArSceneReadyTarget
 } from "./templates/ar-page";
 
 export { generateArQrPng, QrGenerateError } from "./print/qr";

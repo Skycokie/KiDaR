@@ -55,7 +55,11 @@ describe("page artifact keys", () => {
       showWatermark: true
     };
     const pageHash = computePageRenderInputHash(demoPage);
-    expect(pageHash).toBe("dad6d5cf85666c60e9cd6653e7e8e7a3625669747841867b3ece11fe221cbd48");
+    expect(pageHash).toBe("6fc29bcdf0bac65c8f55317b155264c695364760562573edb45339747de9d8bc");
+    expect(pageHash).not.toBe("da985e5f064af51b2eb2c76ee7cc2ce5f66e74f55aa497855c0cee1561122fe3");
+    expect(pageHash).not.toBe("d867c9ccb235b01c93cb9597a9c3a08ab6d1f247b9cf32b7f0271b1278b1b805");
+    expect(pageHash).not.toBe("1ed4281f282571306f3223e39b96a384613bb91cc074107d00bd55fc7a27b515");
+    expect(pageHash).not.toBe("702ec36c95ea37a88a74f51574c86d6ec8a5589d5c575d3bd5ffde62fd3811fb");
     expect(pageHash).not.toBe(contentHash);
     expect(jobInputHashForType("popout_build", contentHash)).toBe(contentHash);
     expect(jobInputHashForType("mind_compile", contentHash)).toBe(contentHash);
@@ -158,7 +162,15 @@ describe("publish job orchestration", () => {
     expect(
       resolvePageRenderDependsOn("popout", { inputHash: pageHash, dependsOn })
     ).toEqual(dependsOn);
-    expect(resolvePageRenderDependsOn("popout", { inputHash: contentHash })).toEqual(dependsOn);
+    expect(() =>
+      resolvePageRenderDependsOn("popout", { inputHash: pageHash })
+    ).toThrow(/dependsOn\.mind_compile|refusing page_render inputHash/i);
+    try {
+      resolvePageRenderDependsOn("popout", { inputHash: pageHash, dependsOn: null });
+      throw new Error("expected MISSING_DEPENDS_ON");
+    } catch (error) {
+      expect(error).toMatchObject({ code: "MISSING_DEPENDS_ON", retryable: false });
+    }
   });
 });
 

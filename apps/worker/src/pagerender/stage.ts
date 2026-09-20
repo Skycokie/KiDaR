@@ -33,6 +33,7 @@ import {
   getProjectRecord,
   listJobsForProject
 } from "../appwrite/jobs";
+import { loadDefaultArRuntimeScripts } from "./runtime-scripts";
 
 export type PageRenderStageDeps = {
   storage: PublicArtifactStorage;
@@ -46,6 +47,7 @@ export type PageRenderStageDeps = {
   >;
   complete?: typeof completeJob;
   fail?: typeof failJob;
+  loadArRuntimeScripts?: () => Promise<Array<{ key: string; body: Uint8Array }>>;
   markProject?: (
     projectId: string,
     status: "ready" | "error",
@@ -124,13 +126,17 @@ export async function runPageRenderStage(
   }
   const sourceMime = assertSupportedSourceImage(sourceBytes);
 
-  const siblings = await listJobs(job.projectId);
   const dependsOn = resolvePageRenderDependsOn(project.mode, job);
+  const siblings = await listJobs(job.projectId);
   const targetUrl = publicUrlFromJob(siblings, "mind_compile", dependsOn.mind_compile);
   const modelUrl = assertModelUrlForMode(
     project.mode,
     project.mode === "popout"
-      ? publicUrlFromJob(siblings, "popout_build", dependsOn.popout_build ?? job.inputHash)
+      ? publicUrlFromJob(
+          siblings,
+          "popout_build",
+          dependsOn.popout_build || dependsOn.mind_compile
+        )
       : project.settings.galleryModelUrl || project.settings.uploadModelUrl,
     { allowLocalOrigins: deps.allowLocalOrigins }
   );
@@ -163,6 +169,15 @@ export async function runPageRenderStage(
     allowLocalOrigins: deps.allowLocalOrigins,
     showWatermark: true
   });
+  const loadRuntime = deps.loadArRuntimeScripts ?? loadDefaultArRuntimeScripts;
+  for (const script of await loadRuntime()) {
+    await writeVerified(deps.storage, {
+      key: script.key,
+      body: script.body,
+      contentType: PUBLIC_ARTIFACT_CONTENT_TYPES.js,
+      checksum: sha256Hex(script.body)
+    });
+  }
   const html = renderArPage({
     title: mapped.title,
     theme: mapped.theme,

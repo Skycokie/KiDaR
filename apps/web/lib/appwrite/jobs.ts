@@ -2,7 +2,9 @@ import { ID, Permission, Query, Role, type Models } from "node-appwrite";
 import {
   JOB_LOCK_TTL_MS,
   JOB_MAX_ATTEMPTS,
+  JobLockMismatchError,
   applyJobTransition,
+  assertJobLockHeld,
   isEligibleToClaim,
   isIdempotentHit,
   isJobStatus,
@@ -24,14 +26,17 @@ import { createAdminClient } from "./client";
  * fields are stored inside the existing `payload` JSON:
  *   { source?, input_hash, artifact_hash?, last_error?, result?, ... }
  *
- * Claim strategy (no SQL CAS):
+ * Claim strategy (no SQL CAS / no attribute precondition on updateDocument):
  * 1. List eligible queued / stale-running candidates.
  * 2. Write status=running with a fresh lock_token (API key / admin client).
  * 3. Re-read the document; keep the claim only if lock_token still matches.
  *
- * Residual risk: two workers may briefly race; the loser aborts after re-read.
- * This is at-least-once delivery — artifact writes must be idempotent.
- * Do not treat this as exactly-once execution.
+ * Complete/fail use assertJobLockHeld (optimistic) + post-write checks.
+ * That narrows races when the stale worker re-reads *after* reclaim, but is
+ * **not** atomic compare-and-swap: Appwrite cannot require lock_token===X on
+ * update. Residual risk under multi-worker: stale complete can still land.
+ * Safe operating mode until F1 true-CAS / lease collection: **single worker**.
+ * Artifact writes remain at-least-once and must stay idempotent.
  */
 
 type JobPayloadBag = {
@@ -301,27 +306,23 @@ export async function completeJob(params: {
   result?: JobResult;
 }): Promise<PipelineJob> {
   const { databases } = createAdminClient();
-  const current = mapJobDocument(
-    await databases.getDocument(APPWRITE_DATABASE_ID, APPWRITE_JOBS_COLLECTION, params.jobId)
+  const currentDoc = await databases.getDocument(
+    APPWRITE_DATABASE_ID,
+    APPWRITE_JOBS_COLLECTION,
+    params.jobId
   );
+  const current = mapJobDocument(currentDoc);
+  assertJobLockHeld(current, params.lockToken, "complete");
   const next = applyJobTransition(current, {
     action: "complete",
     lockToken: params.lockToken,
     artifactHash: params.artifactHash,
     result: params.result
   });
-  const existingBag = parsePayloadBag(
-    (
-      await databases.getDocument(
-        APPWRITE_DATABASE_ID,
-        APPWRITE_JOBS_COLLECTION,
-        params.jobId
-      )
-    ).payload
-  );
+  const existingBag = parsePayloadBag(currentDoc.payload);
   const { input_hash: _ih, artifact_hash: _ah, last_error: _le, result: _r, ...extra } =
     existingBag;
-  const updated = await databases.updateDocument(
+  await databases.updateDocument(
     APPWRITE_DATABASE_ID,
     APPWRITE_JOBS_COLLECTION,
     params.jobId,
@@ -329,10 +330,19 @@ export async function completeJob(params: {
       status: next.status,
       locked_at: null,
       lock_token: null,
-      payload: buildPayloadString(next, extra)
+      payload: buildPayloadString(next, {
+        ...extra,
+        completed_by_lock: params.lockToken
+      })
     }
   );
-  return mapJobDocument(updated);
+  const refreshed = mapJobDocument(
+    await databases.getDocument(APPWRITE_DATABASE_ID, APPWRITE_JOBS_COLLECTION, params.jobId)
+  );
+  if (refreshed.status !== "done" || refreshed.lockToken !== null) {
+    throw new JobLockMismatchError("Complete lost race after write");
+  }
+  return refreshed;
 }
 
 export async function failJob(params: {
@@ -349,9 +359,7 @@ export async function failJob(params: {
     params.jobId
   );
   const current = mapJobDocument(currentDoc);
-  if (current.lockToken !== params.lockToken) {
-    throw new Error("Lock token mismatch on fail");
-  }
+  assertJobLockHeld(current, params.lockToken, "fail");
   const next = applyJobTransition(current, {
     action: "fail",
     lockToken: params.lockToken,
@@ -361,7 +369,7 @@ export async function failJob(params: {
   const existingBag = parsePayloadBag(currentDoc.payload);
   const { input_hash: _ih, artifact_hash: _ah, last_error: _le, result: _r, ...extra } =
     existingBag;
-  const updated = await databases.updateDocument(
+  await databases.updateDocument(
     APPWRITE_DATABASE_ID,
     APPWRITE_JOBS_COLLECTION,
     params.jobId,
@@ -373,5 +381,11 @@ export async function failJob(params: {
       payload: buildPayloadString(next, extra)
     }
   );
-  return mapJobDocument(updated);
+  const refreshed = mapJobDocument(
+    await databases.getDocument(APPWRITE_DATABASE_ID, APPWRITE_JOBS_COLLECTION, params.jobId)
+  );
+  if (refreshed.status !== next.status || refreshed.lockToken !== null) {
+    throw new JobLockMismatchError("Fail lost race after write");
+  }
+  return refreshed;
 }

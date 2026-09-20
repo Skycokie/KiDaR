@@ -25,7 +25,21 @@ export const JOB_RETRY_MAX_DELAY_MS = 60_000;
 /** Running jobs older than this may be reclaimed into `queued`. */
 export const JOB_LOCK_TTL_MS = 5 * 60_000;
 
+/**
+ * When a queued page_render is not yet runnable (upstream deps missing), bump
+ * next_run_at by this amount so it leaves the claim candidate window and
+ * upstream popout/mind jobs remain claimable.
+ */
+export const PAGE_RENDER_DEFER_MS = 5_000;
+
 export const LAST_ERROR_MAX_LENGTH = 2_000;
+
+export class JobLockMismatchError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "JobLockMismatchError";
+  }
+}
 
 export type JobResult = Record<string, unknown>;
 
@@ -170,9 +184,7 @@ export function applyJobTransition(
       };
     }
     case "complete": {
-      if (job.lockToken !== transition.lockToken) {
-        throw new Error("Lock token mismatch on complete");
-      }
+      assertJobLockHeld(job, transition.lockToken, "complete");
       assertTransition(job.status, "done");
       return {
         ...job,
@@ -186,12 +198,7 @@ export function applyJobTransition(
       };
     }
     case "fail": {
-      if (job.lockToken !== transition.lockToken) {
-        throw new Error("Lock token mismatch on fail");
-      }
-      if (job.status !== "running") {
-        throw new Error("Only running jobs can fail");
-      }
+      assertJobLockHeld(job, transition.lockToken, "fail");
       const error = truncateJobError(transition.error);
       if (isTerminalFailure(job.attempt, job.maxAttempts)) {
         assertTransition("running", "error");
@@ -245,4 +252,57 @@ export function isIdempotentHit(
   inputHash: string
 ): boolean {
   return Boolean(existing && existing.status === "done" && existing.inputHash === inputHash);
+}
+
+/**
+ * Complete/fail must only proceed while this worker still holds the lock and
+ * the job is still `running`.
+ *
+ * IMPORTANT: Appwrite `updateDocument` has no attribute precondition / SQL
+ * WHERE. `assertJobLockHeld` is an optimistic check only — it narrows the
+ * race and fails closed when the stale worker re-reads *after* reclaim, but
+ * it is **not** atomic compare-and-swap. Between re-read and write, another
+ * worker can reclaim and the stale update can still land. Until a true
+ * conditional mutation or lease collection exists, run a single worker.
+ */
+export function assertJobLockHeld(
+  job: Pick<PipelineJob, "status" | "lockToken">,
+  lockToken: string,
+  action: "complete" | "fail"
+): void {
+  if (job.status !== "running") {
+    throw new JobLockMismatchError(`Job is not running on ${action}`);
+  }
+  if (job.lockToken !== lockToken) {
+    throw new JobLockMismatchError(`Lock token mismatch on ${action}`);
+  }
+}
+
+/** Prefer upstream pipeline work ahead of page_render in a claim candidate list. */
+export function prioritizeClaimCandidates<T extends Pick<PipelineJob, "type">>(jobs: T[]): T[] {
+  return [...jobs].sort((a, b) => {
+    const rank = (type: JobType) => (type === "page_render" ? 1 : 0);
+    return rank(a.type) - rank(b.type);
+  });
+}
+
+export function pageRenderDeferralIso(
+  nowMs: number,
+  deferMs: number = PAGE_RENDER_DEFER_MS
+): string {
+  return new Date(nowMs + deferMs).toISOString();
+}
+
+/**
+ * Decide whether a claim candidate should be claimed, deferred, or rejected.
+ * `depsSatisfied` is only meaningful for page_render (pass null for other types).
+ */
+export function selectPageRenderClaimAction(
+  candidate: Pick<PipelineJob, "type" | "dependsOn">,
+  depsSatisfied: boolean | null
+): "claim" | "defer" | "reject_missing_depends_on" {
+  if (candidate.type !== "page_render") return "claim";
+  if (!candidate.dependsOn?.mind_compile) return "reject_missing_depends_on";
+  if (depsSatisfied === false) return "defer";
+  return "claim";
 }

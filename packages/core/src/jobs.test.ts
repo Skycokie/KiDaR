@@ -2,13 +2,19 @@ import { describe, expect, it } from "vitest";
 import {
   JOB_MAX_ATTEMPTS,
   JOB_RETRY_BASE_DELAY_MS,
+  JobLockMismatchError,
+  PAGE_RENDER_DEFER_MS,
   applyJobTransition,
+  assertJobLockHeld,
   canTransition,
   isEligibleToClaim,
   isIdempotentHit,
   isLockExpired,
   isTerminalFailure,
+  pageRenderDeferralIso,
+  prioritizeClaimCandidates,
   retryDelayMs,
+  selectPageRenderClaimAction,
   truncateJobError,
   type PipelineJob
 } from "./jobs";
@@ -169,5 +175,128 @@ describe("idempotent success", () => {
     expect(isIdempotentHit(baseJob({ status: "done", inputHash: "x" }), "x")).toBe(true);
     expect(isIdempotentHit(baseJob({ status: "queued", inputHash: "x" }), "x")).toBe(false);
     expect(isIdempotentHit(null, "x")).toBe(false);
+  });
+});
+
+describe("CAS lock asserts and claim scheduling", () => {
+  it("rejects complete/fail when lock token is stale or job is not running", () => {
+    const running = baseJob({
+      status: "running",
+      attempt: 1,
+      lockToken: "tok-new",
+      lockedAt: "2026-01-01T00:01:00.000Z"
+    });
+    expect(() => assertJobLockHeld(running, "tok-old", "complete")).toThrow(JobLockMismatchError);
+    expect(() => assertJobLockHeld(running, "tok-old", "fail")).toThrow(/Lock token mismatch/);
+    expect(() =>
+      assertJobLockHeld(baseJob({ status: "done", lockToken: null }), "tok-new", "complete")
+    ).toThrow(/not running/);
+    expect(() =>
+      applyJobTransition(running, { action: "complete", lockToken: "tok-old" })
+    ).toThrow(JobLockMismatchError);
+  });
+
+  it("simulates stale worker losing to a reclaimed lock before complete", () => {
+    const store = new Map<string, PipelineJob>();
+    store.set(
+      "job_1",
+      baseJob({
+        status: "running",
+        attempt: 1,
+        lockToken: "tok-old",
+        lockedAt: "2026-01-01T00:00:00.000Z"
+      })
+    );
+
+    // Newer worker reclaims after TTL.
+    const stale = store.get("job_1")!;
+    const reclaimed = applyJobTransition(stale, {
+      action: "claim",
+      lockToken: "tok-new",
+      at: "2026-01-01T00:10:00.000Z"
+    });
+    store.set("job_1", reclaimed);
+
+    // Stale worker re-reads and must not complete.
+    const current = store.get("job_1")!;
+    expect(() => assertJobLockHeld(current, "tok-old", "complete")).toThrow(JobLockMismatchError);
+    expect(store.get("job_1")!.lockToken).toBe("tok-new");
+    expect(store.get("job_1")!.status).toBe("running");
+  });
+
+  it("documents the remaining TOCTOU: assert-then-write is not atomic without Appwrite precondition", () => {
+    // Models the Appwrite limitation: updateDocument cannot require
+    // lock_token === expected. A stale worker that already passed assertJobLockHeld
+    // on an older snapshot can still overwrite after reclaim.
+    const store = new Map<string, PipelineJob>();
+    store.set(
+      "job_1",
+      baseJob({
+        status: "running",
+        attempt: 1,
+        lockToken: "tok-a",
+        lockedAt: "2026-01-01T00:00:00.000Z"
+      })
+    );
+
+    const snapshotA = store.get("job_1")!;
+    assertJobLockHeld(snapshotA, "tok-a", "complete"); // passes on stale view
+
+    const reclaimed = applyJobTransition(store.get("job_1")!, {
+      action: "claim",
+      lockToken: "tok-b",
+      at: "2026-01-01T00:10:00.000Z"
+    });
+    store.set("job_1", reclaimed);
+
+    // Blind updateDocument equivalent — no lock_token precondition available.
+    const overwritten = applyJobTransition(snapshotA, {
+      action: "complete",
+      lockToken: "tok-a",
+      result: { from: "stale-a" }
+    });
+    store.set("job_1", overwritten);
+
+    expect(store.get("job_1")!.status).toBe("done");
+    expect(store.get("job_1")!.result).toEqual({ from: "stale-a" });
+    // Reclaim was lost: this is why F1 is detection/narrowing, not full CAS.
+    // Production must stay single-worker until conditional mutation exists.
+  });
+
+  it("prioritizes upstream jobs ahead of page_render and defers unready page_render", () => {
+    const ordered = prioritizeClaimCandidates([
+      baseJob({ id: "page", type: "page_render" }),
+      baseJob({ id: "pop", type: "popout_build" }),
+      baseJob({ id: "mind", type: "mind_compile" })
+    ]);
+    expect(ordered.map((j) => j.id)).toEqual(["pop", "mind", "page"]);
+
+    expect(selectPageRenderClaimAction({ type: "popout_build" }, null)).toBe("claim");
+    expect(
+      selectPageRenderClaimAction({ type: "page_render", dependsOn: undefined }, null)
+    ).toBe("reject_missing_depends_on");
+    expect(
+      selectPageRenderClaimAction(
+        { type: "page_render", dependsOn: { mind_compile: "abc" } },
+        false
+      )
+    ).toBe("defer");
+    expect(
+      selectPageRenderClaimAction(
+        { type: "page_render", dependsOn: { mind_compile: "abc" } },
+        true
+      )
+    ).toBe("claim");
+
+    const deferred = pageRenderDeferralIso(Date.parse("2026-01-01T00:00:00.000Z"));
+    expect(deferred).toBe(
+      new Date(Date.parse("2026-01-01T00:00:00.000Z") + PAGE_RENDER_DEFER_MS).toISOString()
+    );
+    expect(
+      isEligibleToClaim(
+        baseJob({ status: "queued", nextRunAt: deferred, type: "page_render" }),
+        Date.parse("2026-01-01T00:00:01.000Z")
+      )
+    ).toBe(false);
   });
 });

@@ -130,6 +130,9 @@ export function parsePageRenderDependsOn(value: unknown): PageRenderDependsOn | 
 /**
  * page_render jobs may use a template-versioned hash. Upstream popout/mind
  * jobs stay on the content hash, passed via payload.dependsOn.
+ *
+ * Fail closed when dependsOn is missing: never treat the page_render inputHash
+ * as a GLB/.mind content hash (those namespaces are distinct).
  */
 export function resolvePageRenderDependsOn(
   mode: "popout" | "gallery" | "upload",
@@ -138,16 +141,19 @@ export function resolvePageRenderDependsOn(
     dependsOn?: { popout_build?: string; mind_compile?: string } | null;
   }
 ): PageRenderDependsOn {
-  if (job.dependsOn?.mind_compile) {
-    if (mode === "popout") {
-      return {
-        popout_build: job.dependsOn.popout_build || job.dependsOn.mind_compile,
-        mind_compile: job.dependsOn.mind_compile
-      };
-    }
-    return { mind_compile: job.dependsOn.mind_compile };
+  if (!job.dependsOn?.mind_compile) {
+    throw new PageRenderError(
+      "page_render requires payload.dependsOn.mind_compile (content hash); refusing page_render inputHash as upstream identity",
+      { retryable: false, code: "MISSING_DEPENDS_ON" }
+    );
   }
-  return pageRenderDependsOn(mode, job.inputHash);
+  if (mode === "popout") {
+    return {
+      popout_build: job.dependsOn.popout_build || job.dependsOn.mind_compile,
+      mind_compile: job.dependsOn.mind_compile
+    };
+  }
+  return { mind_compile: job.dependsOn.mind_compile };
 }
 
 export function arePageRenderDependenciesSatisfied(

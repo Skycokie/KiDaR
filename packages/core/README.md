@@ -36,11 +36,17 @@ examples:
 ### CSP
 
 The generated page sets a strict CSP (`default-src 'none'`). `script-src`
-includes `'unsafe-inline'` for the Start/audio boot script and
-`'wasm-unsafe-eval'` so MindAR/TFJS can compile WebAssembly. It does **not**
-include `'unsafe-eval'`. `blob:` is limited to `worker-src`/`child-src`
-(MindAR/A-Frame blob workers) and `media-src`/`img-src` (camera object URLs
-and canvas snapshots), not `default-src`.
+includes `'self'`, `'unsafe-inline'` for the Start/audio boot script,
+`'wasm-unsafe-eval'` so MindAR/TFJS can compile WebAssembly, and
+`'unsafe-eval'` scoped to this AR HTML document only.
+
+`'unsafe-eval'` is an intentional, documented trade-off: on iPhone Safari,
+A-Frame 1.5 master triggered a `SecurityPolicyViolationEvent` with
+`blockedURI === "eval"` while the script file itself loaded successfully.
+Do not broaden `'unsafe-eval'` outside the AR page CSP. Long-term, prefer an
+A-Frame build that does not require it. `blob:` is limited to
+`worker-src`/`child-src` (MindAR/A-Frame blob workers) and `media-src`/`img-src`
+(camera object URLs and canvas snapshots), not `default-src`.
 
 ### PDF text note
 
