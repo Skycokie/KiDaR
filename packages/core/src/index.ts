@@ -109,27 +109,17 @@ export type { PublicUrlOptions } from "./public-url";
 export {
   AFRAME_CDN_VERSION,
   AFRAME_SCRIPT_URL,
-  AFRAME_UPSTREAM_SCRIPT_URL,
-  AFRAME_RUNTIME_OBJECT_KEY,
   MINDAR_AFRAME_SCRIPT_URL,
-  MINDAR_UPSTREAM_SCRIPT_URL,
-  MINDAR_RUNTIME_OBJECT_KEY,
-  AFRAME_RUNTIME_SCRIPT_PATH,
-  MINDAR_RUNTIME_SCRIPT_PATH,
-  arRuntimeScriptUrls,
   AR_PAGE_TEMPLATE_VERSION,
   DEFAULT_AR_INSTRUCTIONS_RO,
   AR_START_BUTTON_LABEL_RO,
   AR_RETRY_BUTTON_LABEL_RO,
-  AR_IDLE_START_HINT_RO,
-  AR_CAMERA_PROMPT_RO,
   AR_CAMERA_PERMISSION_HINT_RO,
   AR_CAMERA_DENIED_RO,
   AR_WATERMARK_RO,
   AR_RUNTIME_STATES,
   AR_FAILURE_COPY_RO,
   classifyArStartError,
-  isArSceneReady,
   createArStartGate,
   ArPageConfigError,
   normalizeArPageConfig,
@@ -143,8 +133,7 @@ export type {
   ArRuntimeState,
   ArFailureKind,
   ArFailureSignal,
-  ArStartGate,
-  ArSceneReadyTarget
+  ArStartGate
 } from "./templates/ar-page";
 
 export { generateArQrPng, QrGenerateError } from "./print/qr";
