@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { buildMindCompileInputDocument, type MindCompileInputParts } from "./mind";
 import { POPOUT_PIPELINE_VERSION } from "./popout";
 import { AR_PAGE_TEMPLATE_VERSION } from "./templates/ar-page";
+import { PAGE_RENDER_PIPELINE_VERSION } from "./page-render";
+import { PRINT_PIPELINE_VERSION } from "./print/pdf";
 import type { JobType } from "./jobs";
 
 /** Bump when pipeline inputs or templates change meaning for public artifacts. */
@@ -133,28 +135,57 @@ export function computeInputHash(parts: PipelineInputParts): string {
  * Canonical page_render identity. Template/CSP/boot changes bump
  * `AR_PAGE_TEMPLATE_VERSION` and write a new `pages/<projectId>/<hash>/`
  * namespace. Pop-out GLB and targets.mind keep using `computeInputHash`.
+ *
+ * `inputHash` already covers projectId, title, theme, CTA, logo, sound,
+ * transform, source, and mode. This document adds QR/PDF/HTML-only fields
+ * that must not move GLB/.mind keys: public app origin, asset origin, slug,
+ * watermark, and print/page renderer versions.
  */
-export function buildPageRenderInputDocument(parts: {
+export interface PageRenderHashParts {
   inputHash: string;
   templateVersion?: string;
-}): Record<string, JsonValue> {
+  slug?: string | null;
+  publicAppOrigin?: string | null;
+  publicAssetOrigin?: string | null;
+  showWatermark?: boolean;
+  pageRenderPipelineVersion?: string;
+  printPipelineVersion?: string;
+}
+
+function originIdentity(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return null;
+  }
+}
+
+export function buildPageRenderInputDocument(parts: PageRenderHashParts): Record<string, JsonValue> {
   return {
     kind: "page_render",
     inputHash: parts.inputHash,
-    arPageTemplateVersion: parts.templateVersion ?? AR_PAGE_TEMPLATE_VERSION
+    arPageTemplateVersion: parts.templateVersion ?? AR_PAGE_TEMPLATE_VERSION,
+    pageRenderPipelineVersion: parts.pageRenderPipelineVersion ?? PAGE_RENDER_PIPELINE_VERSION,
+    printPipelineVersion: parts.printPipelineVersion ?? PRINT_PIPELINE_VERSION,
+    slug: parts.slug && parts.slug.trim() ? parts.slug.trim() : null,
+    publicAppOrigin: originIdentity(parts.publicAppOrigin),
+    publicAssetOrigin: originIdentity(parts.publicAssetOrigin),
+    showWatermark: Boolean(parts.showWatermark)
   };
 }
 
-export function computePageRenderInputHash(parts: {
-  inputHash: string;
-  templateVersion?: string;
-}): string {
+export function computePageRenderInputHash(parts: PageRenderHashParts): string {
   return hashCanonical(buildPageRenderInputDocument(parts));
 }
 
-export function jobInputHashForType(type: JobType, contentInputHash: string): string {
+export function jobInputHashForType(
+  type: JobType,
+  contentInputHash: string,
+  pageRender?: Omit<PageRenderHashParts, "inputHash">
+): string {
   if (type === "page_render") {
-    return computePageRenderInputHash({ inputHash: contentInputHash });
+    return computePageRenderInputHash({ inputHash: contentInputHash, ...pageRender });
   }
   return contentInputHash;
 }

@@ -20,6 +20,15 @@ function sourceRef(sourceImagePath: string | null) {
   };
 }
 
+function publicOrigin(raw: string | undefined): string | null {
+  if (!raw) return null;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: Request) {
   const user = await getLoggedInUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -51,13 +60,20 @@ export async function POST(request: Request) {
       inputHash
     );
 
+    const pageRenderIdentity = {
+      slug: project.slug,
+      publicAppOrigin: publicOrigin(process.env.NEXT_PUBLIC_APP_URL),
+      publicAssetOrigin: publicOrigin(process.env.R2_PUBLIC_BASE_URL),
+      showWatermark: true
+    };
+
     const jobs = [];
     let anyActive = false;
     for (const type of plan.jobs as JobType[]) {
       const enqueued = await enqueueJob({
         projectId: project.id,
         type,
-        inputHash: jobInputHashForType(type, inputHash),
+        inputHash: jobInputHashForType(type, inputHash, pageRenderIdentity),
         ownerId: user.$id,
         payload: {
           source: "studio",

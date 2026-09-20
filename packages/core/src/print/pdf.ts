@@ -34,6 +34,8 @@ export interface GenerateA4PrintPdfInput {
 export const DEFAULT_PRINT_INSTRUCTION_RO =
   "Scaneaza codul QR cu telefonul pentru a vedea desenul in realitate augmentata.";
 export const PRINT_WATERMARK_RO = "Creat cu kidAR Studio - plan gratuit";
+/** Bump when A4/QR layout or generator behavior changes. Used only by page_render identity. */
+export const PRINT_PIPELINE_VERSION = "print-a4-qr-v1";
 
 const A4_WIDTH = 595.28;
 const A4_HEIGHT = 841.89;

@@ -182,5 +182,24 @@ describe("canonical input hashing", () => {
       })
     );
     expect(computePageRenderInputHash({ inputHash: shared })).not.toBe(shared);
+    expect(
+      computePageRenderInputHash({
+        inputHash: shared,
+        publicAppOrigin: "https://kidar-studio.vercel.app"
+      })
+    ).not.toBe(computePageRenderInputHash({ inputHash: shared }));
+    expect(
+      computePopoutInputHash({
+        projectId: "p1",
+        source,
+        theme: settings.theme
+      })
+    ).toBe(
+      computePopoutInputHash({
+        projectId: "p1",
+        source,
+        theme: settings.theme
+      })
+    );
   });
 });

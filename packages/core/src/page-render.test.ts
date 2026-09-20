@@ -47,23 +47,48 @@ describe("page artifact keys", () => {
   it("gives page_render a template-versioned hash without moving popout/mind keys", () => {
     const contentHash = "06af4e019aef756ae548bc31df01e26ef0b9742e2b35685b846f1b7453923f0c";
     const projectId = "6aafbb5c013ef8866554";
-    const pageHash = computePageRenderInputHash({ inputHash: contentHash });
-    expect(pageHash).toBe("35064c223ec7f728c034e5140f0c76df6a61b96de41181edb78af985626df601");
+    const demoPage = {
+      inputHash: contentHash,
+      slug: "m44b-uv-demo",
+      publicAppOrigin: "https://kidar-studio.vercel.app",
+      publicAssetOrigin: "https://pub-42bfa182b9b24ace84de3ad65e843510.r2.dev",
+      showWatermark: true
+    };
+    const pageHash = computePageRenderInputHash(demoPage);
+    expect(pageHash).toBe("dad6d5cf85666c60e9cd6653e7e8e7a3625669747841867b3ece11fe221cbd48");
     expect(pageHash).not.toBe(contentHash);
     expect(jobInputHashForType("popout_build", contentHash)).toBe(contentHash);
     expect(jobInputHashForType("mind_compile", contentHash)).toBe(contentHash);
-    expect(jobInputHashForType("page_render", contentHash)).toBe(pageHash);
+    expect(jobInputHashForType("page_render", contentHash, demoPage)).toBe(pageHash);
     expect(pageArtifactKey(projectId, pageHash, "index.html")).not.toBe(
       pageArtifactKey(projectId, contentHash, "index.html")
     );
     expect(
       computePageRenderInputHash({
-        inputHash: contentHash,
+        ...demoPage,
         templateVersion: "ar-page-debug-v1"
       })
     ).not.toBe(pageHash);
-    expect(buildPageRenderInputDocument({ inputHash: contentHash }).arPageTemplateVersion).toBe(
+    expect(
+      computePageRenderInputHash({
+        ...demoPage,
+        publicAppOrigin: "https://example.com"
+      })
+    ).not.toBe(pageHash);
+    expect(
+      computePageRenderInputHash({
+        ...demoPage,
+        slug: "other-slug"
+      })
+    ).not.toBe(pageHash);
+    expect(buildPageRenderInputDocument(demoPage).arPageTemplateVersion).toBe(
       AR_PAGE_TEMPLATE_VERSION
+    );
+    expect(buildPageRenderInputDocument(demoPage).publicAppOrigin).toBe(
+      "https://kidar-studio.vercel.app"
+    );
+    expect(buildPageRenderInputDocument({ inputHash: contentHash })).not.toHaveProperty(
+      "createdAt"
     );
   });
 });

@@ -138,6 +138,7 @@ export {
   PrintPdfError,
   DEFAULT_PRINT_INSTRUCTION_RO,
   PRINT_WATERMARK_RO,
+  PRINT_PIPELINE_VERSION,
   toPdfWinAnsiText
 } from "./print/pdf";
 export type { GenerateA4PrintPdfInput, PrintImageMime } from "./print/pdf";
