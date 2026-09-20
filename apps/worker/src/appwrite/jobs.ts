@@ -7,7 +7,8 @@ import {
   isEligibleToClaim,
   isJobStatus,
   isJobType,
-  pageRenderDependsOn,
+  parsePageRenderDependsOn,
+  resolvePageRenderDependsOn,
   truncateJobError,
   type JobResult,
   type PipelineJob
@@ -61,7 +62,8 @@ export function mapJobDocument(doc: Models.Document): PipelineJob {
     artifactHash: (bag.artifact_hash as string | null) ?? null,
     result: (bag.result as JobResult | null) ?? null,
     createdAt: doc.$createdAt,
-    updatedAt: doc.$updatedAt
+    updatedAt: doc.$updatedAt,
+    dependsOn: parsePageRenderDependsOn(bag.dependsOn)
   };
 }
 
@@ -107,7 +109,7 @@ export async function claimNextJob(nowMs = Date.now()): Promise<PipelineJob | nu
         const siblings = await listJobsForProject(candidate.projectId);
         if (
           !arePageRenderDependenciesSatisfied(
-            pageRenderDependsOn(project.mode, candidate.inputHash),
+            resolvePageRenderDependsOn(project.mode, candidate),
             siblings
           )
         ) {

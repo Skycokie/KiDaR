@@ -17,10 +17,10 @@ import {
   generateArQrPng,
   mapSettingsToArPageConfig,
   pageArtifactKey,
-  pageRenderDependsOn,
   pageRenderPipelineLabel,
   publicUrlFromJob,
   renderArPage,
+  resolvePageRenderDependsOn,
   type PipelineJob,
   type ProjectSettings,
   type PublicArtifactStorage
@@ -125,7 +125,7 @@ export async function runPageRenderStage(
   const sourceMime = assertSupportedSourceImage(sourceBytes);
 
   const siblings = await listJobs(job.projectId);
-  const dependsOn = pageRenderDependsOn(project.mode, job.inputHash);
+  const dependsOn = resolvePageRenderDependsOn(project.mode, job);
   const targetUrl = publicUrlFromJob(siblings, "mind_compile", dependsOn.mind_compile);
   const modelUrl = assertModelUrlForMode(
     project.mode,

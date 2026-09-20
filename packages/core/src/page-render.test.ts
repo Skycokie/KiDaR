@@ -13,8 +13,11 @@ import {
   pageArtifactKey,
   selectClickableCta,
   pageRenderDependsOn,
-  requiredJobsForMode
+  requiredJobsForMode,
+  resolvePageRenderDependsOn
 } from "./page-render";
+import { AR_PAGE_TEMPLATE_VERSION } from "./templates/ar-page";
+import { buildPageRenderInputDocument, computePageRenderInputHash, jobInputHashForType } from "./hash";
 import { planPublishJobs, PublishPlanError } from "./publish-plan";
 import type { ProjectSettings } from "./index";
 
@@ -39,6 +42,29 @@ describe("page artifact keys", () => {
     );
     expect(experiencePointerKey("Surpriza din 19")).toBe("experiences/surpriza-din-19/target.txt");
     expect(pageArtifactKey("proj_1", hash, "index.html")).not.toMatch(/T\d{2}-/);
+  });
+
+  it("gives page_render a template-versioned hash without moving popout/mind keys", () => {
+    const contentHash = "06af4e019aef756ae548bc31df01e26ef0b9742e2b35685b846f1b7453923f0c";
+    const projectId = "6aafbb5c013ef8866554";
+    const pageHash = computePageRenderInputHash({ inputHash: contentHash });
+    expect(pageHash).toBe("35064c223ec7f728c034e5140f0c76df6a61b96de41181edb78af985626df601");
+    expect(pageHash).not.toBe(contentHash);
+    expect(jobInputHashForType("popout_build", contentHash)).toBe(contentHash);
+    expect(jobInputHashForType("mind_compile", contentHash)).toBe(contentHash);
+    expect(jobInputHashForType("page_render", contentHash)).toBe(pageHash);
+    expect(pageArtifactKey(projectId, pageHash, "index.html")).not.toBe(
+      pageArtifactKey(projectId, contentHash, "index.html")
+    );
+    expect(
+      computePageRenderInputHash({
+        inputHash: contentHash,
+        templateVersion: "ar-page-debug-v1"
+      })
+    ).not.toBe(pageHash);
+    expect(buildPageRenderInputDocument({ inputHash: contentHash }).arPageTemplateVersion).toBe(
+      AR_PAGE_TEMPLATE_VERSION
+    );
   });
 });
 
@@ -98,6 +124,16 @@ describe("publish job orchestration", () => {
       ])
     ).toBe(true);
     expect(requiredJobsForMode("gallery")).not.toContain("popout_build");
+  });
+
+  it("resolves page_render upstream hashes from payload, not the template hash", () => {
+    const contentHash = hash;
+    const pageHash = computePageRenderInputHash({ inputHash: contentHash });
+    const dependsOn = pageRenderDependsOn("popout", contentHash);
+    expect(
+      resolvePageRenderDependsOn("popout", { inputHash: pageHash, dependsOn })
+    ).toEqual(dependsOn);
+    expect(resolvePageRenderDependsOn("popout", { inputHash: contentHash })).toEqual(dependsOn);
   });
 });
 

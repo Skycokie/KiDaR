@@ -3,6 +3,7 @@ import {
   buildPipelineInputDocument,
   computeInputHash,
   computePopoutInputHash,
+  computePageRenderInputHash,
   stableStringify
 } from "./hash";
 import { POPOUT_PIPELINE_VERSION, popoutArtifactKey } from "./popout";
@@ -85,6 +86,7 @@ describe("canonical input hashing", () => {
     });
     expect(doc).not.toHaveProperty("createdAt");
     expect(doc.popoutPipelineVersion).toBeNull();
+    expect(doc).not.toHaveProperty("arPageTemplateVersion");
     expect(JSON.stringify(doc)).not.toMatch(/secret|password|signed/i);
   });
 
@@ -179,5 +181,6 @@ describe("canonical input hashing", () => {
         theme: settings.theme
       })
     );
+    expect(computePageRenderInputHash({ inputHash: shared })).not.toBe(shared);
   });
 });

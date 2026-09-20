@@ -7,6 +7,7 @@ import {
   isIdempotentHit,
   isJobStatus,
   isJobType,
+  parsePageRenderDependsOn,
   truncateJobError,
   type JobResult,
   type JobType,
@@ -94,7 +95,8 @@ export function mapJobDocument(doc: Models.Document): PipelineJob {
     artifactHash: (bag.artifact_hash as string | null) ?? null,
     result: (bag.result as JobResult | null) ?? null,
     createdAt: doc.$createdAt,
-    updatedAt: doc.$updatedAt
+    updatedAt: doc.$updatedAt,
+    dependsOn: parsePageRenderDependsOn(bag.dependsOn)
   };
 }
 

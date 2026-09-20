@@ -45,6 +45,11 @@ export interface PipelineJob {
   result: JobResult | null;
   createdAt: string;
   updatedAt: string;
+  /** Upstream job hashes when this job's inputHash is page_render-specific. */
+  dependsOn?: {
+    popout_build?: string;
+    mind_compile?: string;
+  };
 }
 
 export type JobTransition =

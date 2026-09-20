@@ -20,6 +20,13 @@ export const AFRAME_CDN_VERSION = "1.5.0";
 export const AFRAME_SCRIPT_URL = `https://aframe.io/releases/${AFRAME_CDN_VERSION}/aframe.min.js`;
 export const MINDAR_AFRAME_SCRIPT_URL = `https://cdn.jsdelivr.net/npm/mind-ar@${MIND_AR_PACKAGE_VERSION}/dist/mindar-image-aframe.prod.js`;
 
+/**
+ * Bump when AR HTML/CSP/boot/debug behavior changes.
+ * Included in the page_render input hash so a new template writes a new
+ * immutable `pages/<projectId>/<hash>/` namespace instead of overwriting.
+ */
+export const AR_PAGE_TEMPLATE_VERSION = "ar-page-debug-v2";
+
 export const DEFAULT_AR_INSTRUCTIONS_RO =
   "Îndreaptă camera spre desenul tipărit pentru a vedea modelul 3D.";
 export const AR_START_BUTTON_LABEL_RO = "Pornește experiența AR";

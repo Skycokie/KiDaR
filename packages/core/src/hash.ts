@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { buildMindCompileInputDocument, type MindCompileInputParts } from "./mind";
 import { POPOUT_PIPELINE_VERSION } from "./popout";
+import { AR_PAGE_TEMPLATE_VERSION } from "./templates/ar-page";
+import type { JobType } from "./jobs";
 
 /** Bump when pipeline inputs or templates change meaning for public artifacts. */
 export const PIPELINE_INPUT_VERSION = "m4.1.0";
@@ -87,6 +89,8 @@ export interface PipelineInputParts {
 /**
  * Build the canonical object hashed as `inputHash`.
  * Excludes timestamps, random IDs, signed URLs, hostnames, and secrets.
+ * AR HTML template version is intentionally omitted — page_render has its own
+ * hash via `computePageRenderInputHash` so GLB/.mind keys stay stable.
  */
 export function buildPipelineInputDocument(parts: PipelineInputParts): Record<string, JsonValue> {
   const settings = parts.settings;
@@ -123,6 +127,36 @@ export function buildPipelineInputDocument(parts: PipelineInputParts): Record<st
 
 export function computeInputHash(parts: PipelineInputParts): string {
   return hashCanonical(buildPipelineInputDocument(parts));
+}
+
+/**
+ * Canonical page_render identity. Template/CSP/boot changes bump
+ * `AR_PAGE_TEMPLATE_VERSION` and write a new `pages/<projectId>/<hash>/`
+ * namespace. Pop-out GLB and targets.mind keep using `computeInputHash`.
+ */
+export function buildPageRenderInputDocument(parts: {
+  inputHash: string;
+  templateVersion?: string;
+}): Record<string, JsonValue> {
+  return {
+    kind: "page_render",
+    inputHash: parts.inputHash,
+    arPageTemplateVersion: parts.templateVersion ?? AR_PAGE_TEMPLATE_VERSION
+  };
+}
+
+export function computePageRenderInputHash(parts: {
+  inputHash: string;
+  templateVersion?: string;
+}): string {
+  return hashCanonical(buildPageRenderInputDocument(parts));
+}
+
+export function jobInputHashForType(type: JobType, contentInputHash: string): string {
+  if (type === "page_render") {
+    return computePageRenderInputHash({ inputHash: contentInputHash });
+  }
+  return contentInputHash;
 }
 
 /**

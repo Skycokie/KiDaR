@@ -118,6 +118,35 @@ export function pageRenderDependsOn(
   return { mind_compile: inputHash };
 }
 
+export function parsePageRenderDependsOn(value: unknown): PageRenderDependsOn | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  const mind = typeof record.mind_compile === "string" ? record.mind_compile : "";
+  if (!mind) return undefined;
+  const popout = typeof record.popout_build === "string" ? record.popout_build : "";
+  return popout ? { popout_build: popout, mind_compile: mind } : { mind_compile: mind };
+}
+
+/**
+ * page_render jobs may use a template-versioned hash. Upstream popout/mind
+ * jobs stay on the content hash, passed via payload.dependsOn.
+ */
+export function resolvePageRenderDependsOn(
+  mode: "popout" | "gallery" | "upload",
+  job: { inputHash: string; dependsOn?: PageRenderDependsOn | null }
+): PageRenderDependsOn {
+  if (job.dependsOn?.mind_compile) {
+    if (mode === "popout") {
+      return {
+        popout_build: job.dependsOn.popout_build || job.dependsOn.mind_compile,
+        mind_compile: job.dependsOn.mind_compile
+      };
+    }
+    return { mind_compile: job.dependsOn.mind_compile };
+  }
+  return pageRenderDependsOn(mode, job.inputHash);
+}
+
 export function arePageRenderDependenciesSatisfied(
   dependsOn: PageRenderDependsOn,
   jobs: Array<Pick<PipelineJob, "type" | "status" | "inputHash" | "result">>

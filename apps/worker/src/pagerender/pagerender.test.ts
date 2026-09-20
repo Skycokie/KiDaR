@@ -137,6 +137,34 @@ describe("page_render stage", () => {
     expect(second.kind).toBe("idempotent");
   });
 
+  it("writes HTML under the page_render hash while reusing upstream popout/mind hashes", async () => {
+    const contentHash = "c".repeat(64);
+    const pageHash = "d".repeat(64);
+    const job = baseJob({
+      inputHash: pageHash,
+      dependsOn: { popout_build: contentHash, mind_compile: contentHash }
+    });
+    const complete = vi.fn(async (params) => ({ ...job, ...params, status: "done" as const }));
+    const result = await runPageRenderStage(job, {
+      storage: new MemoryPublicArtifactStorage("https://cdn.example.com"),
+      appOrigin: "http://localhost:3000",
+      allowLocalOrigins: true,
+      loadProject: async () => ({
+        sourceImagePath: "src_1",
+        mode: "popout",
+        slug: "demo-slug",
+        settings,
+        settingsRaw: JSON.stringify(settings)
+      }),
+      loadSource: async () => tinyPng(),
+      listJobs: async () => siblingJobs("popout"),
+      complete
+    });
+    expect(result.artifactKey).toBe(`pages/proj_page/${pageHash}/index.html`);
+    expect(result.artifactKey).not.toContain(contentHash);
+    expect(result.publicUrl).toContain(`/pages/proj_page/${pageHash}/index.html`);
+  });
+
   it("does not complete when a required upload fails", async () => {
     const job = baseJob();
     const complete = vi.fn();

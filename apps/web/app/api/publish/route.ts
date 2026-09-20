@@ -6,7 +6,7 @@ import {
   planPublishJobs,
   type JobType
 } from "@kidar/core";
-import { computeInputHash, sha256Hex } from "@kidar/core/hash";
+import { computeInputHash, jobInputHashForType, sha256Hex } from "@kidar/core/hash";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import { getProjectForOwner, updateProjectDocument } from "@/lib/appwrite/db";
 import { enqueueJob } from "@/lib/appwrite/jobs";
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       const enqueued = await enqueueJob({
         projectId: project.id,
         type,
-        inputHash,
+        inputHash: jobInputHashForType(type, inputHash),
         ownerId: user.$id,
         payload: {
           source: "studio",
