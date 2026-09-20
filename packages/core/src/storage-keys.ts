@@ -16,7 +16,8 @@ export const PUBLIC_ARTIFACT_CONTENT_TYPES = {
   mind: "application/octet-stream",
   png: "image/png",
   pdf: "application/pdf",
-  mp3: "audio/mpeg"
+  mp3: "audio/mpeg",
+  js: "text/javascript; charset=utf-8"
 } as const;
 
 export type PublicArtifactContentType =

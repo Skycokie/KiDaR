@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   AR_FAILURE_COPY_RO,
+  AR_IDLE_START_HINT_RO,
   AR_RETRY_BUTTON_LABEL_RO,
   AR_START_BUTTON_LABEL_RO,
   ArPageConfigError,
-  MINDAR_AFRAME_SCRIPT_URL,
+  AFRAME_RUNTIME_OBJECT_KEY,
+  AFRAME_RUNTIME_SCRIPT_PATH,
+  AFRAME_UPSTREAM_SCRIPT_URL,
+  MINDAR_RUNTIME_SCRIPT_PATH,
+  arRuntimeScriptUrls,
   buildArPageCsp,
   classifyArStartError,
+  isArSceneReady,
   createArStartGate,
   normalizeArPageConfig,
   renderArPage,
@@ -34,15 +40,56 @@ describe("renderArPage", () => {
     expect(htmlA).toContain('lang="ro"');
   });
 
-  it("embeds model and .mind URLs plus MindAR aframe bundle", () => {
+  it("defaults model rotation to 0 0 180 when transform.rotation is omitted", () => {
+    const { transform: _omit, ...withoutRotation } = {
+      ...baseConfig(),
+      transform: { position: { x: 0, y: 0, z: 0 }, scale: 1 }
+    };
+    void _omit;
+    const html = renderArPage(withoutRotation);
+    expect(html).toContain('rotation="0 0 180"');
+    expect(normalizeArPageConfig(withoutRotation).rotation).toEqual({ x: 0, y: 0, z: 180 });
+  });
+
+  it("embeds model and .mind URLs plus origin-root A-Frame/MindAR runtime", () => {
     const html = renderArPage(baseConfig());
+    const runtime = arRuntimeScriptUrls("https://cdn.example.com");
     expect(html).toContain("https://cdn.example.com/models/p1/abc/popout.glb");
     expect(html).toContain("https://cdn.example.com/targets/p1/abc/targets.mind");
-    expect(html).toContain(MINDAR_AFRAME_SCRIPT_URL);
+    expect(html).toContain(`src="${AFRAME_RUNTIME_SCRIPT_PATH}"`);
+    expect(html).toContain(`src="${MINDAR_RUNTIME_SCRIPT_PATH}"`);
+    expect(html).toContain('id="kidar-aframe-script"');
+    expect(html).toContain(AFRAME_RUNTIME_OBJECT_KEY);
+    expect(html).not.toContain(runtime.aframe);
+    expect(html).not.toContain("https://cdn.example.com/runtime/");
+    expect(html).not.toContain("cdn.jsdelivr.net");
+    expect(html).not.toContain("dist/aframe.min.js");
+    expect(html).not.toContain("aframe.io");
+    expect(AFRAME_UPSTREAM_SCRIPT_URL).toContain("aframe-master.min.js");
+    expect(AFRAME_UPSTREAM_SCRIPT_URL).not.toContain("dist/aframe.min.js");
     expect(html).toContain("a-gltf-model");
+    expect(html).not.toContain("<a-assets>");
+    expect(html).toContain(`src="${baseConfig().modelUrl}"`);
+    expect(html).not.toContain('src="#kidar-model"');
     expect(html).toContain('position="0.1 -0.2 0"');
     expect(html).toContain('rotation="0 45 0"');
     expect(html).toContain('scale="1.5 1.5 1.5"');
+    const aframeTag = html.match(/<script id="kidar-aframe-script"[^>]*>/)?.[0] ?? "";
+    const mindarTag = html.match(/<script id="kidar-mindar-script"[^>]*>/)?.[0] ?? "";
+    expect(aframeTag).not.toMatch(/\basync\b/);
+    expect(aframeTag).not.toMatch(/\bdefer\b/);
+    expect(mindarTag).not.toMatch(/\basync\b/);
+    expect(mindarTag).not.toMatch(/\bdefer\b/);
+    const cspProbeIdx = html.indexOf('id="kidar-csp-probe"');
+    const aframeIdx = html.indexOf('id="kidar-aframe-script"');
+    const mindarIdx = html.indexOf('id="kidar-mindar-script"');
+    const sceneIdx = html.indexOf("<a-scene");
+    expect(cspProbeIdx).toBeGreaterThan(-1);
+    expect(aframeIdx).toBeGreaterThan(cspProbeIdx);
+    expect(mindarIdx).toBeGreaterThan(aframeIdx);
+    expect(sceneIdx).toBeGreaterThan(mindarIdx);
+    expect(html).toContain("window.__kidarCspViolation");
+    expect(html).toContain("blockedURI");
   });
 
   it("includes Romanian Start UI and autoStart false", () => {
@@ -59,10 +106,14 @@ describe("renderArPage", () => {
     expect(startIdx).toBeGreaterThan(-1);
     expect(startCallIdx).toBeGreaterThan(startIdx);
     const startFn = extractFunction(html, "startExperience");
+    expect(startFn).toContain("waitUntil");
+    expect(startFn).toContain("isArSceneReady");
     expect(startFn).toContain("arSystem.start()");
     expect(startFn).not.toMatch(/\bawait\b/);
-    expect(startFn).not.toMatch(/setTimeout\s*\(/);
-    expect(startFn).not.toMatch(/Promise/);
+    expect(html).toContain("function waitUntil");
+    expect(html).toContain("function isArSceneReady");
+    expect(html).toContain("window.AFRAME && sceneEl && sceneEl.hasLoaded");
+    expect(html).toContain("mindar-image-system");
     expect(html).toContain('startBtn.addEventListener("click", startExperience)');
     const bootStart = html.indexOf("(function ()");
     const clickIdx = html.indexOf('startBtn.addEventListener("click", startExperience)');
@@ -199,17 +250,18 @@ describe("renderArPage", () => {
     );
   });
 
-  it("emits a parsed CSP with wasm compile permission and without unsafe-eval", () => {
+  it("emits a parsed CSP with wasm + JS eval permissions for A-Frame/MindAR", () => {
     const html = renderArPage(baseConfig());
     const csp = extractCspMetaContent(html);
     const directives = parseCspDirectives(csp);
 
     const scriptSrc = directives.get("script-src") ?? [];
+    expect(scriptSrc).toContain("'self'");
     expect(scriptSrc).toContain("'wasm-unsafe-eval'");
+    expect(scriptSrc).toContain("'unsafe-eval'");
     expect(scriptSrc).toContain("'unsafe-inline'");
-    expect(scriptSrc).not.toContain("'unsafe-eval'");
-    expect(scriptSrc).toContain("https://aframe.io");
-    expect(scriptSrc).toContain("https://cdn.jsdelivr.net");
+    expect(scriptSrc).not.toContain("https://aframe.io");
+    expect(scriptSrc).not.toContain("https://cdn.jsdelivr.net");
     expect(scriptSrc).toContain("https://cdn.example.com");
 
     const workerSrc = directives.get("worker-src") ?? [];
@@ -230,7 +282,7 @@ describe("renderArPage", () => {
     expect(connectSrc).toContain("'self'");
     expect(connectSrc).toContain("blob:");
     expect(connectSrc).toContain("https://cdn.example.com");
-    expect(connectSrc).toContain("https://cdn.jsdelivr.net");
+    expect(connectSrc).not.toContain("https://cdn.jsdelivr.net");
 
     expect(workerSrc).toContain("data:");
     expect(workerSrc).toContain("'wasm-unsafe-eval'");
@@ -238,14 +290,7 @@ describe("renderArPage", () => {
     expect(childSrc).toContain("'wasm-unsafe-eval'");
 
     expect(directives.get("default-src")).toEqual(["'none'"]);
-    expect(scriptSrc).toEqual(expect.not.arrayContaining(["'unsafe-eval'"]));
-    expect(csp).toBe(
-      buildArPageCsp([
-        "https://aframe.io",
-        "https://cdn.example.com",
-        "https://cdn.jsdelivr.net"
-      ])
-    );
+    expect(csp).toBe(buildArPageCsp(["https://cdn.example.com"]));
   });
 });
 
@@ -296,7 +341,7 @@ describe("AR start gate and error classification", () => {
     ).toBe("camera-unavailable");
     expect(
       classifyArStartError({ name: "OverconstrainedError", message: "facingMode" })
-    ).toBe("camera-unavailable");
+    ).toBe("overconstrained");
     expect(
       classifyArStartError({
         mindarError: "VIDEO_FAIL",
@@ -310,7 +355,25 @@ describe("AR start gate and error classification", () => {
         name: "KidarArError",
         message: "mindar-image-system not ready"
       })
-    ).toBe("ar-init");
+    ).toBe("engine");
+    expect(
+      classifyArStartError({
+        name: "KidarArError",
+        message: "a-scene loaded timeout"
+      })
+    ).toBe("engine");
+    expect(
+      classifyArStartError({
+        name: "KidarArError",
+        message: "A-Frame failed to load"
+      })
+    ).toBe("asset-network");
+    expect(
+      classifyArStartError({
+        name: "KidarArError",
+        message: "script error: aframe"
+      })
+    ).toBe("asset-network");
     expect(
       classifyArStartError({
         name: "TypeError",
@@ -329,7 +392,9 @@ describe("AR start gate and error classification", () => {
     const html = renderArPage(baseConfig());
     expect(html).toContain(AR_FAILURE_COPY_RO.permission);
     expect(html).toContain(AR_FAILURE_COPY_RO["camera-unavailable"]);
+    expect(html).toContain(AR_FAILURE_COPY_RO.overconstrained);
     expect(html).toContain(AR_FAILURE_COPY_RO["ar-init"]);
+    expect(html).toContain(AR_FAILURE_COPY_RO.engine);
     expect(html).toContain(AR_FAILURE_COPY_RO.unsupported);
     expect(html).toContain(AR_FAILURE_COPY_RO["asset-network"]);
     expect(html).not.toContain("Accesul la cameră a fost refuzat");
@@ -344,6 +409,20 @@ describe("AR start gate and error classification", () => {
     expect(html).toContain("(?:^|[?&])debug=1(?:&|$)");
     expect(html).toContain("[kidar-ar]");
     expect(html).toContain("debugEnabled");
+    expect(html).toContain("aframe:");
+    expect(html).toContain("script-error:");
+    expect(html).toContain("aframe-src:");
+    expect(html).toContain("aframe-load:");
+    expect(html).toContain("aframe-ready-at:");
+    expect(html).toContain("aframe-global-type:");
+    expect(html).toContain("aframe-script-count:");
+    expect(html).toContain("csp-violated-directive:");
+    expect(html).toContain("csp-effective-directive:");
+    expect(html).toContain("csp-blocked-uri:");
+    expect(html).toContain("csp-disposition:");
+    expect(html).toContain("csp-sample:");
+    expect(html).toContain("securitypolicyviolation");
+    expect(html.indexOf('id="kidar-csp-probe"')).toBeLessThan(html.indexOf('id="kidar-aframe-script"'));
     const boot = html.slice(html.indexOf("(function ()"));
     expect(boot).toMatch(/if \(!debugEnabled \|\| !debugEl\) return/);
     expect(boot).toContain("debugEl.hidden = false");
@@ -355,6 +434,53 @@ describe("AR start gate and error classification", () => {
     const html = renderArPage(baseConfig());
     expect(html.toLowerCase()).not.toMatch(/iphone camera success|camera works on ios/);
     expect(classifyArStartError({ mindarError: "VIDEO_FAIL" })).not.toBe("permission");
+  });
+
+  it("keeps camera-permission copy off screen until getUserMedia is about to run", () => {
+    const html = renderArPage(baseConfig());
+    expect(html).toContain(AR_IDLE_START_HINT_RO);
+    expect(html).toContain('id="kidar-start-hint"');
+    expect(html).not.toContain("Experiența AR are nevoie de acces la cameră");
+    expect(html).toContain(AR_FAILURE_COPY_RO.engine);
+    expect(html).toContain("Browserul va cere acces la cameră. Alege Permite.");
+    const startFn = extractFunction(html, "startExperience");
+    expect(startFn).toContain("hint.hidden = true");
+    expect(startFn).not.toContain("hint.hidden = false");
+    expect(html).toContain('if (next === "camera-requested")');
+    expect(html).toContain("CAMERA_PROMPT");
+  });
+
+  it("starts MindAR only after A-Frame, scene.hasLoaded, and the image system exist", () => {
+    expect(
+      isArSceneReady({
+        AFRAME: {},
+        scene: { hasLoaded: true, systems: { "mindar-image-system": { start() {} } } }
+      })
+    ).toBe(true);
+    expect(
+      isArSceneReady({
+        AFRAME: {},
+        scene: { hasLoaded: false, systems: { "mindar-image-system": { start() {} } } }
+      })
+    ).toBe(false);
+    expect(
+      isArSceneReady({
+        scene: { hasLoaded: true, systems: { "mindar-image-system": { start() {} } } }
+      })
+    ).toBe(false);
+    expect(isArSceneReady({ AFRAME: {}, scene: { hasLoaded: true, systems: {} } })).toBe(false);
+
+    const html = renderArPage(baseConfig());
+    expect(html).toContain("if (window.__kidarScriptError)");
+    expect(html).toContain('fail("asset-network"');
+    expect(html).toContain("timeoutMs: 8000");
+    expect(html).toContain("intervalMs: 50");
+    expect(html).toContain(AR_FAILURE_COPY_RO.engine);
+    expect(html).toContain("fail(\"engine\"");
+    expect(html).toContain("restoreRetry");
+    expect(classifyArStartError({ name: "KidarArError", message: "a-scene loaded timeout" })).not.toBe(
+      "permission"
+    );
   });
 });
 

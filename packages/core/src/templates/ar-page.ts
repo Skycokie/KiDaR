@@ -17,22 +17,50 @@ import { MIND_AR_PACKAGE_VERSION } from "../mind";
 /** Pinned A-Frame release documented alongside mind-ar@1.2.5 image-tracking examples. */
 export const AFRAME_CDN_VERSION = "1.5.0";
 
-export const AFRAME_SCRIPT_URL = `https://aframe.io/releases/${AFRAME_CDN_VERSION}/aframe.min.js`;
-export const MINDAR_AFRAME_SCRIPT_URL = `https://cdn.jsdelivr.net/npm/mind-ar@${MIND_AR_PACKAGE_VERSION}/dist/mindar-image-aframe.prod.js`;
+/** npm/jsDelivr dist filename — `aframe.min.js` 404s on 1.5.0. */
+export const AFRAME_DIST_FILE = "aframe-master.min.js";
+export const MINDAR_AFRAME_DIST_FILE = "mindar-image-aframe.prod.js";
+
+export const AFRAME_RUNTIME_OBJECT_KEY = `runtime/aframe-${AFRAME_CDN_VERSION}-master.min.js`;
+export const MINDAR_RUNTIME_OBJECT_KEY = `runtime/mindar-image-aframe-${MIND_AR_PACKAGE_VERSION}.prod.js`;
+
+/** Origin-root paths. Never derive these from modelUrl or location.pathname. */
+export const AFRAME_RUNTIME_SCRIPT_PATH = `/${AFRAME_RUNTIME_OBJECT_KEY}`;
+export const MINDAR_RUNTIME_SCRIPT_PATH = `/${MINDAR_RUNTIME_OBJECT_KEY}`;
+
+/** Upstream copy the worker fetches once, then republishes to the public R2 origin. */
+export const AFRAME_UPSTREAM_SCRIPT_URL = `https://cdn.jsdelivr.net/npm/aframe@${AFRAME_CDN_VERSION}/dist/${AFRAME_DIST_FILE}`;
+export const MINDAR_UPSTREAM_SCRIPT_URL = `https://cdn.jsdelivr.net/npm/mind-ar@${MIND_AR_PACKAGE_VERSION}/dist/${MINDAR_AFRAME_DIST_FILE}`;
+
+/** @deprecated Consumer HTML must use {@link arRuntimeScriptUrls}, not the npm CDN. */
+export const AFRAME_SCRIPT_URL = AFRAME_UPSTREAM_SCRIPT_URL;
+/** @deprecated Consumer HTML must use {@link arRuntimeScriptUrls}, not the npm CDN. */
+export const MINDAR_AFRAME_SCRIPT_URL = MINDAR_UPSTREAM_SCRIPT_URL;
+
+export function arRuntimeScriptUrls(publicAssetOrigin: string): { aframe: string; mindar: string } {
+  const origin = publicAssetOrigin.replace(/\/+$/, "");
+  return {
+    aframe: `${origin}/${AFRAME_RUNTIME_OBJECT_KEY}`,
+    mindar: `${origin}/${MINDAR_RUNTIME_OBJECT_KEY}`
+  };
+}
 
 /**
  * Bump when AR HTML/CSP/boot/debug behavior changes.
  * Included in the page_render input hash so a new template writes a new
  * immutable `pages/<projectId>/<hash>/` namespace instead of overwriting.
  */
-export const AR_PAGE_TEMPLATE_VERSION = "ar-page-debug-v2";
+export const AR_PAGE_TEMPLATE_VERSION = "ar-page-debug-v8";
 
 export const DEFAULT_AR_INSTRUCTIONS_RO =
   "Îndreaptă camera spre desenul tipărit pentru a vedea modelul 3D.";
 export const AR_START_BUTTON_LABEL_RO = "Pornește experiența AR";
-export const AR_RETRY_BUTTON_LABEL_RO = "Reîncearcă camera";
-export const AR_CAMERA_PERMISSION_HINT_RO =
-  "Experiența AR are nevoie de acces la cameră. Alege Permite când browserul te întreabă.";
+export const AR_RETRY_BUTTON_LABEL_RO = "Reîncearcă";
+export const AR_IDLE_START_HINT_RO = "Apasă pentru a porni experiența AR.";
+/** Shown only after A-Frame + MindAR + scene are ready, immediately before getUserMedia. */
+export const AR_CAMERA_PROMPT_RO = "Browserul va cere acces la cameră. Alege Permite.";
+/** @deprecated Do not show this before getUserMedia. Use {@link AR_CAMERA_PROMPT_RO}. */
+export const AR_CAMERA_PERMISSION_HINT_RO = AR_CAMERA_PROMPT_RO;
 /** @deprecated Untrustworthy catch-all. Kept for export stability; generated pages no longer use it. */
 export const AR_CAMERA_DENIED_RO =
   "Accesul la cameră a fost refuzat. Activează camera din setările browserului și reîncearcă.";
@@ -51,20 +79,42 @@ export type ArRuntimeState = (typeof AR_RUNTIME_STATES)[number];
 export type ArFailureKind =
   | "permission"
   | "camera-unavailable"
+  | "overconstrained"
   | "ar-init"
+  | "engine"
   | "unsupported"
   | "asset-network";
 
 export const AR_FAILURE_COPY_RO: Record<ArFailureKind, string> = {
-  permission:
-    "Nu avem permisiunea pentru cameră. Activeaz-o din setările browserului, apoi încearcă din nou.",
+  permission: "Accesul la cameră a fost blocat. Permite camera pentru acest site și reîncearcă.",
   "camera-unavailable":
-    "Camera nu este disponibilă acum. Închide alte aplicații care folosesc camera și încearcă din nou.",
+    "Camera nu poate fi utilizată acum. Închide alte aplicații care o folosesc și reîncearcă.",
+  overconstrained:
+    "Camera din spate nu este disponibilă în această sesiune. Încearcă din Safari.",
   "ar-init": "Nu am putut porni experiența AR. Verifică internetul și încearcă din nou.",
+  engine: "Motorul AR nu s-a încărcat. Verifică internetul și apasă Reîncearcă.",
   unsupported:
     "Acest browser nu poate porni experiența AR. Încearcă Safari sau Chrome pe telefon.",
   "asset-network": "Nu am putut încărca experiența. Verifică internetul și încearcă din nou."
 };
+
+export const AR_SCENE_READY_TIMEOUT_MS = 8000;
+export const AR_SCENE_READY_INTERVAL_MS = 50;
+export const AR_SCRIPT_FAIL_FAST_MS = 1200;
+
+export interface ArSceneReadyTarget {
+  AFRAME?: unknown;
+  scene?: {
+    hasLoaded?: boolean;
+    systems?: { [key: string]: { start?: unknown } | undefined };
+  } | null;
+}
+
+/** True only when A-Frame, scene.loaded, and MindAR system.start are all present. */
+export function isArSceneReady(input: ArSceneReadyTarget): boolean {
+  const system = input.scene?.systems?.["mindar-image-system"];
+  return Boolean(input.AFRAME) && Boolean(input.scene?.hasLoaded) && typeof system?.start === "function";
+}
 
 export interface ArFailureSignal {
   name?: string;
@@ -76,12 +126,11 @@ export interface ArFailureSignal {
 }
 
 const PERMISSION_NAMES = new Set(["NotAllowedError", "PermissionDeniedError"]);
+const OVERCONSTRAINED_NAMES = new Set(["OverconstrainedError", "ConstraintNotSatisfiedError"]);
 const CAMERA_UNAVAILABLE_NAMES = new Set([
   "NotReadableError",
   "TrackStartError",
   "AbortError",
-  "OverconstrainedError",
-  "ConstraintNotSatisfiedError",
   "NotFoundError",
   "DevicesNotFoundError"
 ]);
@@ -108,9 +157,12 @@ export function classifyArStartError(signal: ArFailureSignal | null | undefined)
   if (PERMISSION_NAMES.has(name) || /permission denied|notallowederror/.test(blob)) {
     return "permission";
   }
+  if (OVERCONSTRAINED_NAMES.has(name) || /overconstrained|constraintnotsatisfied/.test(blob)) {
+    return "overconstrained";
+  }
   if (
     CAMERA_UNAVAILABLE_NAMES.has(name) ||
-    /could not start video|camera is in use|video source|overconstrained|notreadable|device not found|requested device not found/.test(
+    /could not start video|camera is in use|video source|notreadable|device not found|requested device not found/.test(
       blob
     )
   ) {
@@ -118,12 +170,17 @@ export function classifyArStartError(signal: ArFailureSignal | null | undefined)
   }
   if (
     (typeof status === "number" && status >= 400) ||
-    /failed to fetch|networkerror|load failed|net::err|content security policy/.test(blob)
+    /failed to fetch|networkerror|load failed|net::err|content security policy|script error|a-frame failed to load|mindar a-frame component missing/.test(
+      blob
+    )
   ) {
     return "asset-network";
   }
   if (mindar === "VIDEO_FAIL" && src.gumRequested === false) {
     return "unsupported";
+  }
+  if (/a-scene loaded timeout|mindar-image-system not ready/.test(blob)) {
+    return "engine";
   }
   return "ar-init";
 }
@@ -298,11 +355,7 @@ function optionalPublicUrl(
 }
 
 function collectAssetOrigins(config: NormalizedArPageConfig): string[] {
-  const origins = new Set<string>([
-    "https://aframe.io",
-    "https://cdn.jsdelivr.net",
-    ...config.assetOrigins
-  ]);
+  const origins = new Set<string>([...config.assetOrigins]);
   for (const href of [config.modelUrl, config.targetUrl, config.logoUrl, config.audioUrl, config.ctaUrl]) {
     if (!href) continue;
     try {
@@ -377,7 +430,8 @@ export function normalizeArPageConfig(config: ArPageConfig): NormalizedArPageCon
   }
 
   const position = normalizeVec3(config.transform?.position, "position", { x: 0, y: 0, z: 0 });
-  const rotation = normalizeVec3(config.transform?.rotation, "rotation", { x: 0, y: 0, z: 0 });
+  // MindAR image-target plane: Pop-out GLB needs 180° about Z so artwork matches the marker.
+  const rotation = normalizeVec3(config.transform?.rotation, "rotation", { x: 0, y: 0, z: 180 });
 
   const assetOrigins: string[] = [];
   if (config.assetOrigins) {
@@ -425,9 +479,13 @@ function formatVec3(v: ArPageVec3): string {
 /**
  * CSP for the standalone AR page.
  *
- * `'wasm-unsafe-eval'` is required in `script-src` so MindAR's TFJS WASM
- * backend can instantiate WebAssembly. This is not `'unsafe-eval'` and does
- * not allow `eval()` / `new Function()`.
+ * `'self'` is required so origin-root `/runtime/*.js` scripts match.
+ * `'wasm-unsafe-eval'` is required so MindAR's TFJS WASM backend can
+ * instantiate WebAssembly. It does not allow JS `eval()` / `new Function()`.
+ * `'unsafe-eval'` is required for A-Frame 1.5 master, which uses
+ * `new Function` / `eval` at boot — confirmed on iOS Safari by
+ * `SecurityPolicyViolationEvent.blockedURI === "eval"`. Long-term target:
+ * an A-Frame build that does not need `'unsafe-eval'`.
  *
  * `blob:` / `data:` are scoped to workers and media/images only:
  * - `worker-src` / `child-src`: MindAR/TFJS spawn blob workers and fall back
@@ -444,7 +502,7 @@ export function buildArPageCsp(assetOrigins: string[]): string {
     "base-uri 'none'",
     "form-action 'none'",
     "frame-ancestors 'none'",
-    `script-src 'unsafe-inline' 'wasm-unsafe-eval' ${originList}`,
+    `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' 'unsafe-eval' ${originList}`,
     "style-src 'unsafe-inline'",
     `img-src 'self' data: blob: ${originList}`,
     `media-src 'self' blob: ${originList}`,
@@ -471,6 +529,8 @@ function escapeCspAttribute(value: string): string {
 export function renderArPage(config: ArPageConfig): string {
   const normalized = normalizeArPageConfig(config);
   const cspOrigins = collectAssetOrigins(normalized);
+  const aframeScriptUrl = escapeHtmlAttr(AFRAME_RUNTIME_SCRIPT_PATH);
+  const mindarScriptUrl = escapeHtmlAttr(MINDAR_RUNTIME_SCRIPT_PATH);
 
   const title = escapeHtml(normalized.title);
   const instructions = escapeHtml(normalized.instructions);
@@ -503,9 +563,12 @@ export function renderArPage(config: ArPageConfig): string {
   const copyJs = {
     permission: escapeJsString(AR_FAILURE_COPY_RO.permission),
     cameraUnavailable: escapeJsString(AR_FAILURE_COPY_RO["camera-unavailable"]),
+    overconstrained: escapeJsString(AR_FAILURE_COPY_RO.overconstrained),
     arInit: escapeJsString(AR_FAILURE_COPY_RO["ar-init"]),
+    engine: escapeJsString(AR_FAILURE_COPY_RO.engine),
     unsupported: escapeJsString(AR_FAILURE_COPY_RO.unsupported),
     assetNetwork: escapeJsString(AR_FAILURE_COPY_RO["asset-network"]),
+    cameraPrompt: escapeJsString(AR_CAMERA_PROMPT_RO),
     retryLabel: escapeJsString(AR_RETRY_BUTTON_LABEL_RO)
   };
 
@@ -530,13 +593,18 @@ export function renderArPage(config: ArPageConfig): string {
   var mindFetch = "n/a";
   var lastError = "";
   var state = "idle";
+  var aframeLoad = window.__kidarAframeLoad || "pending";
+  var aframeReadyAt = window.__kidarAframeReadyAt != null ? String(window.__kidarAframeReadyAt) : "n/a";
   var COPY = {
     permission: ${copyJs.permission},
     "camera-unavailable": ${copyJs.cameraUnavailable},
+    overconstrained: ${copyJs.overconstrained},
     "ar-init": ${copyJs.arInit},
+    engine: ${copyJs.engine},
     unsupported: ${copyJs.unsupported},
     "asset-network": ${copyJs.assetNetwork}
   };
+  var CAMERA_PROMPT = ${copyJs.cameraPrompt};
 
   if (audioUrl) {
     audio = new Audio(audioUrl);
@@ -576,24 +644,96 @@ export function renderArPage(config: ArPageConfig): string {
     return name + ": " + msg;
   }
 
+  function aframeSrcFromDom() {
+    var el = document.getElementById("kidar-aframe-script");
+    if (el && el.getAttribute("src")) {
+      try {
+        return new URL(el.getAttribute("src"), window.location.origin).href;
+      } catch (e) {
+        return el.src || el.getAttribute("src");
+      }
+    }
+    try {
+      return new URL(${JSON.stringify(AFRAME_RUNTIME_SCRIPT_PATH)}, window.location.origin).href;
+    } catch (e2) {
+      return ${JSON.stringify(AFRAME_RUNTIME_SCRIPT_PATH)};
+    }
+  }
+
+  function aframeScriptCount() {
+    var n = 0;
+    var scripts = document.getElementsByTagName("script");
+    for (var i = 0; i < scripts.length; i++) {
+      var src = scripts[i].getAttribute("src") || scripts[i].src || "";
+      if (src.indexOf("aframe") !== -1) n++;
+    }
+    return n;
+  }
+
+  function markAframeGlobal() {
+    if (window.AFRAME && aframeReadyAt === "n/a") {
+      aframeReadyAt = window.performance && typeof performance.now === "function"
+        ? String(Math.round(performance.now()))
+        : "0";
+    }
+  }
+
+  function cspDebugFields() {
+    var hit = window.__kidarCspViolation;
+    if (!hit || typeof hit !== "object") {
+      return [
+        "csp-violated-directive: none",
+        "csp-effective-directive: none",
+        "csp-blocked-uri: none",
+        "csp-disposition: none",
+        "csp-sample: none"
+      ];
+    }
+    return [
+      "csp-violated-directive: " + (hit.violatedDirective || "none"),
+      "csp-effective-directive: " + (hit.effectiveDirective || "none"),
+      "csp-blocked-uri: " + (hit.blockedURI || "none"),
+      "csp-disposition: " + (hit.disposition || "none"),
+      "csp-sample: " + (hit.sample || "none")
+    ];
+  }
+
   function renderDebug() {
     if (!debugEnabled || !debugEl) return;
+    markAframeGlobal();
     debugEl.hidden = false;
     debugEl.textContent = [
       "state: " + state,
       "start-click: " + (startClickRan ? "yes" : "no"),
       "getUserMedia: " + (gumRequested ? "requested" : "no"),
       "error: " + (lastError || "none"),
-      "a-scene loaded: " + (sceneLoaded ? "yes" : "no"),
+      "a-scene loaded: " + (sceneLoaded || (sceneEl && sceneEl.hasLoaded) ? "yes" : "no"),
+      "aframe: " + (window.AFRAME ? "yes" : "no"),
+      "mindar: " + (window.AFRAME && AFRAME.components && AFRAME.components["mindar-image"] ? "yes" : "no"),
+      "script-error: " + (window.__kidarScriptError || "none"),
+      "aframe-src: " + aframeSrcFromDom(),
+      "aframe-load: " + aframeLoad,
+      "aframe-ready-at: " + aframeReadyAt,
+      "aframe-global-type: " + (typeof window.AFRAME),
+      "aframe-script-count: " + aframeScriptCount()
+    ].concat(cspDebugFields()).concat([
       "mindar events: " + (mindarEvents.length ? mindarEvents.join(",") : "none"),
       "mind fetch: " + mindFetch,
       "ua: " + uaFamily()
-    ].join("\\n");
+    ]).join("\\n");
   }
 
   function setState(next) {
     state = next;
     log("state", next);
+    if (hint) {
+      if (next === "camera-requested") {
+        hint.textContent = CAMERA_PROMPT;
+        hint.hidden = false;
+      } else {
+        hint.hidden = true;
+      }
+    }
     renderDebug();
   }
 
@@ -615,18 +755,21 @@ export function renderArPage(config: ArPageConfig): string {
     if (name === "NotAllowedError" || name === "PermissionDeniedError" || /permission denied|notallowederror/.test(blob)) {
       return "permission";
     }
+    if (name === "OverconstrainedError" || name === "ConstraintNotSatisfiedError" || /overconstrained|constraintnotsatisfied/.test(blob)) {
+      return "overconstrained";
+    }
     if (
       name === "NotReadableError" || name === "TrackStartError" || name === "AbortError" ||
-      name === "OverconstrainedError" || name === "ConstraintNotSatisfiedError" ||
       name === "NotFoundError" || name === "DevicesNotFoundError" ||
-      /could not start video|camera is in use|video source|overconstrained|notreadable|device not found|requested device not found/.test(blob)
+      /could not start video|camera is in use|video source|notreadable|device not found|requested device not found/.test(blob)
     ) {
       return "camera-unavailable";
     }
-    if ((typeof status === "number" && status >= 400) || /failed to fetch|networkerror|load failed|net::err|content security policy/.test(blob)) {
+    if ((typeof status === "number" && status >= 400) || /failed to fetch|networkerror|load failed|net::err|content security policy|script error|a-frame failed to load|mindar a-frame component missing/.test(blob)) {
       return "asset-network";
     }
     if (mindar === "VIDEO_FAIL" && signal.gumRequested === false) return "unsupported";
+    if (/a-scene loaded timeout|mindar-image-system not ready/.test(blob)) return "engine";
     return "ar-init";
   }
 
@@ -746,6 +889,56 @@ export function renderArPage(config: ArPageConfig): string {
     return sceneEl && sceneEl.systems && sceneEl.systems["mindar-image-system"];
   }
 
+  function isArSceneReady() {
+    if (sceneEl && sceneEl.hasLoaded) sceneLoaded = true;
+    var sys = getArSystem();
+    return !!(window.AFRAME && sceneEl && sceneEl.hasLoaded && sys && typeof sys.start === "function");
+  }
+
+  function runtimeMissingReason() {
+    if (window.__kidarScriptError) {
+      return { name: "KidarArError", message: "script error: " + window.__kidarScriptError };
+    }
+    if (!window.AFRAME) {
+      return { name: "KidarArError", message: "A-Frame failed to load" };
+    }
+    if (!AFRAME.components || !AFRAME.components["mindar-image"]) {
+      return { name: "KidarArError", message: "MindAR A-Frame component missing" };
+    }
+    return null;
+  }
+
+  function waitUntil(isReady, options, done) {
+    var timeoutMs = options.timeoutMs;
+    var intervalMs = options.intervalMs;
+    var failFastMs = options.failFastMs;
+    var t0 = Date.now();
+    function tick() {
+      if (state !== "starting") return;
+      if (isReady()) {
+        done(null);
+        return;
+      }
+      var elapsed = Date.now() - t0;
+      var missing = runtimeMissingReason();
+      var loadState = window.__kidarAframeLoad || aframeLoad;
+      if (loadState === "error" && missing) {
+        done(missing);
+        return;
+      }
+      var canFailFast = loadState && loadState !== "pending";
+      if (elapsed >= timeoutMs || (missing && canFailFast && elapsed >= failFastMs)) {
+        done(missing || {
+          name: "KidarArError",
+          message: sceneEl && sceneEl.hasLoaded ? "mindar-image-system not ready" : "a-scene loaded timeout"
+        });
+        return;
+      }
+      setTimeout(tick, intervalMs);
+    }
+    tick();
+  }
+
   function startExperience() {
     startClickRan = true;
     log("start click");
@@ -756,24 +949,35 @@ export function renderArPage(config: ArPageConfig): string {
     }
     setState("starting");
     if (errorEl) errorEl.hidden = true;
-    if (hint) hint.hidden = false;
+    if (hint) hint.hidden = true;
     if (startPanel) startPanel.hidden = true;
     if (startBtn) startBtn.disabled = true;
+    if (window.__kidarScriptError) {
+      fail("asset-network", { name: "KidarArError", message: "script error: " + window.__kidarScriptError });
+      return;
+    }
     var mediaOk = !!(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === "function");
     if (!mediaOk) {
       fail("unsupported", { name: "NotSupportedError", message: "mediaDevices.getUserMedia missing" }, { mediaDevicesPresent: false });
       return;
     }
-    var arSystem = getArSystem();
-    if (!arSystem || typeof arSystem.start !== "function") {
-      fail("ar-init", { name: "KidarArError", message: "mindar-image-system not ready" });
-      return;
-    }
-    try {
-      arSystem.start();
-    } catch (err) {
-      fail("ar-init", err);
-    }
+    waitUntil(isArSceneReady, { timeoutMs: 8000, intervalMs: 50, failFastMs: 1200 }, function (err) {
+      if (state !== "starting") return;
+      if (err) {
+        fail(classifyFailure(err), err);
+        return;
+      }
+      var arSystem = getArSystem();
+      if (!arSystem || typeof arSystem.start !== "function") {
+        fail("engine", { name: "KidarArError", message: "mindar-image-system not ready" });
+        return;
+      }
+      try {
+        arSystem.start();
+      } catch (startErr) {
+        fail("ar-init", startErr);
+      }
+    });
   }
 
   if (targetEl) {
@@ -782,6 +986,11 @@ export function renderArPage(config: ArPageConfig): string {
   }
 
   if (sceneEl) {
+    if (sceneEl.hasLoaded) {
+      sceneLoaded = true;
+      log("a-scene already loaded");
+      renderDebug();
+    }
     sceneEl.addEventListener("loaded", function () {
       sceneLoaded = true;
       log("a-scene loaded");
@@ -815,6 +1024,13 @@ export function renderArPage(config: ArPageConfig): string {
   });
 
   installProbes();
+  document.addEventListener("securitypolicyviolation", function () {
+    log("csp-violation", window.__kidarCspViolation);
+    renderDebug();
+  });
+  if (window.__kidarAframeLoad) aframeLoad = window.__kidarAframeLoad;
+  if (window.__kidarAframeReadyAt != null) aframeReadyAt = String(window.__kidarAframeReadyAt);
+  markAframeGlobal();
   if (startBtn) {
     startBtn.addEventListener("click", startExperience);
   }
@@ -832,8 +1048,20 @@ export function renderArPage(config: ArPageConfig): string {
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta http-equiv="Content-Security-Policy" content="${escapeCspAttribute(csp)}" />
   <title>${title}</title>
-  <script src="${escapeHtmlAttr(AFRAME_SCRIPT_URL)}"></script>
-  <script src="${escapeHtmlAttr(MINDAR_AFRAME_SCRIPT_URL)}"></script>
+  <script id="kidar-csp-probe">
+window.__kidarCspViolation = window.__kidarCspViolation || null;
+document.addEventListener("securitypolicyviolation", function (event) {
+  window.__kidarCspViolation = {
+    violatedDirective: event.violatedDirective || "",
+    effectiveDirective: event.effectiveDirective || "",
+    blockedURI: event.blockedURI || "",
+    disposition: event.disposition || "",
+    sample: (event.sample || "").slice(0, 120)
+  };
+});
+  </script>
+  <script id="kidar-aframe-script" src="${aframeScriptUrl}" onload="window.__kidarAframeLoad='load';window.__kidarAframeReadyAt=Math.round(performance.now())" onerror="window.__kidarAframeLoad='error';window.__kidarScriptError=(window.__kidarScriptError?window.__kidarScriptError+',':'')+'aframe'"></script>
+  <script id="kidar-mindar-script" src="${mindarScriptUrl}" onerror="window.__kidarScriptError=(window.__kidarScriptError?window.__kidarScriptError+',':'')+'mindar'"></script>
   <style>
     :root { --kidar-theme: ${theme}; --kidar-bg: #0f1419; --kidar-fg: #f4f7fb; }
     * { box-sizing: border-box; }
@@ -850,6 +1078,7 @@ export function renderArPage(config: ArPageConfig): string {
     #kidar-start-panel { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 1.5rem; background: rgba(8,10,14,.72); backdrop-filter: blur(4px); }
     #kidar-start-panel[hidden] { display: none !important; }
     .start-card { max-width: 22rem; width: 100%; text-align: center; }
+    #kidar-start-hint { margin: 0 0 .85rem; opacity: .92; font-size: .95rem; }
     #kidar-start { appearance: none; border: 0; cursor: pointer; width: 100%; padding: .9rem 1.1rem; border-radius: .75rem; font-size: 1.05rem; font-weight: 700; color: #111; background: var(--kidar-theme); }
     #kidar-start:disabled { opacity: .65; cursor: default; }
     #kidar-camera-hint, #kidar-error { position: absolute; left: 1rem; right: 1rem; bottom: 1.25rem; z-index: 4; margin: 0; padding: .75rem 1rem; border-radius: .65rem; text-align: center; font-size: .9rem; }
@@ -876,11 +1105,12 @@ export function renderArPage(config: ArPageConfig): string {
 
     <div id="kidar-start-panel">
       <div class="start-card">
+        <p id="kidar-start-hint">${escapeHtml(AR_IDLE_START_HINT_RO)}</p>
         <button type="button" id="kidar-start">${escapeHtml(AR_START_BUTTON_LABEL_RO)}</button>
       </div>
     </div>
 
-    <p id="kidar-camera-hint" hidden>${escapeHtml(AR_CAMERA_PERMISSION_HINT_RO)}</p>
+    <p id="kidar-camera-hint" hidden></p>
     <p id="kidar-error" hidden role="alert"></p>
     <pre id="kidar-debug" hidden></pre>
 
@@ -893,13 +1123,10 @@ export function renderArPage(config: ArPageConfig): string {
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false"
     >
-      <a-assets>
-        <a-asset-item id="kidar-model" src="${modelUrl}"></a-asset-item>
-      </a-assets>
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
       <a-entity id="kidar-target" mindar-image-target="targetIndex: 0">
         <a-gltf-model
-          src="#kidar-model"
+          src="${modelUrl}"
           position="${position}"
           rotation="${rotation}"
           scale="${scaleAttr}"

@@ -3,11 +3,10 @@ import { PNG } from "pngjs";
 import {
   PageRenderError,
   PublicStorageConfigError,
-  AFRAME_RUNTIME_OBJECT_KEY,
-  MINDAR_RUNTIME_OBJECT_KEY,
   type PipelineJob,
   type ProjectSettings
 } from "@kidar/core";
+import { AFRAME_RUNTIME_OBJECT_KEY, MINDAR_RUNTIME_OBJECT_KEY } from "./runtime-keys";
 import { runPageRenderStage } from "./stage";
 import { MemoryPublicArtifactStorage } from "../storage/public";
 
