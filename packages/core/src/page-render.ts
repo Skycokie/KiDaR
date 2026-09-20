@@ -133,7 +133,10 @@ export function parsePageRenderDependsOn(value: unknown): PageRenderDependsOn | 
  */
 export function resolvePageRenderDependsOn(
   mode: "popout" | "gallery" | "upload",
-  job: { inputHash: string; dependsOn?: PageRenderDependsOn | null }
+  job: {
+    inputHash: string;
+    dependsOn?: { popout_build?: string; mind_compile?: string } | null;
+  }
 ): PageRenderDependsOn {
   if (job.dependsOn?.mind_compile) {
     if (mode === "popout") {
