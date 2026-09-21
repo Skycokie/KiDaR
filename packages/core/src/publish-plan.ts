@@ -19,10 +19,11 @@ export class PublishPlanError extends Error {
 }
 
 export interface PublishPlanInput {
-  mode: "popout" | "gallery" | "upload";
+  mode: "popout" | "gallery" | "upload" | "figurine_3d";
   sourceImagePath: string | null;
   galleryModelUrl?: string | null;
   uploadModelUrl?: string | null;
+  figurineModelUrl?: string | null;
   slug?: string | null;
   allowLocalOrigins?: boolean;
 }
@@ -66,6 +67,23 @@ export function planPublishJobs(input: PublishPlanInput, inputHash: string): Pub
         "Upload mode can only publish when the model is already a public HTTPS URL. Private studio files are not copied to the consumer CDN.",
         "INVALID_UPLOAD_MODEL"
       );
+    }
+  } else if (input.mode === "figurine_3d") {
+    // Figurine GLB comes from figurine_build job result at publish time (like popout).
+    // Optional pre-known URL is accepted when already generated.
+    if (input.figurineModelUrl) {
+      try {
+        publicModelUrl = assertPublicAbsoluteUrl(input.figurineModelUrl, {
+          allowLocalOrigins: input.allowLocalOrigins,
+          label: "figurineModelUrl"
+        }).href;
+      } catch (error) {
+        const message =
+          error instanceof PublicUrlError
+            ? error.message
+            : "Figurină 3D needs a public HTTPS model URL before publishing.";
+        throw new PublishPlanError(message, "INVALID_FIGURINE_MODEL");
+      }
     }
   }
 

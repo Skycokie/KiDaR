@@ -6,6 +6,21 @@ export {
   getSilhouetteStats
 } from "./sticker-geometry";
 export type { AlphaMask, SilhouetteStats, StickerPolygon } from "./sticker-geometry";
+export {
+  buildEdgeStripRgba,
+  medianRgb,
+  normalizedToPixel,
+  rgbToHex,
+  sampleInwardEdgeColors
+} from "./popout-edge-color";
+export type { EdgeSampleOptions, Rgb } from "./popout-edge-color";
+export {
+  POPOUT_DEPTH_LEVELS,
+  assignPopoutDepthLayers,
+  filterPopoutComponents,
+  scorePopoutDepth
+} from "./popout-depth";
+export type { DepthScoredPolygon } from "./popout-depth";
 
 export {
   JOB_TYPES,
@@ -72,6 +87,7 @@ export {
   POPOUT_COVERAGE_REJECT,
   POPOUT_ARTIFACT_KIND,
   POPOUT_SHAPE_SCALE,
+  POPOUT_EXTRUDE,
   POPOUT_PIPELINE_VERSION,
   PopoutBuildError,
   assertPopoutInputs,
@@ -80,6 +96,37 @@ export {
   popoutPipelineLabel,
   popoutCapUv
 } from "./popout";
+
+export {
+  FIGURINE_PIPELINE_VERSION,
+  FIGURINE_ARTIFACT_KIND,
+  FIGURINE_PROVIDER,
+  FIGURINE_MAX_ACTIVE_JOBS,
+  FIGURINE_MAX_ASSETS_PER_PROJECT,
+  FIGURINE_MAX_GLB_BYTES,
+  FIGURINE_MAX_TRIANGLES,
+  FIGURINE_MAX_VERTICES,
+  FIGURINE_MAX_SOURCE_BYTES,
+  FIGURINE_MIN_SOURCE_EDGE_PX,
+  FIGURINE_PROVIDER_TIMEOUT_MS,
+  FIGURINE_DISCLOSURE_RO,
+  FigurineBuildError,
+  figurinePipelineLabel,
+  figurineArtifactKey,
+  assertFigurineInputs,
+  detectFigurineImageMime,
+  assertFigurineSubjectSuitable,
+  figurineUiReasonMessage,
+  countReadyFigurineAssets,
+  hasActiveFigurineSubject,
+  resolveFigurineAvailability,
+  figurineProgressLabel
+} from "./figurine";
+export type {
+  FigurinePhase,
+  FigurineAvailabilityReason,
+  FigurineSubjectRecord
+} from "./figurine";
 
 export {
   MIND_PIPELINE_VERSION,
@@ -177,7 +224,7 @@ export type { PublishPlanInput, PublishPlan } from "./publish-plan";
 
 export { resolveExperienceRedirect } from "./experience-route";
 
-export type ProjectMode = "popout" | "gallery" | "upload";
+export type ProjectMode = "popout" | "gallery" | "upload" | "figurine_3d";
 export type ProjectStatus = "draft" | "processing" | "ready" | "error";
 export type CreatorPreset = "coloring" | "story" | "mission" | "studio";
 
@@ -192,6 +239,13 @@ export interface ProjectSettings {
   galleryModelUrl?: string;
   uploadModelUrl?: string;
   uploadModelPath?: string;
+  /** Public HTTPS GLB from completed figurine_build (R2); never a source-bucket URL. */
+  figurineModelUrl?: string;
+  /**
+   * Per-subject generation records (MVP: usually one). Mutable generation state
+   * lives here + job payload — not browser-only storage.
+   */
+  figurineSubjects?: import("./figurine").FigurineSubjectRecord[];
   logoPath?: string;
   soundPath?: string;
   scale: number;

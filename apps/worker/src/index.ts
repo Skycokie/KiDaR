@@ -2,22 +2,16 @@ import {
   MindCompileError,
   PageRenderError,
   PopoutBuildError,
+  FigurineBuildError,
   PublicStorageConfigError,
   type PipelineJob
 } from "@kidar/core";
 import { claimNextJob, downloadAssetFile, failJob, markProjectStatus } from "./appwrite/jobs";
 import { createWorkerPublicStorage } from "./storage/public";
 import { handlePopoutJobFailure, runPopoutBuildStage } from "./popout/stage";
+import { handleFigurineJobFailure, runFigurineBuildStage } from "./figurine/stage";
 import { handleMindJobFailure, runMindCompileStage } from "./mindar/stage";
 import { handlePageRenderJobFailure, runPageRenderStage } from "./pagerender/stage";
-
-export interface AI3DProvider {
-  generateModel(input: { imagePath: string }): Promise<{ glbPath: string }>;
-}
-
-export function getOptionalAI3DProvider(): AI3DProvider | null {
-  return process.env.AI3D_API_KEY ? null : null;
-}
 
 function pollIntervalMs(): number {
   const raw = Number(process.env.WORKER_POLL_INTERVAL_MS || 1000);
@@ -53,6 +47,22 @@ async function processClaimedJob(job: PipelineJob): Promise<void> {
         return;
       }
       await handlePopoutJobFailure(job, error);
+    }
+    return;
+  }
+
+  if (job.type === "figurine_build") {
+    try {
+      const storage = createWorkerPublicStorage();
+      await runFigurineBuildStage(job, { storage });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message.includes("Lock token mismatch") || error.name === "JobLockMismatchError")
+      ) {
+        return;
+      }
+      await handleFigurineJobFailure(job, error);
     }
     return;
   }
@@ -104,7 +114,7 @@ export async function runWorkerOnce(): Promise<"processed" | "idle"> {
 export async function runWorkerLoop(signal?: AbortSignal): Promise<void> {
   let emptyStreak = 0;
   console.log(
-    `[worker] polling for popout_build|mind_compile|page_render jobs every ${pollIntervalMs()}ms (backoff when idle)`
+    `[worker] polling for popout_build|figurine_build|mind_compile|page_render jobs every ${pollIntervalMs()}ms (backoff when idle)`
   );
   while (!signal?.aborted) {
     try {
@@ -123,6 +133,7 @@ export async function runWorkerLoop(signal?: AbortSignal): Promise<void> {
       }
       if (
         error instanceof PopoutBuildError ||
+        error instanceof FigurineBuildError ||
         error instanceof MindCompileError ||
         error instanceof PageRenderError
       ) {

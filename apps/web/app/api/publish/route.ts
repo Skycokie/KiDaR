@@ -54,6 +54,7 @@ export async function POST(request: Request) {
         sourceImagePath: project.source_image_path,
         galleryModelUrl: project.settings?.galleryModelUrl,
         uploadModelUrl: project.settings?.uploadModelUrl,
+        figurineModelUrl: project.settings?.figurineModelUrl,
         slug: project.slug,
         allowLocalOrigins: /localhost|127\.0\.0\.1/.test(process.env.NEXT_PUBLIC_APP_URL ?? "")
       },

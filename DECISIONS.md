@@ -111,7 +111,37 @@
   contours; each contour becomes a beveled `ExtrudeGeometry`, and only the
   cutout canvas is used as the cap texture.
 
-## Pop-out UV mapping (`popout-uv-v2`)
+## Figurină 3D vs Pop-out (product split, Go A + Go C)
+
+- **Pop-out din desen** remains independent: relief / extrude, local edge colors, layered depth, `popout_build` GLB.
+- **Figurină 3D** is mode `figurine_3d` + job `figurine_build` using **Tripo** OpenAPI v3.
+- **Secrets:** `TRIPO_API_KEY` / `TRIPO_BASE_URL` only on the Hetzner worker. Vercel gets non-secret `FIGURINE_3D_ENABLED` only — never Tripo credentials.
+- Web probes: `GET /api/features/figurine-3d` and project figurine routes; worker fails closed if Tripo is missing.
+- Artifacts: `models/<projectId>/<hash>/figurine.glb` (`figurine-tripo-v1`) — never overwrite pop-out keys.
+- MVP: one isolated subject; max one active generation and three ready assets per project.
+- Spec: `docs/creaza-redesign-direction.md` §16; ops: `docs/figurine-3d-runbook.md`.
+- No live Tripo calls in tests; no auto-publish.
+
+## Pop-out layered depth (`popout-layers-v4`)
+
+- Connected components already extracted from the alpha mask become separate meshes.
+- Each component gets a discrete Z offset (`0 / 0.02 / 0.04 / 0.06`) from a visual depth score
+  (bottom-of-frame + size + composition). Single-component drawings stay at `z=0`.
+- Tiny speckles (&lt; ~0.35% of main area) are filtered before extrusion.
+- Edge-local side colors from `popout-edge-v3` still apply per component.
+- **Hash:** `POPOUT_PIPELINE_VERSION = "popout-layers-v4"`.
+
+## Pop-out UV + edge color (`popout-edge-v3`, superseded by v4)
+
+- Cap faces keep the cutout texture via `popoutCapUv` (same mapping as `popout-uv-v2`).
+- Side walls use a local edge-color strip sampled toward the silhouette centroid —
+  **not** `settings.theme` / purple-blue accent.
+- Extrusion defaults: depth `0.10`, bevel `0.012` / `0.008`, `curveSegments: 8`.
+- Studio camera opens ~30° aside / ~18° above so thickness is visible.
+- **Hash:** `POPOUT_PIPELINE_VERSION = "popout-edge-v3"` invalidates cached GLBs.
+  Gallery/mind-only hashes are unchanged.
+
+## Pop-out UV mapping (superseded by `popout-edge-v3`)
 
 - **Broken behavior:** ExtrudeGeometry cap UVs were raw shape XY. After the
   2.7 scale they sat mostly outside `[0,1]`, so the cutout texture showed
@@ -119,10 +149,6 @@
 - **Fix:** assign UVs with `popoutCapUv` (`u = x/scale + 0.5`, `v = y/scale + 0.5`)
   **before** `geometry.center()`. `v=0` is the image bottom (glTF / CanvasTexture
   `flipY=true`). Studio preview and worker GLB share this helper.
-- **Hash:** `POPOUT_PIPELINE_VERSION = "popout-uv-v2"` is stored as
-  `popoutPipelineVersion` on pop-out-mode pipeline hashes so old GLBs are not
-  reused. Gallery/mind-only hashes are unchanged. Page copy is not part of
-  `computePopoutInputHash`.
 
 ## Incomplete CTA on page render
 

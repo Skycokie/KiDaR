@@ -106,6 +106,17 @@ Guards are **per-page** via `getLoggedInUser()`; middleware is passthrough.
 
 Any change that can create a project, upload an image, enqueue a job, or publish needs a **separate, targeted approval**.
 
+**Frozen redesign contract (source Go A + Source Go B, 2026-09-21):** `POST /api/projects/:projectId/source` is frozen in `docs/creaza-redesign-direction.md` §11. Source Go B wires the photo save CTA on `/creaza-preview` only (stores `sourceUrl`). PATCH / magic-link / publish remain unapproved. `/creaza/*` untouched.
+
+**Frozen redesign contract (Create Go A + Go B, 2026-09-21):** `POST /api/projects` is frozen in `docs/creaza-redesign-direction.md` §12. Create Go B wires the preset CTA on `/creaza-preview` only (stores `project.id`).
+
+**Frozen Scene PATCH (Scene Go B, 2026-09-21):** `PATCH /api/projects/:projectId` with `{ mode: "popout" }` only — see `docs/creaza-redesign-direction.md` §13. Wired on `/creaza-preview` Scenă CTA; no ProjectRecord in client state. **Draft 4-step flow closed.**
+
+**Frozen Studio Preview (Go A + Go B, 2026-09-21):** fixture *Grădina de după ploaie* at `/studio-preview/personalizeaza` — local React state only; camera CTA → static placeholder. See `docs/creaza-redesign-direction.md` §14. **Closed.**
+
+**Frozen Cameră AR Preview (Go A + Go B, 2026-09-21):** simulated AR states on `/studio-preview/personalizeaza/camera` — CSS/SVG mock only, no `getUserMedia`. See `docs/creaza-redesign-direction.md` §15. **Closed.**
+
+**Frozen Figurină 3D (Go A + Go C, 2026-09-21):** mode `figurine_3d`, job `figurine_build`, Tripo server-only; Studio choice + progress; Pop-out untouched. See `docs/creaza-redesign-direction.md` §16 and `docs/figurine-3d-runbook.md`.
 ---
 
 ## 5. Navigation graph

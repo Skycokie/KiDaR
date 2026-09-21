@@ -48,7 +48,7 @@ export async function PATCH(request: Request, { params }: Context) {
 
   const body = (await request.json()) as {
     name?: string;
-    mode?: "popout" | "gallery" | "upload";
+    mode?: "popout" | "gallery" | "upload" | "figurine_3d";
     settings?: ProjectSettingsPatch;
   };
   const name = body.name?.trim();

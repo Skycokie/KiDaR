@@ -86,6 +86,6 @@ describe("popout build validation", () => {
     expect(imageTop.v).toBeCloseTo(0.9);
     expect(imageBottom.v).toBeCloseTo(0.1);
     expect(popoutPipelineLabel()).toBe(`popout@${POPOUT_PIPELINE_VERSION}`);
-    expect(POPOUT_PIPELINE_VERSION).toBe("popout-uv-v2");
+    expect(POPOUT_PIPELINE_VERSION).toBe("popout-layers-v4");
   });
 });

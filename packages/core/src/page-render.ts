@@ -99,21 +99,28 @@ export function pageRenderPipelineLabel(): string {
 
 export type PageRenderDependsOn = {
   popout_build?: string;
+  figurine_build?: string;
   mind_compile: string;
 };
 
-export function requiredJobsForMode(mode: "popout" | "gallery" | "upload"): JobType[] {
+export function requiredJobsForMode(
+  mode: "popout" | "gallery" | "upload" | "figurine_3d"
+): JobType[] {
   if (mode === "popout") return ["popout_build", "mind_compile", "page_render"];
+  if (mode === "figurine_3d") return ["figurine_build", "mind_compile", "page_render"];
   if (mode === "gallery") return ["mind_compile", "page_render"];
   return ["mind_compile", "page_render"];
 }
 
 export function pageRenderDependsOn(
-  mode: "popout" | "gallery" | "upload",
+  mode: "popout" | "gallery" | "upload" | "figurine_3d",
   inputHash: string
 ): PageRenderDependsOn {
   if (mode === "popout") {
     return { popout_build: inputHash, mind_compile: inputHash };
+  }
+  if (mode === "figurine_3d") {
+    return { figurine_build: inputHash, mind_compile: inputHash };
   }
   return { mind_compile: inputHash };
 }
@@ -124,6 +131,8 @@ export function parsePageRenderDependsOn(value: unknown): PageRenderDependsOn | 
   const mind = typeof record.mind_compile === "string" ? record.mind_compile : "";
   if (!mind) return undefined;
   const popout = typeof record.popout_build === "string" ? record.popout_build : "";
+  const figurine = typeof record.figurine_build === "string" ? record.figurine_build : "";
+  if (figurine) return { figurine_build: figurine, mind_compile: mind };
   return popout ? { popout_build: popout, mind_compile: mind } : { mind_compile: mind };
 }
 
@@ -135,10 +144,14 @@ export function parsePageRenderDependsOn(value: unknown): PageRenderDependsOn | 
  * as a GLB/.mind content hash (those namespaces are distinct).
  */
 export function resolvePageRenderDependsOn(
-  mode: "popout" | "gallery" | "upload",
+  mode: "popout" | "gallery" | "upload" | "figurine_3d",
   job: {
     inputHash: string;
-    dependsOn?: { popout_build?: string; mind_compile?: string } | null;
+    dependsOn?: {
+      popout_build?: string;
+      figurine_build?: string;
+      mind_compile?: string;
+    } | null;
   }
 ): PageRenderDependsOn {
   if (!job.dependsOn?.mind_compile) {
@@ -153,6 +166,12 @@ export function resolvePageRenderDependsOn(
       mind_compile: job.dependsOn.mind_compile
     };
   }
+  if (mode === "figurine_3d") {
+    return {
+      figurine_build: job.dependsOn.figurine_build || job.dependsOn.mind_compile,
+      mind_compile: job.dependsOn.mind_compile
+    };
+  }
   return { mind_compile: job.dependsOn.mind_compile };
 }
 
@@ -162,6 +181,7 @@ export function arePageRenderDependenciesSatisfied(
 ): boolean {
   const needed: Array<[JobType, string]> = [["mind_compile", dependsOn.mind_compile]];
   if (dependsOn.popout_build) needed.push(["popout_build", dependsOn.popout_build]);
+  if (dependsOn.figurine_build) needed.push(["figurine_build", dependsOn.figurine_build]);
   return needed.every(([type, hash]) =>
     jobs.some(
       (job) =>
@@ -218,7 +238,7 @@ export function assertPublicHtmlBundle(html: string, expected: { modelUrl: strin
 }
 
 export function assertModelUrlForMode(
-  mode: "popout" | "gallery" | "upload",
+  mode: "popout" | "gallery" | "upload" | "figurine_3d",
   url: string | null | undefined,
   options?: { allowLocalOrigins?: boolean }
 ): string {
@@ -227,6 +247,13 @@ export function assertModelUrlForMode(
       throw new PageRenderError("Pop-out publish requires the public popout.glb URL", {
         retryable: true,
         code: "MISSING_POPOUT_URL"
+      });
+    }
+  } else if (mode === "figurine_3d") {
+    if (!url) {
+      throw new PageRenderError("Figurină 3D publish requires the public figurine.glb URL", {
+        retryable: true,
+        code: "MISSING_FIGURINE_URL"
       });
     }
   } else if (!url) {

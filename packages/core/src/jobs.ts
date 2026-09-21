@@ -5,7 +5,7 @@
  * Persistence adapters map between this model and document fields.
  */
 
-export const JOB_TYPES = ["popout_build", "mind_compile", "page_render"] as const;
+export const JOB_TYPES = ["popout_build", "figurine_build", "mind_compile", "page_render"] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
 export const JOB_STATUSES = ["queued", "running", "done", "error"] as const;
@@ -62,6 +62,7 @@ export interface PipelineJob {
   /** Upstream job hashes when this job's inputHash is page_render-specific. */
   dependsOn?: {
     popout_build?: string;
+    figurine_build?: string;
     mind_compile?: string;
   };
 }

@@ -233,6 +233,52 @@ export async function completeJob(params: {
   return refreshed;
 }
 
+/**
+ * Persist progress / providerTaskId while the job remains `running`.
+ * Re-reads and asserts lock ownership before write. Optionally refreshes
+ * locked_at so long Tripo polls stay within JOB_LOCK_TTL under single-worker.
+ */
+export async function patchRunningJobResult(params: {
+  jobId: string;
+  lockToken: string;
+  result: JobResult;
+  refreshLock?: boolean;
+  nowMs?: number;
+}): Promise<PipelineJob> {
+  const { databases, databaseId, jobsCollection } = createWorkerAppwrite();
+  const currentDoc = await databases.getDocument(databaseId, jobsCollection, params.jobId);
+  const current = mapJobDocument(currentDoc);
+  assertJobLockHeld(current, params.lockToken, "complete");
+  if (current.status !== "running") {
+    throw new JobLockMismatchError("Cannot patch result unless job is running");
+  }
+  const bag = parsePayloadBag(currentDoc.payload);
+  const { input_hash: _a, artifact_hash: _b, last_error: _c, result: _d, ...extra } = bag;
+  const nowIso = new Date(params.nowMs ?? Date.now()).toISOString();
+  const patch: Record<string, unknown> = {
+    payload: buildPayloadString(
+      {
+        inputHash: current.inputHash,
+        artifactHash: current.artifactHash,
+        lastError: current.lastError,
+        result: params.result
+      },
+      extra
+    )
+  };
+  if (params.refreshLock) {
+    patch.locked_at = nowIso;
+  }
+  await databases.updateDocument(databaseId, jobsCollection, params.jobId, patch);
+  const refreshed = mapJobDocument(
+    await databases.getDocument(databaseId, jobsCollection, params.jobId)
+  );
+  if (refreshed.lockToken !== params.lockToken || refreshed.status !== "running") {
+    throw new JobLockMismatchError("Progress patch lost race after write");
+  }
+  return refreshed;
+}
+
 export async function failJob(params: {
   jobId: string;
   lockToken: string;
@@ -295,7 +341,7 @@ export async function downloadAssetFile(fileId: string): Promise<Uint8Array | nu
 
 export async function getProjectRecord(projectId: string): Promise<{
   sourceImagePath: string | null;
-  mode: "popout" | "gallery" | "upload";
+  mode: "popout" | "gallery" | "upload" | "figurine_3d";
   slug: string;
   settings: import("@kidar/core").ProjectSettings;
   settingsRaw: string;
@@ -318,7 +364,12 @@ export async function getProjectRecord(projectId: string): Promise<{
   }
   const modeRaw = String(data.mode ?? "popout");
   const mode =
-    modeRaw === "gallery" || modeRaw === "upload" || modeRaw === "popout" ? modeRaw : "popout";
+    modeRaw === "gallery" ||
+    modeRaw === "upload" ||
+    modeRaw === "popout" ||
+    modeRaw === "figurine_3d"
+      ? modeRaw
+      : "popout";
   return {
     sourceImagePath: (data.source_image_path as string | null) ?? null,
     mode,

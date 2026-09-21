@@ -1,7 +1,17 @@
 import type { SilhouetteStats } from "./sticker-geometry";
 
 /** Keep in sync with hash.ts popoutPipelineVersion (avoid node:crypto in client barrel). */
-export const POPOUT_PIPELINE_VERSION = "popout-uv-v2";
+export const POPOUT_PIPELINE_VERSION = "popout-layers-v4";
+
+/** Default extrusion relative to POPOUT_SHAPE_SCALE silhouette. */
+export const POPOUT_EXTRUDE = {
+  depth: 0.1,
+  bevelEnabled: true,
+  bevelThickness: 0.012,
+  bevelSize: 0.008,
+  bevelSegments: 3,
+  curveSegments: 8
+} as const;
 
 export const POPOUT_COVERAGE_REJECT = 0.9;
 export const POPOUT_ARTIFACT_KIND = "popout.glb";

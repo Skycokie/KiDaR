@@ -90,7 +90,7 @@ describe("canonical input hashing", () => {
     expect(JSON.stringify(doc)).not.toMatch(/secret|password|signed/i);
   });
 
-  it("includes popout-uv-v2 only for pop-out mode and invalidates that hash", () => {
+  it("includes popout-layers-v4 only for pop-out mode and invalidates that hash", () => {
     const popout = buildPipelineInputDocument({
       projectId: "p1",
       mode: "popout",

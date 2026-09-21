@@ -137,7 +137,13 @@ export async function runPageRenderStage(
           "popout_build",
           dependsOn.popout_build || dependsOn.mind_compile
         )
-      : project.settings.galleryModelUrl || project.settings.uploadModelUrl,
+      : project.mode === "figurine_3d"
+        ? publicUrlFromJob(
+            siblings,
+            "figurine_build",
+            dependsOn.figurine_build || dependsOn.mind_compile
+          )
+        : project.settings.galleryModelUrl || project.settings.uploadModelUrl,
     { allowLocalOrigins: deps.allowLocalOrigins }
   );
 

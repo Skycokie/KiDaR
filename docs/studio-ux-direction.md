@@ -13,12 +13,12 @@ kidAR is a premium creative tool that turns drawings, illustrated pages, photos,
 **Primary promise (RO, user-facing):**
 
 ```text
-Încarcă un desen.
+Adaugă o poză.
 Alege ce prinde viață.
 Scanează și vezi magia în AR.
 ```
 
-**Design thesis:** a calm cinematic atelier where a drawing becomes the entrance to a living world — not a dashboard for managing files. Composition first (space, crop, rhythm, one memorable scene), then tools.
+**Design thesis:** a calm cinematic atelier where a photo or drawing becomes the entrance to a living world — not a dashboard for managing files. Composition first (space, crop, rhythm, one memorable scene), then tools.
 
 **Rejected visual model (explicit):**
 
@@ -188,7 +188,7 @@ Never surface private storage paths, bucket IDs, content hashes, or worker job I
 5. **Handmade visuals** — paper grain, pencil lines, cut-outs; no generic mascot blob.
 6. **Asymmetry in galleries** — portrait / panorama / square posters; masonry in library.
 7. **Motion with purpose** — sparse drift/parallax; honor `prefers-reduced-motion`.
-8. **Jargon firewall** — user words: desen, lume, personaj, sunet, previzualizare, publică.
+8. **Jargon firewall** — user words: poză, lume, personaj, sunet, previzualizare, publică. Keep „desen” only for artistic/handmade sense (ex. „un desen colorat”).
 
 ### Palette proposal (CSS tokens)
 
@@ -302,6 +302,8 @@ User-facing options:
 - Use a scene preset → library
 
 **Rules:** no fake APIs, fake completed jobs, fake credits, or production claims that generation works.
+
+**Product split (Go A + Go C, 2026-09-21):** **Pop-out din desen** (shipped) vs **Figurină 3D** (`figurine_3d` + Tripo `figurine_build`) — see [creaza-redesign-direction.md](./creaza-redesign-direction.md) §16 and [figurine-3d-runbook.md](./figurine-3d-runbook.md).
 
 ---
 

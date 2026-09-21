@@ -2,10 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import type { ProjectSettings, SilhouetteStats } from "@kidar/core";
+import {
+  FIGURINE_DISCLOSURE_RO,
+  type ProjectSettings,
+  type SilhouetteStats
+} from "@kidar/core";
 import { ThreePreview } from "./three-preview";
 
-type Mode = "popout" | "gallery" | "upload";
+type Mode = "popout" | "gallery" | "upload" | "figurine_3d";
 type ProjectRecord = {
   id: string;
   name: string;
@@ -15,6 +19,21 @@ type ProjectRecord = {
   settings: ProjectSettings;
 };
 type GalleryModel = { id: string; name: string; thumbnailUrl: string | null; glbUrl: string | null };
+
+type FigurineStatusResponse = {
+  availability: { available: boolean; reason: string; message: string };
+  disclosure: string;
+  figurineModelUrl: string | null;
+  job: {
+    id: string;
+    status: string;
+    phase?: string;
+    progress: number;
+    label: string;
+    publicUrl: string | null;
+    failureMessage?: string | null;
+  } | null;
+};
 
 const defaultSettings: ProjectSettings = {
   title: "",
@@ -41,6 +60,7 @@ export function StudioClient({
     ...initialProject.settings,
     offset: { ...defaultSettings.offset, ...initialProject.settings?.offset },
     galleryModelUrl: initialProject.settings?.galleryModelUrl ?? undefined,
+    figurineModelUrl: initialProject.settings?.figurineModelUrl ?? undefined,
     uploadModelUrl: assetUrls.uploadModelUrl ?? initialProject.settings?.uploadModelUrl,
     logoPath: initialProject.settings?.logoPath,
     soundPath: initialProject.settings?.soundPath
@@ -52,6 +72,17 @@ export function StudioClient({
   const [galleryQuery, setGalleryQuery] = useState("");
   const [galleryModels, setGalleryModels] = useState<GalleryModel[]>([]);
   const [searchingGallery, setSearchingGallery] = useState(false);
+  const [figurineStatus, setFigurineStatus] = useState<FigurineStatusResponse | null>(null);
+  const [figurineStatusLoading, setFigurineStatusLoading] = useState(true);
+  const [figurineBusy, setFigurineBusy] = useState(false);
+  const [featureEnabled, setFeatureEnabled] = useState<boolean | null>(null);
+  const [lifeChoice, setLifeChoice] = useState<"popout" | "figurine_3d" | null>(
+    initialProject.mode === "figurine_3d"
+      ? "figurine_3d"
+      : initialProject.mode === "popout"
+        ? "popout"
+        : null
+  );
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSettings = useRef(settings);
   const handlePopoutStats = useCallback((stats: SilhouetteStats) => {
@@ -102,6 +133,140 @@ export function StudioClient({
     }, 2000);
     return () => clearInterval(timer);
   }, [project.id, project.status]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setFigurineStatusLoading(true);
+      try {
+        const [featureRes, statusRes] = await Promise.all([
+          fetch("/api/features/figurine-3d"),
+          fetch(`/api/projects/${project.id}/figurine`)
+        ]);
+        if (cancelled) return;
+        if (featureRes.ok) {
+          const featureBody = (await featureRes.json()) as {
+            enabled?: boolean;
+            available?: boolean;
+          };
+          setFeatureEnabled(Boolean(featureBody.enabled && featureBody.available));
+        } else {
+          setFeatureEnabled(false);
+        }
+        if (statusRes.ok) {
+          const body = (await statusRes.json()) as FigurineStatusResponse;
+          setFigurineStatus(body);
+          if (body.figurineModelUrl) {
+            setSettings((current) => {
+              const next = { ...current, figurineModelUrl: body.figurineModelUrl ?? undefined };
+              pendingSettings.current = next;
+              return next;
+            });
+          }
+        }
+      } finally {
+        if (!cancelled) setFigurineStatusLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [project.id]);
+
+  useEffect(() => {
+    if (mode !== "figurine_3d" && lifeChoice !== "figurine_3d") return;
+    let cancelled = false;
+    const poll = async () => {
+      const response = await fetch(`/api/projects/${project.id}/figurine`);
+      if (!response.ok || cancelled) return;
+      const body = (await response.json()) as FigurineStatusResponse;
+      if (cancelled) return;
+      setFigurineStatus(body);
+      setFigurineStatusLoading(false);
+      if (body.figurineModelUrl) {
+        setSettings((current) => {
+          const next = { ...current, figurineModelUrl: body.figurineModelUrl ?? undefined };
+          pendingSettings.current = next;
+          return next;
+        });
+      }
+    };
+    void poll();
+    const timer = setInterval(() => void poll(), 2500);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [mode, lifeChoice, project.id, project.status]);
+
+  const hasIsolatedSource = Boolean(sourceUrl);
+  const figurineCard = useMemo(() => {
+    if (figurineStatusLoading || featureEnabled === null) {
+      return {
+        disabled: true,
+        message: "Se verifică disponibilitatea…"
+      };
+    }
+    if (!featureEnabled) {
+      return {
+        disabled: true,
+        message: "În curând"
+      };
+    }
+    if (!hasIsolatedSource) {
+      return {
+        disabled: true,
+        message:
+          "Pentru Figurină 3D, alege sau decupează un singur personaj, animal ori obiect."
+      };
+    }
+    if (figurineStatus && !figurineStatus.availability.available) {
+      return {
+        disabled: mode !== "figurine_3d",
+        message: figurineStatus.availability.message
+      };
+    }
+    return { disabled: false, message: "" };
+  }, [
+    figurineStatusLoading,
+    featureEnabled,
+    hasIsolatedSource,
+    figurineStatus,
+    mode
+  ]);
+  async function startFigurine() {
+    setFigurineBusy(true);
+    setNotice("");
+    try {
+      const response = await fetch(`/api/projects/${project.id}/figurine`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ confirm: true })
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        setNotice(body.message ?? body.error ?? "Nu am putut porni Figurină 3D.");
+        return;
+      }
+      setMode("figurine_3d");
+      setLifeChoice("figurine_3d");
+      setProject((current) => ({ ...current, mode: "figurine_3d", status: "processing" }));
+      setNotice(body.label ?? "În pregătire");
+    } finally {
+      setFigurineBusy(false);
+    }
+  }
+
+  async function choosePopout() {
+    setLifeChoice("popout");
+    setMode("popout");
+    await fetch(`/api/projects/${project.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ mode: "popout" })
+    });
+  }
 
   useEffect(() => {
     if (!galleryQuery.trim()) {
@@ -246,15 +411,93 @@ export function StudioClient({
           </details>
 
           <details open>
+            <summary>Cum vrei să prindă viață?</summary>
+            <div className="life-choice" style={{ display: "grid", gap: 10 }}>
+              <button
+                type="button"
+                aria-pressed={lifeChoice === "popout" || mode === "popout"}
+                onClick={() => void choosePopout()}
+                style={{ textAlign: "left", padding: 12 }}
+              >
+                <strong>Pop-out din desen</strong>
+                <br />
+                Relief rapid, fidel desenului tău.
+              </button>
+              <button
+                type="button"
+                aria-pressed={lifeChoice === "figurine_3d" || mode === "figurine_3d"}
+                disabled={figurineCard.disabled}
+                onClick={() => {
+                  if (figurineCard.disabled) return;
+                  setLifeChoice("figurine_3d");
+                }}
+                style={{ textAlign: "left", padding: 12 }}
+              >
+                <strong>Figurină 3D</strong>
+                <br />
+                Personaje ilustrate care pot fi privite din toate părțile.
+                {figurineCard.message ? <p role="status">{figurineCard.message}</p> : null}
+              </button>
+            </div>
+            {(lifeChoice === "figurine_3d" || mode === "figurine_3d") && (
+              <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+                <p>{FIGURINE_DISCLOSURE_RO}</p>
+                {sourceUrl ? (
+                  <p>
+                    Sursă selectată: <img src={sourceUrl} alt="" style={{ maxHeight: 48, verticalAlign: "middle" }} />{" "}
+                    personaj izolat
+                  </p>
+                ) : (
+                  <p>
+                    Pentru Figurină 3D, alege sau decupează un singur personaj, animal ori obiect.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  disabled={
+                    figurineBusy ||
+                    figurineCard.disabled ||
+                    !sourceUrl ||
+                    (figurineStatus !== null && !figurineStatus.availability.available)
+                  }
+                  onClick={() => void startFigurine()}
+                >
+                  Generează Figurină 3D
+                </button>
+                {figurineStatus?.job ? (
+                  <p role="status">
+                    {figurineStatus.job.label}
+                    {figurineStatus.job.progress > 0 ? ` · ${figurineStatus.job.progress}%` : ""}
+                  </p>
+                ) : null}
+                {figurineStatus?.job?.status === "error" ||
+                figurineStatus?.job?.phase === "failed" ? (
+                  <div>
+                    <p role="alert">
+                      {figurineStatus.job.failureMessage ?? "Nu am reușit să generăm figurina"}
+                    </p>
+                    <button type="button" onClick={() => void choosePopout()}>
+                      Încearcă Pop-out din desen
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </details>
+
+          <details open>
             <summary>3D Mode</summary>
             <div className="segmented">
-              {(["popout", "gallery", "upload"] as const).map((nextMode) => (
+              {(["popout", "gallery", "upload", "figurine_3d"] as const).map((nextMode) => (
                 <button
                   key={nextMode}
                   type="button"
                   aria-pressed={mode === nextMode}
                   onClick={() => {
                     setMode(nextMode);
+                    if (nextMode === "popout" || nextMode === "figurine_3d") {
+                      setLifeChoice(nextMode);
+                    }
                     void fetch(`/api/projects/${project.id}`, {
                       method: "PATCH",
                       headers: { "content-type": "application/json" },
@@ -262,7 +505,11 @@ export function StudioClient({
                     });
                   }}
                 >
-                  {nextMode === "popout" ? "Pop-out" : nextMode[0].toUpperCase() + nextMode.slice(1)}
+                  {nextMode === "popout"
+                    ? "Pop-out"
+                    : nextMode === "figurine_3d"
+                      ? "Figurină 3D"
+                      : nextMode[0].toUpperCase() + nextMode.slice(1)}
                 </button>
               ))}
             </div>

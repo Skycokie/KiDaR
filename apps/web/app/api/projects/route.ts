@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as {
     name?: string;
-    mode?: "popout" | "gallery" | "upload";
+    mode?: "popout" | "gallery" | "upload" | "figurine_3d";
     settings?: { preset?: "coloring" | "story" | "mission" | "studio" };
   };
   const name = body.name?.trim();

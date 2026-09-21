@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { buildMindCompileInputDocument, type MindCompileInputParts } from "./mind";
 import { POPOUT_PIPELINE_VERSION } from "./popout";
+import { FIGURINE_PIPELINE_VERSION } from "./figurine";
 import { AR_PAGE_TEMPLATE_VERSION } from "./templates/ar-page";
 import { PAGE_RENDER_PIPELINE_VERSION } from "./page-render";
 import { PRINT_PIPELINE_VERSION } from "./print/pdf";
@@ -22,6 +23,7 @@ export interface HashableProjectSettings {
   ctaText?: string;
   ctaUrl?: string;
   galleryModelUrl?: string;
+  figurineModelUrl?: string;
   uploadModelPath?: string;
   logoPath?: string;
   soundPath?: string;
@@ -77,7 +79,7 @@ export interface SourceInputRef {
 
 export interface PipelineInputParts {
   projectId: string;
-  mode: "popout" | "gallery" | "upload";
+  mode: "popout" | "gallery" | "upload" | "figurine_3d";
   source: SourceInputRef | null;
   settings: HashableProjectSettings;
   /** Optional extra transform knobs that affect artifacts. */
@@ -100,6 +102,7 @@ export function buildPipelineInputDocument(parts: PipelineInputParts): Record<st
     pipelineVersion: parts.pipelineVersion ?? PIPELINE_INPUT_VERSION,
     // Pop-out UV pipeline only. Gallery/mind hashes stay null so MindAR is not rebuilt.
     popoutPipelineVersion: parts.mode === "popout" ? POPOUT_PIPELINE_VERSION : null,
+    figurinePipelineVersion: parts.mode === "figurine_3d" ? FIGURINE_PIPELINE_VERSION : null,
     projectId: parts.projectId,
     mode: parts.mode,
     source: parts.source
@@ -117,6 +120,7 @@ export function buildPipelineInputDocument(parts: PipelineInputParts): Record<st
       soundPath: settings.soundPath ?? null,
       uploadModelPath: settings.uploadModelPath ?? null,
       galleryModelUrl: settings.galleryModelUrl ?? null,
+      figurineModelUrl: settings.figurineModelUrl ?? null,
       scale: settings.scale,
       offset: {
         x: settings.offset.x,

@@ -5,16 +5,22 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
+  POPOUT_EXTRUDE,
   POPOUT_SHAPE_SCALE,
   alphaMaskFromRgba,
+  assignPopoutDepthLayers,
+  buildEdgeStripRgba,
   extractSilhouettePolygons,
   getSilhouetteStats,
+  medianRgb,
   popoutCapUv,
+  rgbToHex,
+  sampleInwardEdgeColors,
   type StickerPolygon
 } from "@kidar/core";
 import type { ProjectSettings } from "@kidar/core";
 
-type PreviewMode = "popout" | "gallery" | "upload";
+type PreviewMode = "popout" | "gallery" | "upload" | "figurine_3d";
 
 async function createCutout(sourceUrl: string) {
   // Pin WASM to an absolute CDN prefix so Next's RelativeURL shim never sees
@@ -49,35 +55,82 @@ async function createCutout(sourceUrl: string) {
 
   const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
   const mask = alphaMaskFromRgba(canvas.width, canvas.height, imageData.data);
+  // Finer contours + slightly stronger cleanup help separate weakly-touching subjects.
   const polygons = extractSilhouettePolygons(mask, {
-    cleanupRadius: Math.max(1, Math.round(Math.min(canvas.width, canvas.height) / 800)),
-    simplifyEpsilon: 0.006,
-    minComponentPixels: Math.max(12, Math.floor(canvas.width * canvas.height * 0.00015))
+    cleanupRadius: Math.max(1, Math.round(Math.min(canvas.width, canvas.height) / 700)),
+    simplifyEpsilon: 0.0035,
+    minComponentPixels: Math.max(10, Math.floor(canvas.width * canvas.height * 0.00012))
   });
   if (!polygons.length) throw new Error("No foreground silhouette was detected");
   const stats = getSilhouetteStats(mask, polygons);
   if (stats.coverage >= 0.9) {
     throw new Error("Foreground mask covers almost the whole image; refusing full-rectangle extrusion");
   }
-  return { canvas, polygons, stats };
+  return { canvas, imageData, polygons, stats };
 }
 
-/** Image-space UVs must be written before geometry.center() mutates XY. */
-function applyCutoutUvs(geometry: THREE.BufferGeometry) {
+/** Cap UVs only — leave ExtrudeGeometry side UVs for the edge strip. */
+function applyCapUvs(geometry: THREE.BufferGeometry) {
   const position = geometry.getAttribute("position");
   const uv = geometry.getAttribute("uv");
   if (!position || !uv) return;
-  for (let i = 0; i < position.count; i += 1) {
-    const mapped = popoutCapUv(position.getX(i), position.getY(i));
-    uv.setXY(i, mapped.u, mapped.v);
+  const groups = geometry.groups.length
+    ? geometry.groups
+    : [{ start: 0, count: geometry.index?.count ?? position.count, materialIndex: 0 }];
+  const index = geometry.getIndex();
+
+  for (const group of groups) {
+    if (group.materialIndex !== 0) continue;
+    const seen = new Set<number>();
+    if (index) {
+      for (let i = group.start; i < group.start + group.count; i += 1) {
+        const vertex = index.getX(i);
+        if (seen.has(vertex)) continue;
+        seen.add(vertex);
+        const mapped = popoutCapUv(position.getX(vertex), position.getY(vertex));
+        uv.setXY(vertex, mapped.u, mapped.v);
+      }
+    } else {
+      for (let i = group.start; i < group.start + group.count; i += 1) {
+        if (seen.has(i)) continue;
+        seen.add(i);
+        const mapped = popoutCapUv(position.getX(i), position.getY(i));
+        uv.setXY(i, mapped.u, mapped.v);
+      }
+    }
   }
   uv.needsUpdate = true;
 }
 
+function edgeTextureFromPolygon(
+  polygon: StickerPolygon,
+  width: number,
+  height: number,
+  rgba: Uint8ClampedArray
+): { texture: THREE.DataTexture; fallbackHex: string } {
+  const colors = sampleInwardEdgeColors(width, height, rgba, polygon.points, {
+    inwardPx: Math.max(3, Math.round(Math.min(width, height) / 180)),
+    maxSamples: 160
+  });
+  const fallbackHex = rgbToHex(medianRgb(colors));
+  const strip = buildEdgeStripRgba(colors.length ? colors : [medianRgb([])], 8);
+  const texture = new THREE.DataTexture(strip.data, strip.width, strip.height, THREE.RGBAFormat);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearFilter;
+  texture.needsUpdate = true;
+  return { texture, fallbackHex };
+}
+
 function makeExtrudedSticker(
   polygon: StickerPolygon,
-  texture: THREE.CanvasTexture,
-  accent: string
+  faceTexture: THREE.CanvasTexture,
+  width: number,
+  height: number,
+  rgba: Uint8ClampedArray,
+  zOffset = 0
 ) {
   const shape = new THREE.Shape();
   polygon.points.forEach((point, index) => {
@@ -88,28 +141,26 @@ function makeExtrudedSticker(
   });
   shape.closePath();
 
-  const geometry = new THREE.ExtrudeGeometry(shape, {
-    depth: 0.16,
-    bevelEnabled: true,
-    bevelSegments: 4,
-    bevelSize: 0.035,
-    bevelThickness: 0.04,
-    curveSegments: 4
-  });
-  applyCutoutUvs(geometry);
+  const geometry = new THREE.ExtrudeGeometry(shape, { ...POPOUT_EXTRUDE });
+  applyCapUvs(geometry);
+  geometry.computeVertexNormals();
   geometry.center();
+  if (zOffset !== 0) geometry.translate(0, 0, zOffset);
+
+  const { texture: edgeMap, fallbackHex } = edgeTextureFromPolygon(polygon, width, height, rgba);
 
   const front = new THREE.MeshStandardMaterial({
-    map: texture,
+    map: faceTexture,
     transparent: true,
     alphaTest: 0.04,
-    roughness: 0.52,
-    metalness: 0.02
+    roughness: 0.55,
+    metalness: 0
   });
   const side = new THREE.MeshStandardMaterial({
-    color: accent,
-    roughness: 0.48,
-    metalness: 0.02
+    map: edgeMap,
+    color: fallbackHex,
+    roughness: 0.7,
+    metalness: 0
   });
   const mesh = new THREE.Mesh(geometry, [front, side]);
   mesh.castShadow = true;
@@ -138,15 +189,38 @@ export function ThreePreview({
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(35, 1, 0.01, 100);
-    camera.position.set(0, 0.2, 4.5);
+    // ~30° side / ~18° above so thickness reads immediately.
+    camera.position.set(1.55, 1.05, 3.35);
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     mount.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.target.set(0, 0, 0);
-    scene.add(new THREE.HemisphereLight("#ffffff", "#aaa0c7", 2));
+    controls.target.set(0, 0.05, 0);
+    controls.update();
+
+    const hemi = new THREE.HemisphereLight("#fff8f0", "#3d3830", 0.55);
+    scene.add(hemi);
+    const key = new THREE.DirectionalLight("#fff4e6", 1.35);
+    key.position.set(2.4, 3.8, 2.8);
+    key.castShadow = true;
+    key.shadow.mapSize.set(1024, 1024);
+    scene.add(key);
+    const fill = new THREE.DirectionalLight("#d8e4ff", 0.35);
+    fill.position.set(-2.2, 1.2, 1.5);
+    scene.add(fill);
+
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(8, 8),
+      new THREE.ShadowMaterial({ opacity: 0.18 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -0.85;
+    ground.receiveShadow = true;
+    scene.add(ground);
 
     const root = new THREE.Group();
     root.position.set(settings.offset.x, settings.offset.y, settings.offset.z);
@@ -171,7 +245,7 @@ export function ThreePreview({
       setProcessing(true);
       setError(null);
       try {
-        const { canvas, polygons, stats } = await createCutout(sourceUrl);
+        const { canvas, imageData, polygons, stats } = await createCutout(sourceUrl);
         if (disposed) return;
         onPopoutStats?.(stats);
         const texture = new THREE.CanvasTexture(canvas);
@@ -179,8 +253,18 @@ export function ThreePreview({
         // Default flipY=true: v=0 is the canvas bottom. popoutCapUv uses the same
         // convention as glTF (v=0 = image bottom). Do not set flipY=false here.
         texture.flipY = true;
-        polygons.forEach((polygon) => {
-          root.add(makeExtrudedSticker(polygon, texture, settings.theme));
+        const layers = assignPopoutDepthLayers(polygons);
+        layers.forEach(({ polygon, z }) => {
+          root.add(
+            makeExtrudedSticker(
+              polygon,
+              texture,
+              canvas.width,
+              canvas.height,
+              imageData.data,
+              z
+            )
+          );
         });
         setProcessing(false);
       } catch (cause) {
@@ -192,15 +276,33 @@ export function ThreePreview({
     };
 
     const addModel = () => {
-      const modelUrl = mode === "gallery" ? settings.galleryModelUrl : settings.uploadModelUrl;
+      const modelUrl =
+        mode === "gallery"
+          ? settings.galleryModelUrl
+          : mode === "figurine_3d"
+            ? settings.figurineModelUrl
+            : settings.uploadModelUrl;
       if (!modelUrl) return;
       new GLTFLoader().load(
         modelUrl,
         (gltf) => {
           if (!disposed) {
-            gltf.scene.position.y = 0.25;
-            gltf.scene.scale.setScalar(0.8);
+            // Frame the figurine with a slight orbit so volume is visible.
+            const box = new THREE.Box3().setFromObject(gltf.scene);
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z, 0.01);
+            const scale = 1.6 / maxDim;
+            gltf.scene.scale.setScalar(scale);
+            box.setFromObject(gltf.scene);
+            const center = box.getCenter(new THREE.Vector3());
+            gltf.scene.position.sub(center);
+            gltf.scene.position.y += 0.2;
             root.add(gltf.scene);
+            if (mode === "figurine_3d") {
+              camera.position.set(2.2, 1.4, 2.4);
+              controls.target.set(0, 0.2, 0);
+              controls.update();
+            }
           }
         },
         undefined,
