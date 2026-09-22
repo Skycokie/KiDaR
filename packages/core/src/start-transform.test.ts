@@ -222,20 +222,21 @@ describe("page-only startTransform hash identity", () => {
       source,
       settings
     });
+    const posed: ProjectSettings = {
+      ...settings,
+      scene: {
+        startTransform: {
+          rotation: { x: 8, y: -32, z: 180 },
+          position: settings.offset,
+          scale: settings.scale
+        }
+      }
+    };
     const b = computeInputHash({
       projectId: "p1",
       mode: "popout",
       source,
-      settings: {
-        ...settings,
-        scene: {
-          startTransform: {
-            rotation: { x: 8, y: -32, z: 180 },
-            position: settings.offset,
-            scale: settings.scale
-          }
-        }
-      }
+      settings: posed
     });
     expect(a).toBe(b);
     expect(
