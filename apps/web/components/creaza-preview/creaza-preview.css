@@ -79,6 +79,17 @@
   text-transform: uppercase;
 }
 
+.site-header__actions .creaza-preview__badge {
+  display: none;
+}
+
+@media (min-width: 821px) {
+  .site-header__actions .creaza-preview__badge {
+    display: block;
+    margin-right: 0.35rem;
+  }
+}
+
 .creaza-preview__main {
   padding: 0.5rem var(--page-gutter) 4rem;
   max-width: 1100px;

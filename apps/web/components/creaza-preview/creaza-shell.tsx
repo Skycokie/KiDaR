@@ -51,6 +51,7 @@ import {
   pickFirstImageFile,
   type LocalSourceImage
 } from "./local-source";
+import { SiteHeader } from "@/components/site-nav";
 import { patchSceneMode } from "./save-scene";
 import { postSourceUpload } from "./upload-source";
 import "./creaza-preview.css";
@@ -241,12 +242,7 @@ export function CreazaPreviewShell() {
         Sari la conținut
       </a>
 
-      <header className="creaza-preview__top">
-        <a className="creaza-preview__brand" href="/studio">
-          kidAR
-        </a>
-        <p className="creaza-preview__badge">{COPY.previewBadge}</p>
-      </header>
+      <SiteHeader brandHref="/studio" trailing={<p className="creaza-preview__badge">{COPY.previewBadge}</p>} />
 
       <main id="creaza-preview-main" className="creaza-preview__main">
         <ol className="creaza-progress" aria-label={`Progres: pasul ${stepMeta.index} din ${TOTAL_STEPS}`}>
