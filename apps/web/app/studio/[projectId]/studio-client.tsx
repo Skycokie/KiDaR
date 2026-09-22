@@ -8,6 +8,7 @@ import {
   type SilhouetteStats
 } from "@kidar/core";
 import { ThreePreview } from "./three-preview";
+import "./studio-client.css";
 
 type Mode = "popout" | "gallery" | "upload" | "figurine_3d";
 type ProjectRecord = {
@@ -123,11 +124,36 @@ export function StudioClient({
       if (!response.ok) return;
       const body = (await response.json()) as { project: ProjectRecord };
       setProject(body.project);
-      setSettings((current) => ({
-        ...current,
-        ...body.project.settings,
-        offset: { ...current.offset, ...body.project.settings?.offset }
-      }));
+      setSettings((current) => {
+        const incoming = body.project.settings;
+        if (!incoming) return current;
+        const nextOffset = {
+          x: incoming.offset?.x ?? current.offset.x,
+          y: incoming.offset?.y ?? current.offset.y,
+          z: incoming.offset?.z ?? current.offset.z
+        };
+        const next = {
+          ...current,
+          ...incoming,
+          offset: nextOffset
+        };
+        // Skip identity churn when poll returns the same settings payload.
+        if (
+          next.scale === current.scale &&
+          next.figurineModelUrl === current.figurineModelUrl &&
+          next.galleryModelUrl === current.galleryModelUrl &&
+          next.uploadModelUrl === current.uploadModelUrl &&
+          nextOffset.x === current.offset.x &&
+          nextOffset.y === current.offset.y &&
+          nextOffset.z === current.offset.z &&
+          next.title === current.title &&
+          next.theme === current.theme
+        ) {
+          return current;
+        }
+        pendingSettings.current = next;
+        return next;
+      });
       if (body.project.status === "ready") setNotice("Publish ready.");
       if (body.project.status === "error") setNotice("Publish failed.");
     }, 2000);
@@ -158,6 +184,7 @@ export function StudioClient({
           setFigurineStatus(body);
           if (body.figurineModelUrl) {
             setSettings((current) => {
+              if (current.figurineModelUrl === body.figurineModelUrl) return current;
               const next = { ...current, figurineModelUrl: body.figurineModelUrl ?? undefined };
               pendingSettings.current = next;
               return next;
@@ -176,6 +203,15 @@ export function StudioClient({
 
   useEffect(() => {
     if (mode !== "figurine_3d" && lifeChoice !== "figurine_3d") return;
+
+    const jobFinished =
+      figurineStatus?.job?.status === "done" ||
+      figurineStatus?.job?.status === "error" ||
+      figurineStatus?.job?.phase === "ready" ||
+      figurineStatus?.job?.phase === "failed";
+    // Keep polling only while a build is in flight; ready/failed stop the 2.5s tick.
+    if (jobFinished) return;
+
     let cancelled = false;
     const poll = async () => {
       const response = await fetch(`/api/projects/${project.id}/figurine`);
@@ -186,6 +222,7 @@ export function StudioClient({
       setFigurineStatusLoading(false);
       if (body.figurineModelUrl) {
         setSettings((current) => {
+          if (current.figurineModelUrl === body.figurineModelUrl) return current;
           const next = { ...current, figurineModelUrl: body.figurineModelUrl ?? undefined };
           pendingSettings.current = next;
           return next;
@@ -198,7 +235,7 @@ export function StudioClient({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [mode, lifeChoice, project.id, project.status]);
+  }, [mode, lifeChoice, project.id, project.status, figurineStatus?.job?.status, figurineStatus?.job?.phase]);
 
   const hasIsolatedSource = Boolean(sourceUrl);
   const figurineCard = useMemo(() => {
@@ -363,31 +400,16 @@ export function StudioClient({
 
   return (
     <main className="studio-shell">
-      <style>{`
-        .studio-shell { min-height: 100vh; padding: 20px; background: #faf9ff; }
-        .studio-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 420px); gap: 20px; max-width: 1440px; margin: 0 auto; }
-        .preview-panel { min-height: 80vh; border-radius: 20px; overflow: hidden; background: #f4f1ff; position: sticky; top: 20px; }
-        .inspector { display: grid; gap: 12px; align-content: start; }
-        .inspector details { background: white; border: 1px solid #e5e1f2; border-radius: 12px; padding: 14px; }
-        .inspector details[open] summary { margin-bottom: 12px; }
-        .inspector summary { cursor: pointer; font-weight: 700; }
-        .control { display: grid; gap: 6px; margin-top: 10px; }
-        .control input, .control textarea, .control select { width: 100%; box-sizing: border-box; padding: 8px; }
-        .segmented { display: flex; gap: 6px; flex-wrap: wrap; }
-        .segmented button[aria-pressed="true"] { background: #6d5dfc; color: white; }
-        .dropzone { border: 1px dashed #8d83c7; padding: 18px; border-radius: 10px; cursor: pointer; text-align: center; }
-        .model-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
-        .model-grid button { text-align: left; padding: 6px; }
-        .model-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; }
-        @media (max-width: 800px) { .studio-grid { grid-template-columns: 1fr; } .preview-panel { min-height: 55vh; position: relative; top: 0; } }
-      `}</style>
       <header>
         <p><a href="/dashboard">← Dashboard</a></p>
         <h1>{project.name}</h1>
         <p>/{project.slug} · {lastSaved}</p>
       </header>
       <div className="studio-grid">
-        <section className="preview-panel" aria-label="AR preview">
+        <section
+          className={`preview-panel${mode === "figurine_3d" ? " preview-panel--figurine" : ""}`}
+          aria-label="AR preview"
+        >
           <ThreePreview
             sourceUrl={sourceUrl}
             mode={mode}
