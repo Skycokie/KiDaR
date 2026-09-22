@@ -1,11 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { Client, Account } from "node-appwrite";
-import {
-  APPWRITE_ENDPOINT,
-  APPWRITE_PROJECT_ID,
-  SESSION_COOKIE
-} from "@/lib/appwrite/config";
+import { createAdminClient } from "@/lib/appwrite/client";
+import { SESSION_COOKIE } from "@/lib/appwrite/config";
 import { ensureProfile } from "@/lib/appwrite/db";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +27,7 @@ function htmlPage(title: string, body: string) {
       appearance: none; border: 0; background: #5b4fe0; color: #fff;
       font: inherit; padding: 0.75rem 1.25rem; border-radius: 999px; cursor: pointer;
     }
+    small { color: #5c5668; }
   </style>
 </head>
 <body>${body}</body>
@@ -59,9 +56,9 @@ function resolveNextPath(requestUrl: URL) {
 }
 
 /**
- * Magic-URL secrets are one-shot. Many email clients / link scanners issue a GET
- * prefetch that would burn the token before the human clicks. GET therefore only
- * shows a confirm button; the real exchange happens on POST.
+ * Magic-URL secrets are one-shot. Email scanners prefetch GET; we only exchange
+ * the token on POST (human confirm). Use the admin Appwrite client for SSR
+ * session minting — bare project clients fail createSession on the server.
  */
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -108,7 +105,10 @@ export async function POST(request: Request) {
   const secret = String(form.get("secret") ?? "").trim();
   const nextFromForm = String(form.get("next") ?? "");
   const nextCookie = cookies().get("kidar_next")?.value;
-  const nextPath = wantsCreaza(nextCookie, nextFromForm === "/creaza" ? "/creaza" : null)
+  const nextPath = wantsCreaza(
+    nextCookie,
+    nextFromForm === "/creaza" ? "/creaza" : null
+  )
     ? "/creaza"
     : "/studio";
   const destination = new URL(nextPath, origin).toString();
@@ -130,10 +130,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Exchange without API key — magic URL session is a client auth flow.
-    const client = new Client().setEndpoint(APPWRITE_ENDPOINT).setProject(APPWRITE_PROJECT_ID);
-    const account = new Account(client);
-    const session = await account.createSession(userId, secret);
+    const { account } = createAdminClient();
+    // Prefer the dedicated magic-URL route; fall back to generic token session.
+    let session;
+    try {
+      session = await account.updateMagicURLSession({ userId, secret });
+    } catch {
+      session = await account.createSession({ userId, secret });
+    }
 
     const response = NextResponse.redirect(destination, 303);
     response.cookies.set(SESSION_COOKIE, session.secret, {
@@ -150,15 +154,20 @@ export async function POST(request: Request) {
     }
     return response;
   } catch (cause) {
-    const detail =
-      process.env.NODE_ENV !== "production" && cause instanceof Error
-        ? `<p><small>${escapeHtml(cause.message)}</small></p>`
+    const message = cause instanceof Error ? cause.message : "Eroare necunoscută";
+    const type =
+      cause && typeof cause === "object" && "type" in cause
+        ? String((cause as { type?: string }).type ?? "")
         : "";
+    const hint = type.includes("user_invalid_token") || /invalid|expired|used/i.test(message)
+      ? "Linkul a fost deja folosit sau a expirat. Cere unul nou și apasă <strong>Intră în KIDAR</strong> o singură dată, din cel mai recent email."
+      : "Nu am putut deschide sesiunea. Cere o legătură nouă și încearcă din nou.";
+
     return htmlResponse(
       htmlPage(
         "Link expirat",
-        `<p>Linkul a expirat sau a fost deja folosit.</p>
-${detail}
+        `<p>${hint}</p>
+<p><small>${escapeHtml(type || message)}</small></p>
 <p><a href="${intra}">Cere o legătură nouă</a></p>`
       ),
       401
