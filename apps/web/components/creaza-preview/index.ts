@@ -1,1 +1,1 @@
-export { CreazaPreviewShell } from "./creaza-shell";
+export { CreazaPreviewShell, CreazaPreviewShell as CreazaShell } from "./creaza-shell";

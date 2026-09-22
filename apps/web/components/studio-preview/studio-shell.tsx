@@ -120,16 +120,16 @@ export function StudioShell({
               <div className="atelier-hero__copy">
                 <p className="atelier-kicker">Atelier</p>
                 <h1 id="atelier-title" className="atelier-title">
-                  Orice desen poate
+                  Orice poză poate
                   <br />
                   deveni o lume.
                 </h1>
                 <p className="atelier-lead">
-                  Încarcă un desen, alege ce prinde viață și vezi-l în AR.
+                  Adaugă o poză, alege ce prinde viață și vezi-l în AR.
                 </p>
                 <div className="atelier-actions">
                   <a className="atelier-cta" href={createHref}>
-                    Începe cu un desen
+                    Începe cu o poză
                   </a>
                   <button type="button" className="atelier-secondary" onClick={() => go("worlds")}>
                     Vezi lumile tale →
@@ -137,7 +137,7 @@ export function StudioShell({
                 </div>
                 <ol className="atelier-steps" aria-label="Cum începe">
                   <li>
-                    <span>01</span> Desenul tău
+                    <span>01</span> Poza ta
                   </li>
                   <li>
                     <span>02</span> Lumea ta
@@ -220,7 +220,7 @@ function WorldsGallery({
       <div className="worlds__intro">
         <div>
           <h2 id="worlds-title">Lumile tale</h2>
-          <p>Nu o listă de fișiere — afișe, coperți, postere din desenele tale.</p>
+          <p>Nu o listă de fișiere — afișe, coperți, postere din pozele tale.</p>
         </div>
         <a className="atelier-secondary" href={createHref}>
           Începe o lume nouă →
@@ -245,9 +245,9 @@ function WorldsGallery({
       {result.kind === "live" && worlds.length === 0 ? (
         <div className="worlds__empty">
           <p className="worlds__empty-title">Nicio lume încă.</p>
-          <p>Începe cu un desen — aici va apărea ca un afiș, nu ca un fișier.</p>
+          <p>Începe cu o poză — aici va apărea ca un afiș, nu ca un fișier.</p>
           <a className="atelier-cta" href={createHref}>
-            Începe cu un desen
+            Începe cu o poză
           </a>
         </div>
       ) : null}
@@ -307,7 +307,7 @@ function WorldsGallery({
           })}
 
           <blockquote className="world-quote">
-            <p>„Desenul devine poartă.”</p>
+            <p>„Poza devine poartă.”</p>
           </blockquote>
         </div>
       )}
@@ -374,7 +374,7 @@ function CreateView({ createHref }: { createHref: string }) {
           event.preventDefault();
         }}
       >
-        <label htmlFor="imagine-prompt">Imaginează ce apare din desen…</label>
+        <label htmlFor="imagine-prompt">Imaginează ce apare din poză…</label>
         <textarea
           id="imagine-prompt"
           name="prompt"

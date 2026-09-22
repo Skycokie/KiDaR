@@ -1,7 +1,11 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/appwrite/client";
-import { SESSION_COOKIE } from "@/lib/appwrite/config";
+import { Client, Account } from "node-appwrite";
+import {
+  APPWRITE_ENDPOINT,
+  APPWRITE_PROJECT_ID,
+  SESSION_COOKIE
+} from "@/lib/appwrite/config";
 import { ensureProfile } from "@/lib/appwrite/db";
 
 export const dynamic = "force-dynamic";
@@ -21,16 +25,21 @@ function htmlPage(title: string, body: string) {
     body { margin: 0; min-height: 100vh; background: #f7f4ee; color: #1b1726;
       font-family: system-ui, "Segoe UI", sans-serif; font-size: 1.125rem; line-height: 1.45;
       padding: 1.5rem; }
-    a { color: #5b4fe0; }
+    a, button { color: #5b4fe0; }
+    form { margin-top: 1rem; }
+    button {
+      appearance: none; border: 0; background: #5b4fe0; color: #fff;
+      font: inherit; padding: 0.75rem 1.25rem; border-radius: 999px; cursor: pointer;
+    }
   </style>
 </head>
 <body>${body}</body>
 </html>`;
 }
 
-function htmlResponse(html: string) {
+function htmlResponse(html: string, status = 200) {
   return new NextResponse(html, {
-    status: 200,
+    status,
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "private, no-store, max-age=0"
@@ -38,29 +47,75 @@ function htmlResponse(html: string) {
   });
 }
 
+function resolveOrigin(requestUrl: URL) {
+  return process.env.NEXT_PUBLIC_APP_URL ?? requestUrl.origin;
+}
+
+function resolveNextPath(requestUrl: URL) {
+  const nextCookie = cookies().get("kidar_next")?.value;
+  return wantsCreaza(nextCookie, requestUrl.searchParams.get("next"))
+    ? "/creaza"
+    : "/studio";
+}
+
+/**
+ * Magic-URL secrets are one-shot. Many email clients / link scanners issue a GET
+ * prefetch that would burn the token before the human clicks. GET therefore only
+ * shows a confirm button; the real exchange happens on POST.
+ */
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
-  const origin = process.env.NEXT_PUBLIC_APP_URL ?? requestUrl.origin;
+  const origin = resolveOrigin(requestUrl);
   const userId = requestUrl.searchParams.get("userId");
   const secret = requestUrl.searchParams.get("secret");
-  const nextCookie = cookies().get("kidar_next")?.value;
-  const nextPath = wantsCreaza(nextCookie, requestUrl.searchParams.get("next"))
-    ? "/creaza"
-    : "/dashboard";
-  const destination = new URL(nextPath, origin).toString();
+  const nextPath = resolveNextPath(requestUrl);
+  const intra = new URL("/intra", origin).toString();
 
-  const response = htmlResponse(
+  if (!userId || !secret) {
+    return htmlResponse(
+      htmlPage(
+        "Intră din nou",
+        `<p>Linkul de intrare lipsește sau e incomplet.</p>
+<p><a href="${intra}">Cere o legătură nouă</a></p>`
+      )
+    );
+  }
+
+  const safeUserId = escapeHtml(userId);
+  const safeSecret = escapeHtml(secret);
+  const safeNext = escapeHtml(nextPath);
+
+  return htmlResponse(
     htmlPage(
-      "Intrare…",
-      `<p>Te ducem mai departe…</p>
-<meta http-equiv="refresh" content="0;url=${destination}">
-<script>location.replace(${JSON.stringify(destination)});</script>
-<p><a href="${destination}">Continuă</a></p>`
+      "Confirmă intrarea",
+      `<p>Apasă butonul ca să intri în KIDAR. (Confirmarea oprește scanerele de email să consume linkul înaintea ta.)</p>
+<form method="post" action="/auth/callback">
+  <input type="hidden" name="userId" value="${safeUserId}">
+  <input type="hidden" name="secret" value="${safeSecret}">
+  <input type="hidden" name="next" value="${safeNext}">
+  <button type="submit">Intră în KIDAR</button>
+</form>
+<p><a href="${intra}">Cere o legătură nouă</a></p>`
     )
   );
+}
+
+export async function POST(request: Request) {
+  const requestUrl = new URL(request.url);
+  const origin = resolveOrigin(requestUrl);
+  const form = await request.formData();
+  const userId = String(form.get("userId") ?? "").trim();
+  const secret = String(form.get("secret") ?? "").trim();
+  const nextFromForm = String(form.get("next") ?? "");
+  const nextCookie = cookies().get("kidar_next")?.value;
+  const nextPath = wantsCreaza(nextCookie, nextFromForm === "/creaza" ? "/creaza" : null)
+    ? "/creaza"
+    : "/studio";
+  const destination = new URL(nextPath, origin).toString();
+  const intra = new URL("/intra", origin).toString();
 
   if (nextCookie) {
-    response.cookies.set("kidar_next", "", { path: "/", maxAge: 0 });
+    cookies().set("kidar_next", "", { path: "/", maxAge: 0 });
   }
 
   if (!userId || !secret) {
@@ -68,14 +123,19 @@ export async function GET(request: Request) {
       htmlPage(
         "Intră din nou",
         `<p>Linkul de intrare lipsește sau e incomplet.</p>
-<p><a href="${new URL("/intra", origin).toString()}">Cere o legătură nouă</a></p>`
-      )
+<p><a href="${intra}">Cere o legătură nouă</a></p>`
+      ),
+      400
     );
   }
 
   try {
-    const { account } = createAdminClient();
+    // Exchange without API key — magic URL session is a client auth flow.
+    const client = new Client().setEndpoint(APPWRITE_ENDPOINT).setProject(APPWRITE_PROJECT_ID);
+    const account = new Account(client);
     const session = await account.createSession(userId, secret);
+
+    const response = NextResponse.redirect(destination, 303);
     response.cookies.set(SESSION_COOKIE, session.secret, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -89,13 +149,28 @@ export async function GET(request: Request) {
       // Session is enough to enter; profile can be created on the next request.
     }
     return response;
-  } catch {
+  } catch (cause) {
+    const detail =
+      process.env.NODE_ENV !== "production" && cause instanceof Error
+        ? `<p><small>${escapeHtml(cause.message)}</small></p>`
+        : "";
     return htmlResponse(
       htmlPage(
         "Link expirat",
         `<p>Linkul a expirat sau a fost deja folosit.</p>
-<p><a href="${new URL("/intra", origin).toString()}">Cere o legătură nouă</a></p>`
-      )
+${detail}
+<p><a href="${intra}">Cere o legătură nouă</a></p>`
+      ),
+      401
     );
   }
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }

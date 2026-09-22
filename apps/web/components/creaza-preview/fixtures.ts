@@ -1,6 +1,6 @@
 /**
  * Isolated fixture data for `/creaza-preview` only.
- * Never calls Appwrite, R2, or `/api/*`.
+ * Create Go B may POST /api/projects; source upload and other writes stay blocked.
  */
 
 export type CreazaPreviewStep = "preset" | "foto" | "experienta" | "confirmare";
@@ -21,7 +21,7 @@ export const CREAZA_STEPS: {
   short: string;
 }[] = [
   { id: "preset", index: 1, label: "Punctul de pornire", short: "Pornire" },
-  { id: "foto", index: 2, label: "Desenul tău", short: "Desen" },
+  { id: "foto", index: 2, label: "Poza ta", short: "Poză" },
   { id: "experienta", index: 3, label: "Cum prinde viață", short: "Scenă" },
   { id: "confirmare", index: 4, label: "Lumea ta", short: "Lume" }
 ];
@@ -64,47 +64,50 @@ export const EXPERIENCE_DOORS = [
 ];
 
 export const FOTO_FIXTURE_LABELS: Record<FotoFixtureState, string> = {
-  empty: "Fără imagine",
+  empty: "Fără poză",
   "drag-over": "Drag-over",
-  selected: "Imagine selectată",
-  error: "Eroare validare",
+  selected: "Poză selectată",
+  error: "Poză invalidă",
   loading: "Se salvează… (mock)"
 };
 
 export const COPY = {
   brandKicker: "kidAR · Creează",
-  previewBadge: "Previzualizare — fără scrieri",
+  previewBadge: "Creează · 4 pași",
   preset: {
     title: "Cu ce începe lumea?",
-    lead: "Alegi un tip de desen. Apoi îl aduci pe masă și îi dai o scenă.",
-    cta: "Continuă cu desenul"
+    lead: "Alegi un tip de desen. Apoi aduci o poză pe masă și îi dai o scenă.",
+    cta: "Începe lumea",
+    ctaBusy: "Pregătim surpriza…"
   },
   foto: {
-    title: "Așază desenul pe masă",
+    title: "Așază poza pe masă",
     lead: "O fotografie clară a hârtiei. Fără ecrane, fără umbre grele.",
-    dropEmpty: "Așază fotografia aici",
+    dropEmpty: "Așază poza aici",
     dropHint: "JPG sau PNG · până la 10 MB",
-    dropSelected: "Desenul tău e pe masă",
+    dropSelected: "Poza ta e pe masă",
     dropError: "Putem folosi doar JPG sau PNG, până la 10 MB.",
-    dropLoading: "Pregătim desenul…",
+    dropLoading: "Salvăm poza…",
     tips: ["Fotografiați pagina întreagă", "Lumină blândă, fără flash puternic", "Nu fotografiați un ecran"],
-    cta: "Alege scena",
+    cta: "Salvează poza și continuă",
+    ctaBusy: "Salvăm poza…",
     back: "Înapoi"
   },
   experienta: {
     title: "Cum vrei să prindă viață?",
-    lead: "O alegere mare, nu un formular. Mai târziu legăm asta de salvarea existentă.",
-    cta: "Salvează alegerea",
-    back: "Înapoi la desen"
+    lead: "Alege scena pe această pagină. Se salvează pe lume doar când apeși butonul de mai jos.",
+    cta: "Salvează scena și continuă",
+    ctaBusy: "Salvăm scena…",
+    back: "Înapoi la poză"
   },
   confirmare: {
     title: "Lumea ta e pregătită să înceapă",
-    lead: "Am păstrat alegerea ta. Experiența AR live apare după fluxul real de creare — nu aici, în previzualizare.",
+    lead: "Am păstrat alegerea ta. Deschide Studio ca să continui lumea, sau începe alta.",
     summaryPreset: "Punct de pornire",
-    summaryFoto: "Desen",
+    summaryFoto: "Poză",
     summaryScene: "Scenă",
     again: "Începe altă lume",
-    atelier: "Înapoi la Atelier",
-    note: "Nimic nu a fost creat, încărcat sau publicat din acest ecran."
+    atelier: "Deschide Studio",
+    note: "Draft-ul are începutul, poza și scena salvate. Continuă în Studio când ești gata."
   }
 } as const;

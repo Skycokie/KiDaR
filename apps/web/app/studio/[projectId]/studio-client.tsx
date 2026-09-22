@@ -401,7 +401,7 @@ export function StudioClient({
   return (
     <main className="studio-shell">
       <header>
-        <p><a href="/dashboard">← Dashboard</a></p>
+        <p><a href="/studio">← Studio</a></p>
         <h1>{project.name}</h1>
         <p>/{project.slug} · {lastSaved}</p>
       </header>

@@ -5,7 +5,7 @@ import { getLoggedInUser } from "@/lib/appwrite/client";
 export default async function HomePage() {
   const user = await getLoggedInUser();
   const createHref = user ? "/creaza" : "/intra";
-  const studioHref = user ? "/dashboard" : "/login";
+  const studioHref = user ? "/studio" : "/login";
 
   return (
     <SimpleCreatorShell>
