@@ -4,7 +4,9 @@ import {
   canUseWhitelabel,
   generateUniqueSlug,
   mergeSettings,
-  slugify
+  slugify,
+  validateSceneSettingsPatch,
+  type ProjectSettings
 } from "./index";
 
 describe("core policies", () => {
@@ -46,6 +48,78 @@ describe("core policies", () => {
     );
     expect(result.preset).toBe("story");
     expect(result.title).toBe("Poveste");
+  });
+
+  it("deep-merges scene.startTransform and keeps scene siblings", () => {
+    const current = {
+      title: "Demo",
+      theme: "#ff0",
+      scale: 1,
+      offset: { x: 1, y: 0, z: 0 },
+      scene: {
+        lighting: "warm",
+        startTransform: {
+          rotation: { x: 8, y: -32, z: 180 },
+          position: { x: 1, y: 0, z: 0 },
+          scale: 1.25
+        }
+      }
+    } as ProjectSettings;
+    const result = mergeSettings(current, {
+      scene: { startTransform: { rotation: { y: 15 } } }
+    });
+    expect(result.offset).toEqual({ x: 1, y: 0, z: 0 });
+    expect(result.scene).toMatchObject({
+      lighting: "warm",
+      startTransform: {
+        rotation: { x: 8, y: 15, z: 180 },
+        position: { x: 1, y: 0, z: 0 },
+        scale: 1.25
+      }
+    });
+  });
+
+  it("keeps startTransform when a settings patch omits scene", () => {
+    const current = {
+      title: "Demo",
+      theme: "#ff0",
+      scale: 1,
+      offset: { x: 0, y: 0, z: 0 },
+      scene: {
+        startTransform: {
+          rotation: { x: 0, y: 0, z: 180 },
+          position: { x: 0, y: 0, z: 0 },
+          scale: 1
+        }
+      }
+    } as ProjectSettings;
+    const result = mergeSettings(current, { title: "Păstrat", offset: { z: 2 } });
+    expect(result.title).toBe("Păstrat");
+    expect(result.offset).toEqual({ x: 0, y: 0, z: 2 });
+    expect(result.scene).toEqual(current.scene);
+  });
+
+  it("rejects malformed startTransform and accepts a finite pose", () => {
+    expect(validateSceneSettingsPatch(undefined)).toBeNull();
+    expect(
+      validateSceneSettingsPatch({
+        startTransform: {
+          rotation: { x: 8, y: -32, z: 180 },
+          position: { x: 0, y: 0, z: 0 },
+          scale: 1
+        }
+      })
+    ).toBeNull();
+    expect(validateSceneSettingsPatch(null)).toMatch(/object/);
+    expect(validateSceneSettingsPatch({ startTransform: { rotation: { x: Number.NaN } } })).toMatch(
+      /finite/
+    );
+    expect(
+      validateSceneSettingsPatch({ startTransform: { position: { x: 6, y: 0, z: 0 } } })
+    ).toMatch(/between -5 and 5/);
+    expect(validateSceneSettingsPatch({ startTransform: { scale: 0 } })).toMatch(/\(0, 10\]/);
+    expect(validateSceneSettingsPatch({ startTransform: { scale: 11 } })).toMatch(/\(0, 10\]/);
+    expect(validateSceneSettingsPatch({ startTransform: "nope" })).toMatch(/object/);
   });
 
   it("creates stable URL slugs", () => {

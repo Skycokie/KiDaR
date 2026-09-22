@@ -1,94 +1,142 @@
 /**
- * Studio Preview Go B — fixture-only personalize surface.
+ * Studio personalize preview — fixture-only workspace.
  * No ProjectRecord, projectId, sourceUrl, or private assets.
  */
 
 export const PERSONALIZE_BACK_HREF = "/studio-preview";
 export const PERSONALIZE_CAMERA_HREF = "/studio-preview/personalizeaza/camera";
+export const PERSONALIZE_STUDIO_HREF = "/studio-preview/personalizeaza";
 
 export const FIXTURE_WORLD = {
   title: "Grădina de după ploaie",
   status: "Previzualizare",
   mode: "Popout",
-  note: "Poster CSS/SVG local — fără sourceUrl real"
+  note: "Fixture local — fără sourceUrl real"
 } as const;
 
 export const COPY = {
   brandKicker: "Studio",
-  title: "Fă lumea ta mai a ta.",
-  lead: "Personalizează lumea cu câteva alegeri simple.",
-  previewNote: "Schimbările tale sunt o previzualizare.",
-  ctaCamera: "Vezi prin cameră",
-  ctaBack: "Înapoi la lumi",
-  cameraPlaceholderTitle: "Previzualizare Cameră AR — în curând",
-  cameraPlaceholderLead:
-    "Aici va apărea privirea prin cameră. Deocamdată e doar un ecran static — fără cameră reală și fără tracking.",
-  cameraBack: "Înapoi la personalizare",
-  panelTitle: "Personalizează",
-  showInWorld: "Arată în lume",
-  summaryLabel: "Alegerea ta",
-  comingSoon: "În curând"
+  title: "Lumea mea",
+  lead: "Alege, reglează și vezi personajul pe scenă.",
+  previewNote: "Schimbările rămân doar pe acest ecran.",
+  sidebarLabel: "Lumea mea",
+  pathLabel: "Traseu",
+  savedLocal: "Salvat local",
+  publish: "Publică",
+  publishPrepareTitle: "Pregătește lumea pentru publicare",
+  publishLinkNote: "Lumea ta va primi un link și un cod QR.",
+  publishStartNote: "Poziția de start salvată va fi folosită la următoarea publicare.",
+  publishLaterNote: "Publicarea reală va fi activată după ce verificăm experiența AR.",
+  publishQrLabel: "Previzualizare cod QR",
+  publishWorld: "Publică lumea",
+  publishInactive: "Publicarea reală nu este activată încă.",
+  publishBack: "Înapoi în Studio",
+  seeInAr: "Vezi în AR",
+  arPreviewNote:
+    "Previzualizare locală pe acest ecran — fără cameră, fără tracking și fără publicare.",
+  stageHint: "Trage pentru a roti · scroll pentru zoom.",
+  popoutRotateHint: "Rotește lumea pentru a vedea straturile.",
+  showOriginalPage: "Arată pagina originală",
+  pageReference: "Referință",
+  rotateLeft: "Rotește stânga",
+  rotateRight: "Rotește dreapta",
+  tiltUp: "Înclină sus",
+  tiltDown: "Înclină jos",
+  rollCcw: "Rotește pe plan stânga",
+  rollCw: "Rotește pe plan dreapta",
+  rollGroup: "Rotație pe plan",
+  autoRotate: "Pornește/Oprește rotirea 360°",
+  autoRotateOff: "360°",
+  autoRotateStop: "Oprește 360°",
+  autoRotateActive: "Activ",
+  resetView: "Resetează vederea",
+  popoutPreparing: "Pregătim straturile desenului…",
+  popoutSeparateFailed: "Nu am putut separa elementele desenului în acest preview.",
+  popoutRetry: "Încearcă din nou",
+  figurineVolumeHint: "O interpretare cu volum a desenului tău.",
+  volume: "Volum",
+  details: "Detalii",
+  aspect: "Aspect",
+  giveLife: "Dă viață",
+  placeInWorld: "Așază în lume",
+  preserveOutline: "Păstrează conturul desenului",
+  originalColors: "Culori originale",
+  regenerate: "Generează variantă",
+  modeSection: "Cum apare",
+  styleSection: "Stil",
+  variantSoon: "Variante",
+  grid: "Grilă",
+  frame: "Încadrează",
+  zoom: "Zoom",
+  leftNavOpen: "Traseu",
+  rightNavOpen: "Reglaje",
+  closePanel: "Închide",
+  sheetHandle: "Trage pentru a închide"
 } as const;
 
-export type CharacterId = "none" | "butterfly" | "dragon" | "mooncat";
-export type EffectId = "none" | "stars" | "clouds" | "leaves" | "sparks" | "confetti";
-export type AtmosphereId = "morning" | "sunset" | "night" | "dream";
-export type SoundId = "silence" | "rain" | "forest" | "gentle";
-export type PositionId = "top" | "bottom" | "left" | "right" | "center";
-export type ScaleId = "small" | "medium" | "large";
+export type StudioStageId =
+  | "desenul"
+  | "personajul"
+  | "aspect"
+  | "miscare"
+  | "decor"
+  | "testeaza";
+
+export type TransformModeId = "popout" | "figurine";
+export type StylePresetId = "preserve" | "clay" | "painted";
+export type AnimationId = "wave" | "float" | "dance" | "jump" | "still";
+export type DecorId = "cloud" | "stars" | "grass" | "tree" | "house" | "planet" | "balloons";
+export type CameraPresetId = "front" | "threequarter" | "side" | "top" | "reset";
 
 export type ChoiceOption<T extends string> = {
   id: T;
   label: string;
+  hint?: string;
 };
 
-export const CHARACTERS: ChoiceOption<CharacterId>[] = [
-  { id: "none", label: "Niciunul" },
-  { id: "butterfly", label: "Fluture" },
-  { id: "dragon", label: "Dragon blând" },
-  { id: "mooncat", label: "Pisică-lună" }
+/** Narrative path — short labels for the left rail. */
+export const STAGES: ChoiceOption<StudioStageId>[] = [
+  { id: "desenul", label: "Desen", hint: "Hârtia de start" },
+  { id: "personajul", label: "Personaj", hint: "Ridică forma" },
+  { id: "aspect", label: "Aspect", hint: "Lumină și culoare" },
+  { id: "miscare", label: "Mișcare", hint: "Dă viață" },
+  { id: "decor", label: "Decor", hint: "Așază în lume" },
+  { id: "testeaza", label: "AR", hint: "Privește prin cameră" }
 ];
 
-export const EFFECTS: ChoiceOption<EffectId>[] = [
-  { id: "none", label: "Niciunul" },
+export const TRANSFORM_MODES: ChoiceOption<TransformModeId>[] = [
+  { id: "popout", label: "Pop-out din desen", hint: "Ridicat din hârtie, ușor plat" },
+  { id: "figurine", label: "Figurină 3D", hint: "Rotund, de ținut în mână" }
+];
+
+export const STYLE_PRESETS: ChoiceOption<StylePresetId>[] = [
+  { id: "preserve", label: "Păstrează desenul", hint: "Linii și culori din original" },
+  { id: "clay", label: "Lut colorat", hint: "Suprafață moale, mată" },
+  { id: "painted", label: "Jucărie pictată", hint: "Lac cald, detalii clare" }
+];
+
+export const ANIMATIONS: ChoiceOption<AnimationId>[] = [
+  { id: "wave", label: "Salută" },
+  { id: "float", label: "Plutește" },
+  { id: "dance", label: "Dansează" },
+  { id: "jump", label: "Sare" },
+  { id: "still", label: "Stă liniștit" }
+];
+
+export const DECOR_ASSETS: ChoiceOption<DecorId>[] = [
+  { id: "cloud", label: "Nor" },
   { id: "stars", label: "Stele" },
-  { id: "clouds", label: "Nori" },
-  { id: "leaves", label: "Frunze" },
-  { id: "sparks", label: "Scântei" },
-  { id: "confetti", label: "Confetti" }
+  { id: "grass", label: "Iarbă" },
+  { id: "tree", label: "Copac" },
+  { id: "house", label: "Casă" },
+  { id: "planet", label: "Planetă" },
+  { id: "balloons", label: "Baloane" }
 ];
 
-export const ATMOSPHERES: ChoiceOption<AtmosphereId>[] = [
-  { id: "morning", label: "Dimineață" },
-  { id: "sunset", label: "Apus" },
-  { id: "night", label: "Noapte" },
-  { id: "dream", label: "Vis" }
-];
-
-export const SOUNDS: ChoiceOption<SoundId>[] = [
-  { id: "silence", label: "Liniște" },
-  { id: "rain", label: "Ploaie" },
-  { id: "forest", label: "Pădure" },
-  { id: "gentle", label: "Muzică blândă" }
-];
-
-export const POSITIONS: ChoiceOption<PositionId>[] = [
+export const CAMERA_PRESETS: ChoiceOption<CameraPresetId>[] = [
+  { id: "front", label: "Față" },
+  { id: "threequarter", label: "3/4" },
+  { id: "side", label: "Lateral" },
   { id: "top", label: "Sus" },
-  { id: "bottom", label: "Jos" },
-  { id: "left", label: "Stânga" },
-  { id: "right", label: "Dreapta" },
-  { id: "center", label: "Centru" }
+  { id: "reset", label: "Reset" }
 ];
-
-export const SCALES: ChoiceOption<ScaleId>[] = [
-  { id: "small", label: "Mică" },
-  { id: "medium", label: "Medie" },
-  { id: "large", label: "Mare" }
-];
-
-/** Decorative non-functional control — visual “În curând” only. */
-export const COMING_SOON_CONTROL = {
-  id: "own-upload",
-  label: "Propriu",
-  soon: true as const
-};

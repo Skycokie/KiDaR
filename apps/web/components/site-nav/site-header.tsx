@@ -8,10 +8,13 @@ import "./site-header.css";
 
 export function SiteHeader({
   brandHref = "/studio",
+  studioHref = "/studio-preview/personalizeaza",
   trailing,
   mobileExtra
 }: {
   brandHref?: string;
+  /** Studio workspace entry (preview prototype or hub). */
+  studioHref?: string;
   /** Desktop-only actions (right side). */
   trailing?: ReactNode;
   /** Extra rows inside the mobile sheet (after Atelier / Studio). */
@@ -19,7 +22,11 @@ export function SiteHeader({
 }) {
   const pathname = usePathname() ?? "";
   const atelierActive = pathname.startsWith("/creaza");
-  const studioActive = pathname.startsWith("/studio");
+  const studioActive =
+    pathname === "/studio" ||
+    pathname.startsWith("/studio/") ||
+    pathname === "/studio-preview" ||
+    pathname.startsWith("/studio-preview/");
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -41,7 +48,7 @@ export function SiteHeader({
           </Link>
           <Link
             role="listitem"
-            href="/studio"
+            href={studioHref}
             className="site-header__link"
             aria-current={studioActive ? "page" : undefined}
           >
@@ -86,7 +93,7 @@ export function SiteHeader({
             Atelier
           </Link>
           <Link
-            href="/studio"
+            href={studioHref}
             className="site-header__sheet-link"
             aria-current={studioActive ? "page" : undefined}
             onClick={() => setMenuOpen(false)}

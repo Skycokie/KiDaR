@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import { countProjectsForOwner, getProfile, listProjectsForOwner } from "@/lib/appwrite/db";
 import { createProjectWithUniqueSlug } from "@/lib/projects";
+import { isQuotaBypassEnabled, projectQuotaLimit } from "@/lib/quota";
 
 export async function GET() {
   const user = await getLoggedInUser();
@@ -34,16 +35,19 @@ export async function POST(request: Request) {
   }
 
   try {
-    const [used, profile] = await Promise.all([
-      countProjectsForOwner(user.$id),
-      getProfile(user.$id)
-    ]);
-    const quota = profile.plan === "paid" ? 30 : 3;
-    if (used >= quota) {
-      return NextResponse.json(
-        { error: "quota_exceeded", message: "Free plan allows 3 projects.", upgrade: true },
-        { status: 403 }
-      );
+    if (!isQuotaBypassEnabled()) {
+      const [used, profile] = await Promise.all([
+        countProjectsForOwner(user.$id),
+        getProfile(user.$id)
+      ]);
+      const plan = profile.plan === "paid" ? "paid" : "free";
+      const quota = projectQuotaLimit(plan);
+      if (used >= quota) {
+        return NextResponse.json(
+          { error: "quota_exceeded", message: "Free plan allows 3 projects.", upgrade: true },
+          { status: 403 }
+        );
+      }
     }
 
     const { data, error } = await createProjectWithUniqueSlug(

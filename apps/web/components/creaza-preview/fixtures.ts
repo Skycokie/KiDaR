@@ -101,13 +101,13 @@ export const COPY = {
     back: "Înapoi la poză"
   },
   confirmare: {
-    title: "Lumea ta e pregătită să înceapă",
-    lead: "Am păstrat alegerea ta. Deschide Studio ca să continui lumea, sau începe alta.",
+    title: "Lumea e gata de personalizat",
+    lead: "Am păstrat alegerea ta. Continuă în Studio ca să dai formă personajului, sau începe alta.",
     summaryPreset: "Punct de pornire",
     summaryFoto: "Poză",
     summaryScene: "Scenă",
     again: "Începe altă lume",
     atelier: "Deschide Studio",
-    note: "Draft-ul are începutul, poza și scena salvate. Continuă în Studio când ești gata."
+    note: "Draft-ul are începutul, poza și scena salvate. Următorul pas e Studio — personalizare pe scenă."
   }
 } as const;

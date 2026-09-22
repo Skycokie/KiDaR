@@ -31,20 +31,42 @@ async function minHeight(locator: import("@playwright/test").Locator) {
   expect(box!.height).toBeGreaterThanOrEqual(48);
 }
 
-test("marketing page is Romanian and does not claim live phone AR", async ({ page }) => {
+test("editorial homepage is Romanian with auth-aware CTAs for guests", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Fă o pagină să prindă viață." })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Creează o surpriză" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Intră în Studio" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Creează o surpriză" })).toHaveAttribute(
+  await expect(page.getByRole("heading", { name: "Desenele prind viață." })).toBeVisible();
+  await expect(page.getByText("kidAR · povești care ies din pagină")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Începe în Atelier" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Deschide Studio" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Începe în Atelier" })).toHaveAttribute(
     "href",
     "/intra"
   );
-  await expect(page.getByRole("link", { name: "Intră în Studio" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Deschide Studio" })).toHaveAttribute(
     "href",
     "/login"
   );
-  await minHeight(page.getByRole("link", { name: "Creează o surpriză" }));
+  const steps = page.getByRole("list", { name: "Cum funcționează" });
+  await expect(steps.getByText("Fotografiază", { exact: true })).toBeVisible();
+  await expect(steps.getByText("Personalizează", { exact: true })).toBeVisible();
+  await expect(steps.getByText("Vezi în AR", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Fără aplicație de instalat. Deschizi linkul sau scanezi codul QR.")
+  ).toBeVisible();
+  await minHeight(page.getByRole("link", { name: "Începe în Atelier" }));
+});
+
+test("editorial homepage sends signed-in users to Atelier and Studio preview", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Desenele prind viață." })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Începe în Atelier" })).toHaveAttribute(
+    "href",
+    "/creaza"
+  );
+  await expect(page.getByRole("link", { name: "Deschide Studio" })).toHaveAttribute(
+    "href",
+    "/studio-preview/personalizeaza"
+  );
 });
 
 test("Romanian entry has a visible email label and status copy", async ({ page }) => {
@@ -59,7 +81,8 @@ test("authenticated /creaza shows Atelier 4-step shell and creates a world", asy
   await signIn(page);
   await page.goto("/creaza");
   await expect(page.getByRole("heading", { name: "Cu ce începe lumea?" })).toBeVisible();
-  await expect(page.getByText("Creează · 4 pași")).toBeVisible();
+  await expect(page.getByRole("list", { name: /Progres/i })).toBeVisible();
+  await expect(page.getByText("1 / 4").first()).toBeVisible();
 
   const coloring = page.getByRole("option", { name: /desen colorat/i });
   await coloring.click();
@@ -109,14 +132,17 @@ test("Atelier scene save reaches confirmation and Studio link", async ({ page })
   await expect(page.getByRole("heading", { name: "Cum vrei să prindă viață?" })).toBeVisible({
     timeout: 30_000
   });
-  await page.getByRole("option", { name: /Iese din pagină/i }).click();
+  await page.getByRole("button", { name: /Iese din pagină/i }).click();
   await page.getByRole("button", { name: /Salvează scena/i }).click();
   await expect(
-    page.getByRole("heading", { name: /Lumea ta e pregătită/i })
+    page.getByRole("heading", { name: /Lumea e gata de personalizat/i })
   ).toBeVisible({ timeout: 20_000 });
-  const studioLink = page.getByRole("link", { name: /Studio|Atelier/i }).first();
+  const studioLink = page.getByRole("link", { name: "Deschide Studio" });
   await expect(studioLink).toBeVisible();
-  await expect(studioLink).toHaveAttribute("href", /\/studio/);
+  await expect(studioLink).toHaveAttribute(
+    "href",
+    /\/studio-preview\/personalizeaza\?projectId=/
+  );
 });
 
 test("legacy creaza step URLs redirect into Atelier / Studio", async ({ page }) => {

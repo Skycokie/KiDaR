@@ -143,7 +143,7 @@ export function computeInputHash(parts: PipelineInputParts): string {
  * `inputHash` already covers projectId, title, theme, CTA, logo, sound,
  * transform, source, and mode. This document adds QR/PDF/HTML-only fields
  * that must not move GLB/.mind keys: public app origin, asset origin, slug,
- * watermark, and print/page renderer versions.
+ * watermark, print/page renderer versions, and the effective AR start pose.
  */
 export interface PageRenderHashParts {
   inputHash: string;
@@ -154,6 +154,15 @@ export interface PageRenderHashParts {
   showWatermark?: boolean;
   pageRenderPipelineVersion?: string;
   printPipelineVersion?: string;
+  /**
+   * Normalized model start pose for AR HTML only.
+   * Must not be folded into content/popout/mind hashes.
+   */
+  startTransform?: {
+    position: { x: number; y: number; z: number };
+    rotation: { x: number; y: number; z: number };
+    scale: number;
+  } | null;
 }
 
 function originIdentity(raw: string | null | undefined): string | null {
@@ -163,6 +172,17 @@ function originIdentity(raw: string | null | undefined): string | null {
   } catch {
     return null;
   }
+}
+
+function startTransformIdentity(
+  value: PageRenderHashParts["startTransform"]
+): Record<string, JsonValue> | null {
+  if (!value) return null;
+  return {
+    position: { x: value.position.x, y: value.position.y, z: value.position.z },
+    rotation: { x: value.rotation.x, y: value.rotation.y, z: value.rotation.z },
+    scale: value.scale
+  };
 }
 
 export function buildPageRenderInputDocument(parts: PageRenderHashParts): Record<string, JsonValue> {
@@ -175,7 +195,8 @@ export function buildPageRenderInputDocument(parts: PageRenderHashParts): Record
     slug: parts.slug && parts.slug.trim() ? parts.slug.trim() : null,
     publicAppOrigin: originIdentity(parts.publicAppOrigin),
     publicAssetOrigin: originIdentity(parts.publicAssetOrigin),
-    showWatermark: Boolean(parts.showWatermark)
+    showWatermark: Boolean(parts.showWatermark),
+    startTransform: startTransformIdentity(parts.startTransform ?? null)
   };
 }
 

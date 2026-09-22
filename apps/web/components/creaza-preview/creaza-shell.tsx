@@ -242,7 +242,11 @@ export function CreazaPreviewShell() {
         Sari la conținut
       </a>
 
-      <SiteHeader brandHref="/studio" trailing={<p className="creaza-preview__badge">{COPY.previewBadge}</p>} />
+      <SiteHeader
+        brandHref="/studio"
+        studioHref="/studio-preview/personalizeaza"
+        trailing={<p className="creaza-preview__badge">{COPY.previewBadge}</p>}
+      />
 
       <main id="creaza-preview-main" className="creaza-preview__main">
         <ol className="creaza-progress" aria-label={`Progres: pasul ${stepMeta.index} din ${TOTAL_STEPS}`}>
@@ -598,7 +602,11 @@ export function CreazaPreviewShell() {
               </button>
               <a
                 className="creaza-ghost"
-                href={state.projectId ? `/studio/${state.projectId}` : "/studio"}
+                href={
+                  state.projectId
+                    ? `/studio-preview/personalizeaza?projectId=${encodeURIComponent(state.projectId)}`
+                    : "/studio-preview/personalizeaza"
+                }
               >
                 {COPY.confirmare.atelier}
               </a>

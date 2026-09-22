@@ -17,3 +17,7 @@ supabase/.temp/
 supabase/.branches/
 .vercel
 .env*
+
+# Local secrets / session dumps
+cookies.txt
+.cursor/

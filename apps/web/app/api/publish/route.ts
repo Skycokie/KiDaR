@@ -4,6 +4,7 @@ import {
   PublishPlanError,
   createPublicArtifactStorage,
   planPublishJobs,
+  resolveEffectiveArTransform,
   type JobType
 } from "@kidar/core";
 import { computeInputHash, jobInputHashForType, sha256Hex } from "@kidar/core/hash";
@@ -65,7 +66,8 @@ export async function POST(request: Request) {
       slug: project.slug,
       publicAppOrigin: publicOrigin(process.env.NEXT_PUBLIC_APP_URL),
       publicAssetOrigin: publicOrigin(process.env.R2_PUBLIC_BASE_URL),
-      showWatermark: true
+      showWatermark: true,
+      startTransform: resolveEffectiveArTransform(project.settings)
     };
 
     const jobs = [];

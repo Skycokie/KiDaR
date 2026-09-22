@@ -5,7 +5,8 @@ export {
   COPY,
   FIXTURE_WORLD,
   PERSONALIZE_BACK_HREF,
-  PERSONALIZE_CAMERA_HREF
+  PERSONALIZE_CAMERA_HREF,
+  PERSONALIZE_STUDIO_HREF
 } from "./fixtures";
 export {
   createInitialPersonalizeState,

@@ -1,61 +1,83 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { SimpleCreatorShell } from "@/components/simple-creator/shell";
+import { DM_Sans, Syne } from "next/font/google";
 import { getLoggedInUser } from "@/lib/appwrite/client";
+import "./home-page.css";
+
+const display = Syne({
+  subsets: ["latin"],
+  variable: "--font-studio-display",
+  display: "swap"
+});
+
+const body = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-studio-body",
+  display: "swap"
+});
+
+export const metadata: Metadata = {
+  title: "kidAR — desenele prind viață",
+  description:
+    "Fotografiază un desen sau o pagină. Transformă-l într-o experiență 3D pe care copilul o poate explora pe telefon."
+};
 
 export default async function HomePage() {
   const user = await getLoggedInUser();
-  const createHref = user ? "/creaza" : "/intra";
-  const studioHref = user ? "/studio" : "/login";
+  const atelierHref = user ? "/creaza" : "/intra";
+  const studioHref = user ? "/studio-preview/personalizeaza" : "/login";
 
   return (
-    <SimpleCreatorShell>
-      <h1>Fă o pagină să prindă viață.</h1>
-      <p className="creaza-lead">
-        Fotografiază un desen, o pagină de poveste sau un indiciu. Primești un QR, iar copilul
-        vede surpriza în telefon.
-      </p>
-      <div className="creaza-hero-actions">
-        <Link className="creaza-btn creaza-btn-primary" href={createHref}>
-          Creează o surpriză
-        </Link>
-        <Link className="creaza-btn creaza-btn-secondary" href={studioHref}>
-          Intră în Studio
-        </Link>
-      </div>
+    <div className={`home-page ${display.variable} ${body.variable}`} lang="ro">
+      <a className="home-page__skip" href="#continut">
+        Sari la conținut
+      </a>
 
-      <section className="creaza-use-cases" aria-label="Pentru cine este">
-        <article className="creaza-use-case">
-          <h2>Povești care prind viață</h2>
-          <p>
-            Fotografiază pagina tipărită. Pe telefon, copilul îndreaptă camera spre aceeași
-            pagină — nu oriunde în cameră.
-          </p>
-        </article>
-        <article className="creaza-use-case">
-          <h2>Desene care ies din foaie</h2>
-          <p>
-            Un desen colorat pe hârtie. Telefonul recunoaște foaia și arată surpriza deasupra ei.
-          </p>
-        </article>
-        <article className="creaza-use-case">
-          <h2>Misiuni și escape rooms</h2>
-          <p>
-            Un afiș sau o hartă tipărită. Jucătorii deschid linkul, apoi îndreaptă telefonul
-            spre imaginea de pe perete sau masă.
-          </p>
-        </article>
-      </section>
+      <main id="continut" className="home-page__frame">
+        <p className="home-page__brand">kidAR · povești care ies din pagină</p>
 
-      <h2>Fără aplicație de instalat</h2>
-      <ol className="creaza-steps">
-        <li>Creezi surpriza</li>
-        <li>Deschizi linkul pe telefon</li>
-        <li>Îndrepți telefonul spre pagină</li>
-      </ol>
-      <p className="creaza-note">
-        Linkul pe telefon, codul QR și pagina care prinde viață urmează. Astăzi poți începe
-        surpriza și poți folosi Studio în engleză.
-      </p>
-    </SimpleCreatorShell>
+        <section className="home-page__hero" aria-labelledby="home-title">
+          <h1 id="home-title" className="home-page__title">
+            Desenele prind viață.
+          </h1>
+          <p className="home-page__lead">
+            Fotografiază un desen sau o pagină. Transformă-l într-o experiență 3D pe care copilul o
+            poate explora direct pe telefon.
+          </p>
+          <div className="home-page__actions">
+            <Link className="home-page__btn home-page__btn--primary" href={atelierHref}>
+              Începe în Atelier
+            </Link>
+            <Link className="home-page__btn home-page__btn--secondary" href={studioHref}>
+              Deschide Studio
+            </Link>
+          </div>
+        </section>
+
+        <ol className="home-page__steps" aria-label="Cum funcționează">
+          <li>
+            <em>1</em>
+            <span>Fotografiază</span>
+          </li>
+          <li>
+            <em>2</em>
+            <span>Personalizează</span>
+          </li>
+          <li>
+            <em>3</em>
+            <span>Vezi în AR</span>
+          </li>
+        </ol>
+
+        <p className="home-page__note">
+          Fără aplicație de instalat. Deschizi linkul sau scanezi codul QR.
+        </p>
+
+        <div className="home-page__decor" aria-hidden="true">
+          <div className="home-page__glow" />
+          <div className="home-page__paper" />
+        </div>
+      </main>
+    </div>
   );
 }

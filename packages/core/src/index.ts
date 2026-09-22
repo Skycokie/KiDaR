@@ -226,9 +226,46 @@ export type { PublishPlanInput, PublishPlan } from "./publish-plan";
 
 export { resolveExperienceRedirect } from "./experience-route";
 
+export {
+  resolveEffectiveArTransform,
+  pageStartTransformIdentity
+} from "./start-transform";
+export type { EffectiveArTransform, ArVec3, SettingsForArTransform } from "./start-transform";
+
 export type ProjectMode = "popout" | "gallery" | "upload" | "figurine_3d";
 export type ProjectStatus = "draft" | "processing" | "ready" | "error";
 export type CreatorPreset = "coloring" | "story" | "mission" | "studio";
+
+/** Euler degrees for the model’s initial AR facing. */
+export interface StartVec3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
+/**
+ * Model start pose for a future AR publish. Not the Studio camera orbit.
+ * `rotation.z` stays on the MindAR baseline (180) unless a later publish step changes it.
+ */
+export interface StartTransform {
+  rotation: StartVec3;
+  position: StartVec3;
+  scale: number;
+}
+
+export interface SceneSettings {
+  startTransform?: StartTransform;
+}
+
+export type StartTransformPatch = {
+  rotation?: Partial<StartVec3>;
+  position?: Partial<StartVec3>;
+  scale?: number;
+};
+
+export type SceneSettingsPatch = {
+  startTransform?: StartTransformPatch;
+};
 
 export interface ProjectSettings {
   title: string;
@@ -258,12 +295,15 @@ export interface ProjectSettings {
   publicQrUrl?: string;
   publicPdfUrl?: string;
   publicExperienceUrl?: string;
+  /** Optional AR start pose. Absent on older projects — no migration. */
+  scene?: SceneSettings;
 }
 
 export type ProjectSettingsPatch = Partial<
-  Omit<ProjectSettings, "offset">
+  Omit<ProjectSettings, "offset" | "scene">
 > & {
   offset?: Partial<ProjectSettings["offset"]>;
+  scene?: SceneSettingsPatch;
 };
 
 export interface Project {
@@ -292,15 +332,116 @@ export function canUseWhitelabel(plan: Plan): boolean {
   return plan === "paid";
 }
 
+function mergeStartTransform(
+  current: StartTransform | undefined,
+  patch: StartTransformPatch | undefined
+): StartTransform | undefined {
+  if (!patch) return current;
+  if (!current) return patch as StartTransform;
+  return {
+    rotation: { ...current.rotation, ...patch.rotation },
+    position: { ...current.position, ...patch.position },
+    scale: patch.scale ?? current.scale
+  };
+}
+
+function mergeScene(
+  current: SceneSettings | undefined,
+  patch: SceneSettingsPatch | undefined
+): SceneSettings | undefined {
+  if (!patch) return current;
+  const startTransform = mergeStartTransform(current?.startTransform, patch.startTransform);
+  const scene = {
+    ...(current ?? {}),
+    ...patch,
+    ...(startTransform ? { startTransform } : {})
+  } as SceneSettings;
+  if (!startTransform) delete scene.startTransform;
+  return scene;
+}
+
 export function mergeSettings(
   current: ProjectSettings,
   patch: ProjectSettingsPatch
 ): ProjectSettings {
+  const { scene: scenePatch, ...rest } = patch;
+  const scene = mergeScene(current.scene, scenePatch);
   return {
     ...current,
-    ...patch,
-    offset: { ...current.offset, ...patch.offset }
+    ...rest,
+    offset: { ...current.offset, ...patch.offset },
+    ...(scene ? { scene } : {})
   };
+}
+
+const POSITION_LIMIT = 5;
+const SCALE_MAX = 10;
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function validateFiniteAxis(
+  value: unknown,
+  label: string,
+  range?: { min: number; max: number }
+): string | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return `${label} must be a finite number`;
+  }
+  if (range && (value < range.min || value > range.max)) {
+    return `${label} must be between ${range.min} and ${range.max}`;
+  }
+  return null;
+}
+
+function validateVec3Patch(
+  value: unknown,
+  label: string,
+  range?: { min: number; max: number }
+): string | null {
+  if (!isPlainObject(value)) return `${label} must be an object`;
+  for (const axis of ["x", "y", "z"] as const) {
+    if (!(axis in value) || value[axis] === undefined) continue;
+    const message = validateFiniteAxis(value[axis], `${label}.${axis}`, range);
+    if (message) return message;
+  }
+  return null;
+}
+
+/**
+ * Runtime check for `settings.scene` on PATCH. `undefined` means the key was omitted.
+ * Returns an English error string, or null when the patch is acceptable.
+ */
+export function validateSceneSettingsPatch(scene: unknown): string | null {
+  if (scene === undefined) return null;
+  if (!isPlainObject(scene)) return "settings.scene must be an object";
+  if (!("startTransform" in scene) || scene.startTransform === undefined) return null;
+  const start = scene.startTransform;
+  if (!isPlainObject(start)) return "settings.scene.startTransform must be an object";
+  if ("rotation" in start && start.rotation !== undefined) {
+    const message = validateVec3Patch(start.rotation, "settings.scene.startTransform.rotation");
+    if (message) return message;
+  } else if ("rotation" in start && start.rotation === null) {
+    return "settings.scene.startTransform.rotation must be an object";
+  }
+  if ("position" in start && start.position !== undefined) {
+    const message = validateVec3Patch(start.position, "settings.scene.startTransform.position", {
+      min: -POSITION_LIMIT,
+      max: POSITION_LIMIT
+    });
+    if (message) return message;
+  } else if ("position" in start && start.position === null) {
+    return "settings.scene.startTransform.position must be an object";
+  }
+  if ("scale" in start && start.scale !== undefined) {
+    const message = validateFiniteAxis(start.scale, "settings.scene.startTransform.scale");
+    if (message) return message;
+    if (typeof start.scale === "number" && (start.scale <= 0 || start.scale > SCALE_MAX)) {
+      return "settings.scene.startTransform.scale must be in (0, 10]";
+    }
+  }
+  return null;
 }
 
 export function slugify(value: string): string {
