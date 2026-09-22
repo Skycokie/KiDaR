@@ -1,13 +1,15 @@
 /**
- * Tripo Image-to-3D provider adapter (OpenAPI v3).
+ * Tripo Image-to-3D + mesh retopology provider adapter (OpenAPI v3).
  * Documented endpoints only; no live calls in tests (inject fetch).
  */
 
 import {
   FIGURINE_PROVIDER_TIMEOUT_MS,
+  FIGURINE_RETOPO_FACE_LIMIT,
   FigurineBuildError
 } from "@kidar/core";
 import {
+  TRIPO_DECIMATE_MODEL,
   TRIPO_IMAGE_TO_MODEL_MODEL,
   type TripoConfig,
   requireTripoConfig
@@ -38,6 +40,15 @@ export interface TripoImageToModelProvider {
     contentType: string;
   }): Promise<{ fileToken: string }>;
   submitImageToModel(input: { fileToken: string }): Promise<{ providerTaskId: string }>;
+  /**
+   * Smart retopology from a completed generation task (POST /mesh/decimate).
+   * Input is the Tripo task id of the high-poly result — never a public KidAR URL.
+   */
+  submitMeshDecimate(input: {
+    sourceTaskId: string;
+    faceLimit?: number;
+    bake?: boolean;
+  }): Promise<{ providerTaskId: string }>;
   getTask(providerTaskId: string): Promise<TripoTaskSnapshot>;
   downloadModel(modelUrl: string): Promise<Buffer>;
 }
@@ -74,7 +85,6 @@ function mapStatus(raw: unknown): TripoTaskStatus {
   ) {
     return s;
   }
-  // Older aliases seen in docs examples
   if (s === "pending") return "queued";
   if (s === "completed" || s === "done") return "success";
   if (s === "error") return "failed";
@@ -103,6 +113,13 @@ function isRetryableHttp(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
 }
 
+function extractTaskId(body: Record<string, unknown>): string {
+  const data = (body.data as Record<string, unknown> | undefined) ?? body;
+  if (typeof data.task_id === "string" && data.task_id) return data.task_id;
+  if (typeof data.taskId === "string" && data.taskId) return data.taskId;
+  return "";
+}
+
 async function readJson(response: Response): Promise<Record<string, unknown>> {
   const text = await response.text();
   try {
@@ -119,11 +136,7 @@ export function createTripoProvider(
   const doFetch = deps?.fetch ?? fetch;
   const downloadTimeoutMs = deps?.downloadTimeoutMs ?? 120_000;
 
-  async function request(
-    path: string,
-    init: RequestInit,
-    options?: { retryableDefault?: boolean }
-  ): Promise<Record<string, unknown>> {
+  async function request(path: string, init: RequestInit): Promise<Record<string, unknown>> {
     let response: Response;
     try {
       response = await doFetch(`${config.baseUrl}${path}`, init);
@@ -169,30 +182,56 @@ export function createTripoProvider(
     },
 
     async submitImageToModel(input) {
-      const body = await request(
-        "/generation/image-to-model",
-        {
-          method: "POST",
-          headers: authHeaders(config.apiKey, "application/json"),
-          body: JSON.stringify({
-            input: input.fileToken,
-            model: TRIPO_IMAGE_TO_MODEL_MODEL,
-            texture: true
-          })
-        },
-        { retryableDefault: true }
-      );
-      const data = (body.data as Record<string, unknown> | undefined) ?? body;
-      const providerTaskId =
-        typeof data.task_id === "string"
-          ? data.task_id
-          : typeof data.taskId === "string"
-            ? data.taskId
-            : "";
+      const body = await request("/generation/image-to-model", {
+        method: "POST",
+        headers: authHeaders(config.apiKey, "application/json"),
+        body: JSON.stringify({
+          input: input.fileToken,
+          model: TRIPO_IMAGE_TO_MODEL_MODEL,
+          texture: true
+        })
+      });
+      const providerTaskId = extractTaskId(body);
       if (!providerTaskId) {
         throw new FigurineBuildError("Tripo submit did not return task_id", {
           retryable: false,
           code: "TRIPO_SUBMIT_INVALID"
+        });
+      }
+      return { providerTaskId };
+    },
+
+    async submitMeshDecimate(input) {
+      const sourceTaskId = input.sourceTaskId.trim();
+      if (!sourceTaskId) {
+        throw new FigurineBuildError("Tripo retopology requires sourceTaskId", {
+          retryable: false,
+          code: "TRIPO_RETOPO_INPUT"
+        });
+      }
+      const faceLimit = input.faceLimit ?? FIGURINE_RETOPO_FACE_LIMIT;
+      if (faceLimit < 500 || faceLimit > 20_000) {
+        throw new FigurineBuildError("Tripo retopology face_limit out of range", {
+          retryable: false,
+          code: "TRIPO_RETOPO_INPUT"
+        });
+      }
+      const body = await request("/mesh/decimate", {
+        method: "POST",
+        headers: authHeaders(config.apiKey, "application/json"),
+        body: JSON.stringify({
+          input: sourceTaskId,
+          model: TRIPO_DECIMATE_MODEL,
+          face_limit: faceLimit,
+          quad: false,
+          bake: input.bake !== false
+        })
+      });
+      const providerTaskId = extractTaskId(body);
+      if (!providerTaskId) {
+        throw new FigurineBuildError("Tripo retopology did not return task_id", {
+          retryable: false,
+          code: "TRIPO_RETOPO_SUBMIT_INVALID"
         });
       }
       return { providerTaskId };
@@ -273,4 +312,4 @@ export function getTripoProviderFromEnv(
   return createTripoProvider(requireTripoConfig(env), deps);
 }
 
-export { FIGURINE_PROVIDER_TIMEOUT_MS };
+export { FIGURINE_PROVIDER_TIMEOUT_MS, FIGURINE_RETOPO_FACE_LIMIT };

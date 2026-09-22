@@ -8,6 +8,12 @@ export const TRIPO_DEFAULT_BASE_URL = "https://openapi.tripo3d.ai/v3";
 /** Documented H3 model id for image-to-model (Tripo developers docs). */
 export const TRIPO_IMAGE_TO_MODEL_MODEL = "v3.1-20260211";
 
+/**
+ * Smart retopology (mesh/decimate) model tier — v2.0 rebuilds clean topology + bake.
+ * @see https://developers.tripo3d.ai/en/docs/mesh-decimate
+ */
+export const TRIPO_DECIMATE_MODEL = "v2.0";
+
 export class TripoConfigError extends Error {
   readonly code = "TRIPO_CONFIG_MISSING";
 

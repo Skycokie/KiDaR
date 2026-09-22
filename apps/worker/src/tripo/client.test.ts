@@ -32,6 +32,16 @@ describe("tripo provider (mocked fetch)", () => {
           status: 200
         });
       }
+      if (url.endsWith("/mesh/decimate")) {
+        const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+        expect(body.input).toBe("task_1");
+        expect(body.face_limit).toBe(20_000);
+        expect(body.bake).toBe(true);
+        expect(body.model).toBe("v2.0");
+        return new Response(JSON.stringify({ code: 0, data: { task_id: "retopo_1" } }), {
+          status: 200
+        });
+      }
       if (url.includes("/tasks/task_1")) {
         return new Response(
           JSON.stringify({
@@ -39,13 +49,26 @@ describe("tripo provider (mocked fetch)", () => {
             data: {
               status: "success",
               progress: 100,
-              output: { model: "https://cdn.example.com/model.glb" }
+              output: { model: "https://cdn.example.com/hi.glb" }
             }
           }),
           { status: 200 }
         );
       }
-      if (url === "https://cdn.example.com/model.glb") {
+      if (url.includes("/tasks/retopo_1")) {
+        return new Response(
+          JSON.stringify({
+            code: 0,
+            data: {
+              status: "success",
+              progress: 100,
+              output: { model: "https://cdn.example.com/lo.glb" }
+            }
+          }),
+          { status: 200 }
+        );
+      }
+      if (url === "https://cdn.example.com/lo.glb") {
         return new Response(new Uint8Array([0x67, 0x6c, 0x54, 0x46, 1, 2, 3]), { status: 200 });
       }
       return new Response("missing", { status: 404 });
@@ -66,12 +89,21 @@ describe("tripo provider (mocked fetch)", () => {
     const submitted = await provider.submitImageToModel({ fileToken: uploaded.fileToken });
     expect(submitted.providerTaskId).toBe("task_1");
 
-    const task = await provider.getTask("task_1");
+    const retopo = await provider.submitMeshDecimate({
+      sourceTaskId: submitted.providerTaskId,
+      faceLimit: 20_000,
+      bake: true
+    });
+    expect(retopo.providerTaskId).toBe("retopo_1");
+
+    const task = await provider.getTask("retopo_1");
     expect(task.status).toBe("success");
-    expect(task.modelUrl).toBe("https://cdn.example.com/model.glb");
+    expect(task.modelUrl).toBe("https://cdn.example.com/lo.glb");
 
     const buf = await provider.downloadModel(task.modelUrl!);
     expect(buf.byteLength).toBeGreaterThan(0);
+
+    expect(calls.some((c) => c.includes("/mesh/decimate"))).toBe(true);
 
     const authCalls = fetchMock.mock.calls.filter((c) => {
       const headers = c[1]?.headers as Record<string, string> | undefined;

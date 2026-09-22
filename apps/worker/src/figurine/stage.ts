@@ -1,11 +1,13 @@
 /**
- * figurine_build worker stage — Tripo image-to-3D → validate → R2 public GLB.
+ * figurine_build worker stage — Tripo image-to-3D → retopo → validate → R2 public GLB.
+ * Go D: never accept the high-poly generation GLB; only the mesh/decimate output.
  */
 
 import {
   FIGURINE_MAX_GLB_BYTES,
   FIGURINE_PROVIDER,
   FIGURINE_PROVIDER_TIMEOUT_MS,
+  FIGURINE_RETOPO_FACE_LIMIT,
   FigurineBuildError,
   PublicStorageConfigError,
   assertFigurineInputs,
@@ -30,7 +32,8 @@ import {
 import { optimizeGlb } from "../popout/optimize";
 import {
   createTripoProvider,
-  type TripoImageToModelProvider
+  type TripoImageToModelProvider,
+  type TripoTaskSnapshot
 } from "../tripo/client";
 import { isTripoConfigured, requireTripoConfig } from "../tripo/config";
 import { inspectFigurineSubject } from "./inspect-subject";
@@ -58,6 +61,7 @@ export type FigurineStageResult = {
   artifactHash: string;
   publicUrl: string;
   providerTaskId: string;
+  retopoTaskId: string;
   rawBytes: number;
   optimizedBytes: number;
 };
@@ -75,7 +79,9 @@ function phaseProgress(phase: FigurinePhase, providerProgress?: number): number 
     case "provider_queued":
       return 10;
     case "provider_running":
-      return Math.max(15, Math.min(80, providerProgress ?? 15));
+      return Math.max(15, Math.min(55, providerProgress ?? 15));
+    case "retopologizing":
+      return Math.max(60, Math.min(82, 60 + Math.round((providerProgress ?? 0) * 0.22)));
     case "downloading":
       return 85;
     case "validating":
@@ -96,6 +102,7 @@ async function persistProgress(
     phase: FigurinePhase;
     progress?: number;
     providerTaskId?: string;
+    retopoTaskId?: string;
     failureCode?: string;
     failureMessage?: string;
   }
@@ -111,6 +118,7 @@ async function persistProgress(
       phase: patch.phase,
       progress: patch.progress ?? phaseProgress(patch.phase),
       ...(patch.providerTaskId ? { providerTaskId: patch.providerTaskId } : {}),
+      ...(patch.retopoTaskId ? { retopoTaskId: patch.retopoTaskId } : {}),
       ...(patch.failureCode ? { failureCode: patch.failureCode } : {}),
       ...(patch.failureMessage ? { failureMessage: patch.failureMessage } : {})
     },
@@ -129,9 +137,72 @@ function mergeSubject(
   return list.slice(0, 3);
 }
 
+async function pollTripoTask(input: {
+  provider: TripoImageToModelProvider;
+  taskId: string;
+  job: PipelineJob;
+  deps: FigurineStageDeps;
+  phaseForQueued: FigurinePhase;
+  phaseForRunning: FigurinePhase;
+  providerTaskId: string;
+  retopoTaskId?: string;
+  timeoutMs: number;
+  nowMs: () => number;
+  sleep: (ms: number) => Promise<void>;
+  pollIntervalMs: number;
+  timeoutCode: string;
+  failedCode: string;
+  /** Generation may succeed without a durable URL; retopo download requires one. */
+  requireModelUrl?: boolean;
+}): Promise<TripoTaskSnapshot> {
+  const deadline = input.nowMs() + input.timeoutMs;
+  let snapshot = await input.provider.getTask(input.taskId);
+  while (
+    snapshot.status === "queued" ||
+    snapshot.status === "running" ||
+    snapshot.status === "unknown"
+  ) {
+    if (input.nowMs() > deadline) {
+      throw new FigurineBuildError("Tripo task timed out", {
+        retryable: true,
+        code: input.timeoutCode
+      });
+    }
+    const phase =
+      snapshot.status === "queued" ? input.phaseForQueued : input.phaseForRunning;
+    await persistProgress(input.job, input.deps, {
+      phase,
+      progress: phaseProgress(phase, snapshot.progress),
+      providerTaskId: input.providerTaskId,
+      retopoTaskId: input.retopoTaskId
+    });
+    await input.sleep(input.pollIntervalMs);
+    snapshot = await input.provider.getTask(input.taskId);
+  }
+  if (snapshot.status !== "success") {
+    throw new FigurineBuildError(
+      snapshot.errorMessage || `Tripo task ended with status ${snapshot.status}`,
+      {
+        retryable: false,
+        code: snapshot.errorCode || input.failedCode
+      }
+    );
+  }
+  if (input.requireModelUrl !== false && !snapshot.modelUrl) {
+    throw new FigurineBuildError(
+      snapshot.errorMessage || "Tripo task succeeded without a model URL",
+      {
+        retryable: false,
+        code: snapshot.errorCode || input.failedCode
+      }
+    );
+  }
+  return snapshot;
+}
+
 /**
  * Run figurine_build for a claimed job.
- * Persists providerTaskId before polling; reuses it on reclaim.
+ * Persists providerTaskId + retopoTaskId before polling; reuses them on reclaim.
  */
 export async function runFigurineBuildStage(
   job: PipelineJob,
@@ -192,6 +263,8 @@ export async function runFigurineBuildStage(
   const existing = await deps.storage.getMetadata(artifactKey);
   const existingProviderTaskId =
     typeof job.result?.providerTaskId === "string" ? job.result.providerTaskId : "";
+  const existingRetopoTaskId =
+    typeof job.result?.retopoTaskId === "string" ? job.result.retopoTaskId : "";
 
   if (existing && typeof existing.checksum === "string" && existing.checksum) {
     const publicUrl = deps.storage.getPublicUrl(artifactKey);
@@ -207,6 +280,7 @@ export async function runFigurineBuildStage(
         artifactKey,
         provider: FIGURINE_PROVIDER,
         providerTaskId: existingProviderTaskId || undefined,
+        retopoTaskId: existingRetopoTaskId || undefined,
         phase: "ready",
         progress: 100,
         pipeline: figurinePipelineLabel(),
@@ -234,6 +308,7 @@ export async function runFigurineBuildStage(
       artifactHash: existing.checksum,
       publicUrl,
       providerTaskId: existingProviderTaskId || "cached",
+      retopoTaskId: existingRetopoTaskId || "cached",
       rawBytes: existing.size ?? 0,
       optimizedBytes: existing.size ?? 0
     };
@@ -246,10 +321,10 @@ export async function runFigurineBuildStage(
     });
   }
 
-  const provider =
-    deps.provider ?? createTripoProvider(requireTripoConfig());
+  const provider = deps.provider ?? createTripoProvider(requireTripoConfig());
 
   let providerTaskId = existingProviderTaskId;
+  let retopoTaskId = existingRetopoTaskId;
   const subjectId =
     typeof job.result?.subjectId === "string" ? job.result.subjectId : "primary";
 
@@ -262,7 +337,7 @@ export async function runFigurineBuildStage(
     });
     const submitted = await provider.submitImageToModel({ fileToken: uploaded.fileToken });
     providerTaskId = submitted.providerTaskId;
-    // Persist immediately so reclaim/retry does not create a second paid task.
+    // Persist immediately so reclaim/retry does not create a second paid Image-to-3D task.
     await persistProgress(job, deps, {
       phase: "provider_queued",
       progress: 10,
@@ -280,44 +355,82 @@ export async function runFigurineBuildStage(
     };
   }
 
-  const deadline = nowMs() + providerTimeoutMs;
-  let snapshot = await provider.getTask(providerTaskId);
-  while (snapshot.status === "queued" || snapshot.status === "running" || snapshot.status === "unknown") {
-    if (nowMs() > deadline) {
-      throw new FigurineBuildError("Tripo generation timed out", {
-        retryable: true,
-        code: "TRIPO_TIMEOUT"
-      });
-    }
-    const phase: FigurinePhase =
-      snapshot.status === "queued" ? "provider_queued" : "provider_running";
+  // Wait for high-poly generation — do not download/accept that GLB.
+  await pollTripoTask({
+    provider,
+    taskId: providerTaskId,
+    job,
+    deps,
+    phaseForQueued: "provider_queued",
+    phaseForRunning: "provider_running",
+    providerTaskId,
+    timeoutMs: providerTimeoutMs,
+    nowMs,
+    sleep,
+    pollIntervalMs,
+    timeoutCode: "TRIPO_TIMEOUT",
+    failedCode: "TRIPO_FAILED",
+    requireModelUrl: false
+  });
+
+  if (!retopoTaskId) {
     await persistProgress(job, deps, {
-      phase,
-      progress: phaseProgress(phase, snapshot.progress),
+      phase: "retopologizing",
+      progress: 58,
       providerTaskId
     });
-    await sleep(pollIntervalMs);
-    snapshot = await provider.getTask(providerTaskId);
+    const retopo = await provider.submitMeshDecimate({
+      sourceTaskId: providerTaskId,
+      faceLimit: FIGURINE_RETOPO_FACE_LIMIT,
+      bake: true
+    });
+    retopoTaskId = retopo.providerTaskId;
+    // Persist before polling so reclaim does not pay for a second retopo.
+    await persistProgress(job, deps, {
+      phase: "retopologizing",
+      progress: 60,
+      providerTaskId,
+      retopoTaskId
+    });
+    job = {
+      ...job,
+      result: {
+        ...(job.result ?? {}),
+        providerTaskId,
+        retopoTaskId,
+        phase: "retopologizing",
+        progress: 60,
+        subjectId
+      }
+    };
   }
 
-  if (snapshot.status !== "success" || !snapshot.modelUrl) {
-    throw new FigurineBuildError(
-      snapshot.errorMessage || `Tripo task ended with status ${snapshot.status}`,
-      {
-        retryable: false,
-        code: snapshot.errorCode || "TRIPO_FAILED"
-      }
-    );
-  }
+  const retopoSnapshot = await pollTripoTask({
+    provider,
+    taskId: retopoTaskId,
+    job,
+    deps,
+    phaseForQueued: "retopologizing",
+    phaseForRunning: "retopologizing",
+    providerTaskId,
+    retopoTaskId,
+    timeoutMs: providerTimeoutMs,
+    nowMs,
+    sleep,
+    pollIntervalMs,
+    timeoutCode: "TRIPO_RETOPO_TIMEOUT",
+    failedCode: "TRIPO_RETOPO_FAILED"
+  });
 
   await persistProgress(job, deps, {
     phase: "downloading",
     progress: 85,
-    providerTaskId
+    providerTaskId,
+    retopoTaskId
   });
-  const downloaded = await provider.downloadModel(snapshot.modelUrl);
+  const downloaded = await provider.downloadModel(retopoSnapshot.modelUrl!);
   if (!downloaded.byteLength) {
-    throw new FigurineBuildError("Tripo model download was empty", {
+    throw new FigurineBuildError("Tripo retopo model download was empty", {
       retryable: false,
       code: "TRIPO_DOWNLOAD_EMPTY"
     });
@@ -332,7 +445,8 @@ export async function runFigurineBuildStage(
   await persistProgress(job, deps, {
     phase: "validating",
     progress: 92,
-    providerTaskId
+    providerTaskId,
+    retopoTaskId
   });
   await validateFigurineGlb(downloaded);
 
@@ -362,7 +476,6 @@ export async function runFigurineBuildStage(
   }
 
   const publicUrl = deps.storage.getPublicUrl(artifactKey);
-  // Guard: never claim source-bucket paths as public.
   if (/source-drawings|\/api\/files\//i.test(publicUrl)) {
     throw new FigurineBuildError("Refusing to publish figurine from private source storage", {
       retryable: false,
@@ -380,10 +493,12 @@ export async function runFigurineBuildStage(
       artifactKey,
       provider: FIGURINE_PROVIDER,
       providerTaskId,
+      retopoTaskId,
       phase: "ready",
       progress: 100,
       pipeline: figurinePipelineLabel(),
       subjectId,
+      retopoFaceLimit: FIGURINE_RETOPO_FACE_LIMIT,
       rawBytes: report.rawBytes,
       optimizedBytes: report.optimizedBytes,
       operations: report.operations
@@ -412,6 +527,7 @@ export async function runFigurineBuildStage(
     artifactHash,
     publicUrl,
     providerTaskId,
+    retopoTaskId,
     rawBytes: report.rawBytes,
     optimizedBytes: report.optimizedBytes
   };

@@ -1,10 +1,10 @@
 /**
- * Figurină 3D (Tripo image-to-3D) contracts — Go C.
+ * Figurină 3D (Tripo image-to-3D) contracts — Go C + Go D (mobile retopo).
  * Separate from pop-out extrusion; never reuse popout_build artifacts.
  */
 
-/** Content-addressed pipeline label for public figurine GLBs. */
-export const FIGURINE_PIPELINE_VERSION = "figurine-tripo-v1";
+/** Content-addressed pipeline label for public figurine GLBs (v2 = retopo before accept). */
+export const FIGURINE_PIPELINE_VERSION = "figurine-tripo-v2";
 
 export const FIGURINE_ARTIFACT_KIND = "figurine.glb";
 
@@ -19,17 +19,26 @@ export const FIGURINE_MAX_ASSETS_PER_PROJECT = 3;
 /** Reject downloads above this size before public write (50 MiB). */
 export const FIGURINE_MAX_GLB_BYTES = 50 * 1024 * 1024;
 
-/** Soft triangle budget for mobile AR. */
-export const FIGURINE_MAX_TRIANGLES = 250_000;
+/**
+ * Hard triangle budget after Tripo retopology (mobile WebGL/AR).
+ * Generation may produce denser meshes; only the retopo GLB is accepted.
+ */
+export const FIGURINE_MAX_TRIANGLES = 50_000;
 
-/** Soft vertex budget for mobile AR. */
-export const FIGURINE_MAX_VERTICES = 500_000;
+/** Hard vertex budget after Tripo retopology. */
+export const FIGURINE_MAX_VERTICES = 150_000;
+
+/**
+ * Tripo mesh/decimate face_limit target (triangle mode, documented 500–20_000).
+ * Prefer 20k for recognisable volume while staying well under the accept cap.
+ */
+export const FIGURINE_RETOPO_FACE_LIMIT = 20_000;
 
 /** Source image limits (aligned with Tripo image constraints). */
 export const FIGURINE_MAX_SOURCE_BYTES = 20 * 1024 * 1024;
 export const FIGURINE_MIN_SOURCE_EDGE_PX = 256;
 
-/** Provider poll deadline inside a worker attempt (ms). */
+/** Provider poll deadline per Tripo task phase inside a worker attempt (ms). */
 export const FIGURINE_PROVIDER_TIMEOUT_MS = 5 * 60_000;
 
 export type FigurinePhase =
@@ -37,6 +46,7 @@ export type FigurinePhase =
   | "submitting"
   | "provider_queued"
   | "provider_running"
+  | "retopologizing"
   | "downloading"
   | "validating"
   | "ready"
@@ -230,6 +240,7 @@ export function hasActiveFigurineSubject(subjects: FigurineSubjectRecord[] | und
       s.status === "submitting" ||
       s.status === "provider_queued" ||
       s.status === "provider_running" ||
+      s.status === "retopologizing" ||
       s.status === "downloading" ||
       s.status === "validating"
   );
@@ -296,6 +307,8 @@ export function figurineProgressLabel(phase: FigurinePhase | string | undefined)
     case "provider_queued":
     case "provider_running":
       return "Modelăm figurina";
+    case "retopologizing":
+      return "Optimizăm pentru telefon";
     case "downloading":
     case "validating":
       return "Verificăm modelul";

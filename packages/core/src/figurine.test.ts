@@ -14,7 +14,7 @@ describe("figurine contracts", () => {
     const key = figurineArtifactKey("proj_1", "abc123def");
     expect(key).toBe("models/proj_1/abc123def/figurine.glb");
     expect(key).not.toContain("popout.glb");
-    expect(FIGURINE_PIPELINE_VERSION).toBe("figurine-tripo-v1");
+    expect(FIGURINE_PIPELINE_VERSION).toBe("figurine-tripo-v2");
   });
 
   it("detects png/jpeg magic", () => {
@@ -71,6 +71,7 @@ describe("figurine contracts", () => {
 
   it("maps progress labels", () => {
     expect(figurineProgressLabel("provider_running")).toBe("Modelăm figurina");
+    expect(figurineProgressLabel("retopologizing")).toBe("Optimizăm pentru telefon");
     expect(figurineProgressLabel("ready")).toBe("Gata");
     expect(figurineProgressLabel("failed")).toMatch(/Nu am reușit/);
   });

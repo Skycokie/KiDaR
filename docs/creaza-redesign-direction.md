@@ -635,7 +635,7 @@ Status: **Go A frozen** (2026-09-21). **Go C implemented** (Tripo Image-to-3D) �
 | --- | --- | --- |
 | Ce face | Relief / extrudare fidelă | AI image-to-3D (Tripo); mesh per subject |
 | MVP | Multi-component layered relief | **One isolated subject** per generation |
-| Artifact | `…/popout.glb` | `…/figurine.glb` (`figurine-tripo-v1`) |
+| Artifact | `…/popout.glb` | `…/figurine.glb` (`figurine-tripo-v2`) |
 
 ### User-facing choice (copy frozen)
 

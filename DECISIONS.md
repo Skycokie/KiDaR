@@ -111,13 +111,14 @@
   contours; each contour becomes a beveled `ExtrudeGeometry`, and only the
   cutout canvas is used as the cap texture.
 
-## Figurină 3D vs Pop-out (product split, Go A + Go C)
+## Figurină 3D vs Pop-out (product split, Go A + Go C + Go D)
 
 - **Pop-out din desen** remains independent: relief / extrude, local edge colors, layered depth, `popout_build` GLB.
 - **Figurină 3D** is mode `figurine_3d` + job `figurine_build` using **Tripo** OpenAPI v3.
 - **Secrets:** `TRIPO_API_KEY` / `TRIPO_BASE_URL` only on the Hetzner worker. Vercel gets non-secret `FIGURINE_3D_ENABLED` only — never Tripo credentials.
 - Web probes: `GET /api/features/figurine-3d` and project figurine routes; worker fails closed if Tripo is missing.
-- Artifacts: `models/<projectId>/<hash>/figurine.glb` (`figurine-tripo-v1`) — never overwrite pop-out keys.
+- Artifacts: `models/<projectId>/<hash>/figurine.glb` (`figurine-tripo-v2`) — never overwrite pop-out keys.
+- **Go D:** after Image-to-3D success, worker runs Tripo `POST /mesh/decimate` (smart retopo, `face_limit=20000`, bake on) and accepts **only** the low-poly GLB (≤50k tri / ≤150k vert). High-poly is never written to R2.
 - MVP: one isolated subject; max one active generation and three ready assets per project.
 - Spec: `docs/creaza-redesign-direction.md` §16; ops: `docs/figurine-3d-runbook.md`.
 - No live Tripo calls in tests; no auto-publish.

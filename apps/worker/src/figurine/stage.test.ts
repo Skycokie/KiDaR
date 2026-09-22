@@ -46,10 +46,51 @@ function baseJob(overrides: Partial<PipelineJob> = {}): PipelineJob {
   };
 }
 
-describe("figurine_build stage", () => {
-  it("reuses providerTaskId and does not submit twice", async () => {
+function memoryStorage(): {
+  storage: PublicArtifactStorage;
+  written: Map<string, { checksum?: string; size?: number }>;
+  write: ReturnType<typeof vi.fn>;
+} {
+  const written = new Map<string, { checksum?: string; size?: number }>();
+  const write = vi.fn(async (input: { key: string; checksum?: string; body: Uint8Array }) => {
+    written.set(input.key, { checksum: input.checksum, size: input.body.byteLength });
+    return { key: input.key, publicUrl: `https://ar.example.com/${input.key}` };
+  });
+  const storage: PublicArtifactStorage = {
+    provider: "r2",
+    write: write as never,
+    async exists(key) {
+      return written.has(key);
+    },
+    getPublicUrl(key) {
+      return `https://ar.example.com/${key}`;
+    },
+    async getMetadata(key) {
+      const hit = written.get(key);
+      return hit ? { key, checksum: hit.checksum, size: hit.size } : null;
+    }
+  };
+  return { storage, written, write };
+}
+
+const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 1, 2]);
+
+function projectLoader() {
+  return async () => ({
+    sourceImagePath: "src1",
+    mode: "figurine_3d" as const,
+    slug: "s",
+    settings: { title: "", theme: "#000", scale: 1, offset: { x: 0, y: 0, z: 0 } },
+    settingsRaw: "{}"
+  });
+}
+
+describe("figurine_build stage (Go D retopo)", () => {
+  it("reuses providerTaskId + retopoTaskId and does not re-submit costly tasks", async () => {
     const glb = await tinyGlb();
     let submitCount = 0;
+    let retopoCount = 0;
+    const downloadedUrls: string[] = [];
     const provider: TripoImageToModelProvider = {
       uploadImage: async () => {
         throw new Error("should not upload when providerTaskId exists");
@@ -58,53 +99,41 @@ describe("figurine_build stage", () => {
         submitCount += 1;
         return { providerTaskId: "task_dup" };
       },
-      getTask: async () => ({
-        status: "success",
-        progress: 100,
-        modelUrl: "https://cdn.example.com/out.glb"
-      }),
-      downloadModel: async () => Buffer.from(glb)
-    };
-
-    const written = new Map<string, { checksum?: string; size?: number }>();
-    const storage: PublicArtifactStorage = {
-      provider: "r2",
-      async write(input) {
-        written.set(input.key, { checksum: input.checksum, size: input.body.byteLength });
-        return { key: input.key, publicUrl: `https://ar.example.com/${input.key}` };
+      submitMeshDecimate: async () => {
+        retopoCount += 1;
+        return { providerTaskId: "retopo_dup" };
       },
-      async exists(key) {
-        return written.has(key);
+      getTask: async (id) => {
+        if (id === "task_existing") {
+          return { status: "success", progress: 100, modelUrl: "https://cdn.example.com/hi.glb" };
+        }
+        if (id === "retopo_existing") {
+          return { status: "success", progress: 100, modelUrl: "https://cdn.example.com/lo.glb" };
+        }
+        throw new Error(`unexpected task ${id}`);
       },
-      getPublicUrl(key) {
-        return `https://ar.example.com/${key}`;
-      },
-      async getMetadata(key) {
-        const hit = written.get(key);
-        return hit ? { key, checksum: hit.checksum, size: hit.size } : null;
+      downloadModel: async (url) => {
+        downloadedUrls.push(url);
+        return Buffer.from(glb);
       }
     };
 
-    const patches: unknown[] = [];
+    const { storage } = memoryStorage();
     const complete = vi.fn(async () => baseJob({ status: "done" }));
     const markProject = vi.fn(async () => undefined);
 
-    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 1, 2]);
-
     await runFigurineBuildStage(
       baseJob({
-        result: { providerTaskId: "task_existing", subjectId: "primary" }
+        result: {
+          providerTaskId: "task_existing",
+          retopoTaskId: "retopo_existing",
+          subjectId: "primary"
+        }
       }),
       {
         storage,
         provider,
-        loadProject: async () => ({
-          sourceImagePath: "src1",
-          mode: "figurine_3d",
-          slug: "s",
-          settings: { title: "", theme: "#000", scale: 1, offset: { x: 0, y: 0, z: 0 } },
-          settingsRaw: "{}"
-        }),
+        loadProject: projectLoader(),
         loadSource: async () => png,
         complete: complete as never,
         markProject: markProject as never,
@@ -114,62 +143,113 @@ describe("figurine_build stage", () => {
           componentCount: 1,
           coverage: 0.2
         }),
-        patchProgress: async (p) => {
-          patches.push(p.result);
-          return baseJob({ result: p.result });
-        },
+        patchProgress: async (p) => baseJob({ result: p.result }),
         sleep: async () => undefined,
         providerTimeoutMs: 5_000
       }
     );
 
     expect(submitCount).toBe(0);
+    expect(retopoCount).toBe(0);
+    expect(downloadedUrls).toEqual(["https://cdn.example.com/lo.glb"]);
     expect(complete).toHaveBeenCalled();
-    const completeArg = (complete.mock.calls as unknown as Array<[{ result?: { publicUrl?: string; providerTaskId?: string } }]>)[0]?.[0];
+    const completeArg = (
+      complete.mock.calls as unknown as Array<
+        [{ result?: { publicUrl?: string; providerTaskId?: string; retopoTaskId?: string } }]
+      >
+    )[0]?.[0];
     expect(completeArg?.result?.providerTaskId).toBe("task_existing");
+    expect(completeArg?.result?.retopoTaskId).toBe("retopo_existing");
     expect(completeArg?.result?.publicUrl).toContain("figurine.glb");
     expect(completeArg?.result?.publicUrl).not.toContain("popout.glb");
-    expect(completeArg?.result?.publicUrl).not.toMatch(/source-drawings/);
   });
 
-  it("fails closed on empty download without writing public artifact", async () => {
+  it("submits retopo after generation and downloads only low-poly output", async () => {
+    const glb = await tinyGlb();
+    let submitCount = 0;
+    let retopoCount = 0;
+    const downloadedUrls: string[] = [];
+    const provider: TripoImageToModelProvider = {
+      uploadImage: async () => ({ fileToken: "file_1" }),
+      submitImageToModel: async () => {
+        submitCount += 1;
+        return { providerTaskId: "gen_1" };
+      },
+      submitMeshDecimate: async (input) => {
+        retopoCount += 1;
+        expect(input.sourceTaskId).toBe("gen_1");
+        expect(input.faceLimit).toBe(20_000);
+        expect(input.bake).toBe(true);
+        return { providerTaskId: "retopo_1" };
+      },
+      getTask: async (id) => {
+        if (id === "gen_1") {
+          return { status: "success", progress: 100, modelUrl: "https://cdn.example.com/hi.glb" };
+        }
+        if (id === "retopo_1") {
+          return { status: "success", progress: 100, modelUrl: "https://cdn.example.com/lo.glb" };
+        }
+        throw new Error(`unexpected ${id}`);
+      },
+      downloadModel: async (url) => {
+        downloadedUrls.push(url);
+        return Buffer.from(glb);
+      }
+    };
+
+    const { storage, write } = memoryStorage();
+    const complete = vi.fn(async () => baseJob({ status: "done" }));
+    const phases: string[] = [];
+
+    await runFigurineBuildStage(baseJob(), {
+      storage,
+      provider,
+      loadProject: projectLoader(),
+      loadSource: async () => png,
+      complete: complete as never,
+      markProject: async () => undefined,
+      inspectSubject: async () => ({
+        width: 512,
+        height: 512,
+        componentCount: 1,
+        coverage: 0.2
+      }),
+      patchProgress: async (p) => {
+        if (typeof p.result?.phase === "string") phases.push(p.result.phase);
+        return baseJob({ result: p.result });
+      },
+      sleep: async () => undefined
+    });
+
+    expect(submitCount).toBe(1);
+    expect(retopoCount).toBe(1);
+    expect(downloadedUrls).toEqual(["https://cdn.example.com/lo.glb"]);
+    expect(downloadedUrls).not.toContain("https://cdn.example.com/hi.glb");
+    expect(write).toHaveBeenCalled();
+    expect(phases).toContain("retopologizing");
+    expect(phases).toContain("validating");
+  });
+
+  it("fails closed on empty retopo download without writing public artifact", async () => {
     const provider: TripoImageToModelProvider = {
       uploadImage: async () => ({ fileToken: "f" }),
       submitImageToModel: async () => ({ providerTaskId: "t1" }),
-      getTask: async () => ({
+      submitMeshDecimate: async () => ({ providerTaskId: "r1" }),
+      getTask: async (id) => ({
         status: "success",
         progress: 100,
-        modelUrl: "https://cdn.example.com/out.glb"
+        modelUrl:
+          id === "r1" ? "https://cdn.example.com/lo.glb" : "https://cdn.example.com/hi.glb"
       }),
       downloadModel: async () => Buffer.alloc(0)
     };
-    const write = vi.fn();
-    const storage: PublicArtifactStorage = {
-      provider: "r2",
-      write: write as never,
-      async exists() {
-        return false;
-      },
-      getPublicUrl(key) {
-        return `https://ar.example.com/${key}`;
-      },
-      async getMetadata() {
-        return null;
-      }
-    };
-    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const { storage, write } = memoryStorage();
 
     await expect(
       runFigurineBuildStage(baseJob(), {
         storage,
         provider,
-        loadProject: async () => ({
-          sourceImagePath: "src1",
-          mode: "figurine_3d",
-          slug: "s",
-          settings: { title: "", theme: "#000", scale: 1, offset: { x: 0, y: 0, z: 0 } },
-          settingsRaw: "{}"
-        }),
+        loadProject: projectLoader(),
         loadSource: async () => png,
         inspectSubject: async () => ({
           width: 512,
@@ -185,6 +265,51 @@ describe("figurine_build stage", () => {
     expect(write).not.toHaveBeenCalled();
   });
 
+  it("fails closed when retopo provider task fails and does not download high-poly", async () => {
+    const downloadedUrls: string[] = [];
+    const provider: TripoImageToModelProvider = {
+      uploadImage: async () => ({ fileToken: "f" }),
+      submitImageToModel: async () => ({ providerTaskId: "t1" }),
+      submitMeshDecimate: async () => ({ providerTaskId: "r_fail" }),
+      getTask: async (id) => {
+        if (id === "t1") {
+          return { status: "success", progress: 100, modelUrl: "https://cdn.example.com/hi.glb" };
+        }
+        return {
+          status: "failed",
+          progress: 0,
+          errorCode: "RETOPO_FAIL",
+          errorMessage: "retopo failed"
+        };
+      },
+      downloadModel: async (url) => {
+        downloadedUrls.push(url);
+        return Buffer.from([1, 2, 3]);
+      }
+    };
+    const { storage, write } = memoryStorage();
+
+    await expect(
+      runFigurineBuildStage(baseJob(), {
+        storage,
+        provider,
+        loadProject: projectLoader(),
+        loadSource: async () => png,
+        inspectSubject: async () => ({
+          width: 512,
+          height: 512,
+          componentCount: 1,
+          coverage: 0.2
+        }),
+        patchProgress: async (p) => baseJob({ result: p.result }),
+        sleep: async () => undefined
+      })
+    ).rejects.toMatchObject({ code: "RETOPO_FAIL" });
+
+    expect(downloadedUrls).toEqual([]);
+    expect(write).not.toHaveBeenCalled();
+  });
+
   it("rejects multi-subject before provider when componentCount > 1", async () => {
     const provider: TripoImageToModelProvider = {
       uploadImage: async () => {
@@ -193,37 +318,19 @@ describe("figurine_build stage", () => {
       submitImageToModel: async () => {
         throw new Error("must not submit");
       },
+      submitMeshDecimate: async () => {
+        throw new Error("must not retopo");
+      },
       getTask: async () => ({ status: "queued", progress: 0 }),
       downloadModel: async () => Buffer.alloc(0)
     };
-    const storage: PublicArtifactStorage = {
-      provider: "r2",
-      async write() {
-        throw new Error("must not write");
-      },
-      async exists() {
-        return false;
-      },
-      getPublicUrl(key) {
-        return `https://ar.example.com/${key}`;
-      },
-      async getMetadata() {
-        return null;
-      }
-    };
-    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const { storage } = memoryStorage();
 
     await expect(
       runFigurineBuildStage(baseJob(), {
         storage,
         provider,
-        loadProject: async () => ({
-          sourceImagePath: "src1",
-          mode: "figurine_3d",
-          slug: "s",
-          settings: { title: "", theme: "#000", scale: 1, offset: { x: 0, y: 0, z: 0 } },
-          settingsRaw: "{}"
-        }),
+        loadProject: projectLoader(),
         loadSource: async () => png,
         inspectSubject: async () => ({
           width: 800,
