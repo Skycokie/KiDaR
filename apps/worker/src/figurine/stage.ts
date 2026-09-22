@@ -8,6 +8,7 @@ import {
   FIGURINE_PROVIDER,
   FIGURINE_PROVIDER_TIMEOUT_MS,
   FIGURINE_RETOPO_FACE_LIMIT,
+  FIGURINE_RETOPO_TIMEOUT_MS,
   FigurineBuildError,
   PublicStorageConfigError,
   assertFigurineInputs,
@@ -26,9 +27,11 @@ import {
   downloadSourceFile,
   failJob,
   getProjectRecord,
+  mapJobDocument,
   markProjectStatus,
   patchRunningJobResult
 } from "../appwrite/jobs";
+import { createWorkerAppwrite } from "../appwrite/client";
 import { optimizeGlb } from "../popout/optimize";
 import {
   createTripoProvider,
@@ -53,6 +56,7 @@ export type FigurineStageDeps = {
   sleep?: (ms: number) => Promise<void>;
   pollIntervalMs?: number;
   providerTimeoutMs?: number;
+  retopoTimeoutMs?: number;
 };
 
 export type FigurineStageResult = {
@@ -224,6 +228,7 @@ export async function runFigurineBuildStage(
   const sleep = deps.sleep ?? sleepMs;
   const pollIntervalMs = deps.pollIntervalMs ?? 2_000;
   const providerTimeoutMs = deps.providerTimeoutMs ?? FIGURINE_PROVIDER_TIMEOUT_MS;
+  const retopoTimeoutMs = deps.retopoTimeoutMs ?? FIGURINE_RETOPO_TIMEOUT_MS;
 
   const project = await loadProject(job.projectId);
   if (project.mode !== "figurine_3d") {
@@ -414,7 +419,7 @@ export async function runFigurineBuildStage(
     phaseForRunning: "retopologizing",
     providerTaskId,
     retopoTaskId,
-    timeoutMs: providerTimeoutMs,
+    timeoutMs: retopoTimeoutMs,
     nowMs,
     sleep,
     pollIntervalMs,
@@ -553,12 +558,30 @@ export async function handleFigurineJobFailure(
   const message =
     error instanceof Error ? error.message : "Figurină 3D generation failed";
 
+  // Re-read from Appwrite: claim-time `job.result` is stale and must not wipe
+  // providerTaskId / retopoTaskId persisted mid-stage (avoids duplicate paid submits).
+  let persistedResult: Record<string, unknown> = {
+    ...((job.result as Record<string, unknown> | null) ?? {})
+  };
+  try {
+    const { databases, databaseId, jobsCollection } = createWorkerAppwrite();
+    const fresh = mapJobDocument(
+      await databases.getDocument(databaseId, jobsCollection, job.id)
+    );
+    persistedResult = {
+      ...persistedResult,
+      ...((fresh.result as Record<string, unknown> | null) ?? {})
+    };
+  } catch {
+    // best-effort; keep claim-time result
+  }
+
   try {
     await patchRunningJobResult({
       jobId: job.id,
       lockToken: job.lockToken,
       result: {
-        ...(job.result ?? {}),
+        ...persistedResult,
         provider: FIGURINE_PROVIDER,
         phase: "failed",
         progress: 0,
@@ -580,7 +603,11 @@ export async function handleFigurineJobFailure(
   try {
     const project = await getProjectRecord(job.projectId);
     const subjectId =
-      typeof job.result?.subjectId === "string" ? job.result.subjectId : "primary";
+      typeof persistedResult.subjectId === "string"
+        ? persistedResult.subjectId
+        : typeof job.result?.subjectId === "string"
+          ? job.result.subjectId
+          : "primary";
     await markProjectStatus(job.projectId, "error", {
       figurineSubjects: mergeSubject(project.settings.figurineSubjects, {
         id: subjectId,
@@ -589,8 +616,8 @@ export async function handleFigurineJobFailure(
         progress: 0,
         provider: FIGURINE_PROVIDER,
         providerTaskId:
-          typeof job.result?.providerTaskId === "string"
-            ? job.result.providerTaskId
+          typeof persistedResult.providerTaskId === "string"
+            ? persistedResult.providerTaskId
             : undefined,
         jobId: job.id,
         failureCode: code,

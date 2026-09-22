@@ -38,8 +38,11 @@ export const FIGURINE_RETOPO_FACE_LIMIT = 20_000;
 export const FIGURINE_MAX_SOURCE_BYTES = 20 * 1024 * 1024;
 export const FIGURINE_MIN_SOURCE_EDGE_PX = 256;
 
-/** Provider poll deadline per Tripo task phase inside a worker attempt (ms). */
+/** Provider poll deadline per Tripo generation task inside a worker attempt (ms). */
 export const FIGURINE_PROVIDER_TIMEOUT_MS = 5 * 60_000;
+
+/** Smart retopo (mesh/decimate) often exceeds 5 minutes — separate, longer budget. */
+export const FIGURINE_RETOPO_TIMEOUT_MS = 15 * 60_000;
 
 export type FigurinePhase =
   | "queued"

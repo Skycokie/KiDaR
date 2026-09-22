@@ -39,6 +39,8 @@ Never use `NEXT_PUBLIC_TRIPO_*`. Never log the key, `Authorization` headers, or 
 
 Do **not** raise accept limits to let high-poly through. Pipeline label: `figurine-tripo-v2`.
 
+Generation poll timeout: 5 minutes. Retopo poll timeout: **15 minutes** (`FIGURINE_RETOPO_TIMEOUT_MS`). On retryable failure, worker re-reads persisted `providerTaskId` / `retopoTaskId` so reclaim does not submit a second Image-to-3D.
+
 ## Rollout order
 
 1. Deploy worker Go C on Hetzner (with `TRIPO_*` already set).
