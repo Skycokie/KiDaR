@@ -49,6 +49,14 @@ export interface TripoImageToModelProvider {
     faceLimit?: number;
     bake?: boolean;
   }): Promise<{ providerTaskId: string }>;
+  /**
+   * Convert a completed Tripo task (prefer retopo) to another format (POST /models/convert).
+   * Use format USDZ for Apple Quick Look — never convert the high-poly generation task.
+   */
+  submitModelConvert(input: {
+    sourceTaskId: string;
+    format: "USDZ";
+  }): Promise<{ providerTaskId: string }>;
   getTask(providerTaskId: string): Promise<TripoTaskSnapshot>;
   downloadModel(modelUrl: string): Promise<Buffer>;
 }
@@ -232,6 +240,38 @@ export function createTripoProvider(
         throw new FigurineBuildError("Tripo retopology did not return task_id", {
           retryable: false,
           code: "TRIPO_RETOPO_SUBMIT_INVALID"
+        });
+      }
+      return { providerTaskId };
+    },
+
+    async submitModelConvert(input) {
+      const sourceTaskId = input.sourceTaskId.trim();
+      if (!sourceTaskId) {
+        throw new FigurineBuildError("Tripo convert requires sourceTaskId", {
+          retryable: false,
+          code: "TRIPO_CONVERT_INPUT"
+        });
+      }
+      if (input.format !== "USDZ") {
+        throw new FigurineBuildError("Tripo convert only supports USDZ in this pipeline", {
+          retryable: false,
+          code: "TRIPO_CONVERT_INPUT"
+        });
+      }
+      const body = await request("/models/convert", {
+        method: "POST",
+        headers: authHeaders(config.apiKey, "application/json"),
+        body: JSON.stringify({
+          input: sourceTaskId,
+          format: "USDZ"
+        })
+      });
+      const providerTaskId = extractTaskId(body);
+      if (!providerTaskId) {
+        throw new FigurineBuildError("Tripo convert did not return task_id", {
+          retryable: false,
+          code: "TRIPO_CONVERT_SUBMIT_INVALID"
         });
       }
       return { providerTaskId };

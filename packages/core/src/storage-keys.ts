@@ -13,6 +13,7 @@ export const R2_VERIFY_KEY_PREFIX = "__kidar_verify__/";
 export const PUBLIC_ARTIFACT_CONTENT_TYPES = {
   html: "text/html; charset=utf-8",
   glb: "model/gltf-binary",
+  usdz: "model/vnd.usdz+zip",
   mind: "application/octet-stream",
   png: "image/png",
   pdf: "application/pdf",

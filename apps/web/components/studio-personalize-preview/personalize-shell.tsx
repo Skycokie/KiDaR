@@ -487,28 +487,14 @@ function Inspector({
     <div className="studio-ws__inspector-block">
       <h2>AR</h2>
       <p className="studio-ws__muted">{COPY.arPreviewNote}</p>
-      <div className={`studio-ws__ar-card${drawingSrc ? " has-photo" : ""}${state.arLive ? " is-live" : ""}`}>
-        <span className="studio-ws__ar-frame">
-          {drawingSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={drawingSrc} alt="Previzualizare AR" className="studio-ws__drawing-photo" />
-          ) : null}
-        </span>
+      <div className="studio-ws__ar-card">
+        <span className="studio-ws__ar-frame" aria-hidden="true" />
         <span className="studio-ws__ar-caption">
-          {state.arLive
-            ? "Previzualizare AR activă pe scenă"
-            : drawingSrc
-              ? "Previzualizare AR locală"
-              : "Cadru demonstrativ"}
+          {drawingSrc ? COPY.arCardCaption : COPY.arCardEmpty}
         </span>
       </div>
-      <button
-        type="button"
-        className="studio-ws__primary-btn"
-        aria-pressed={state.arLive}
-        onClick={() => dispatch({ type: "arLive", value: !state.arLive })}
-      >
-        {state.arLive ? "Oprește previzualizarea AR" : COPY.seeInAr}
+      <button type="button" className="studio-ws__primary-btn" disabled title={COPY.seeInArPreparing}>
+        {COPY.seeInArPreparing}
       </button>
     </div>
   );
@@ -630,7 +616,6 @@ export function PersonalizePreviewShell({
     return () => window.cancelAnimationFrame(frame);
   }, [state.autoRotate]);
 
-  const openAr = () => dispatch({ type: "arLive", value: true });
   const closePublish = () => dispatch({ type: "publish", open: false });
 
   useEffect(() => {
@@ -893,7 +878,7 @@ export function PersonalizePreviewShell({
       data-studio-mode="personalize-workspace"
       data-has-drawing={hasDrawing ? "yes" : "no"}
       data-project={projectId ? "linked" : "fixture"}
-      data-ar-live={state.arLive ? "yes" : "no"}
+      data-ar-live="no"
       data-sheet={state.leftOpen || state.rightOpen ? "open" : "closed"}
     >
       <a className="studio-ws__skip" href="#studio-ws-main">
@@ -909,8 +894,8 @@ export function PersonalizePreviewShell({
               {COPY.savedLocal}
             </span>
             {renderPublish()}
-            <button type="button" className="studio-ws__btn-primary" onClick={openAr}>
-              {COPY.seeInAr}
+            <button type="button" className="studio-ws__btn-primary" disabled title={COPY.seeInArPreparing}>
+              {COPY.seeInArPreparing}
             </button>
           </div>
         }
@@ -918,8 +903,8 @@ export function PersonalizePreviewShell({
           <>
             <p className="studio-ws__saved studio-ws__saved--sheet">{COPY.savedLocal}</p>
             {renderPublish()}
-            <button type="button" className="studio-ws__btn-primary" onClick={openAr}>
-              {COPY.seeInAr}
+            <button type="button" className="studio-ws__btn-primary" disabled title={COPY.seeInArPreparing}>
+              {COPY.seeInArPreparing}
             </button>
           </>
         }
@@ -950,7 +935,7 @@ export function PersonalizePreviewShell({
 
           <div
             ref={viewportRef}
-            className={`studio-ws__viewport${state.arLive ? " is-ar-live" : ""}`}
+            className="studio-ws__viewport"
             onPointerDown={onViewportPointerDown}
             onPointerMove={onViewportPointerMove}
             onPointerUp={onViewportPointerEnd}
@@ -991,29 +976,6 @@ export function PersonalizePreviewShell({
             </div>
 
             </div>
-
-            {state.arLive ? (
-              <div className="studio-ws__ar-live" aria-live="polite">
-                <div className="studio-ws__ar-live-phone">
-                  <div className="studio-ws__ar-live-screen">
-                    {drawingSrc ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={drawingSrc} alt="" className="studio-ws__ar-live-photo" />
-                    ) : (
-                      <span className="studio-ws__ar-live-fixture" aria-hidden="true" />
-                    )}
-                    <p>Previzualizare AR locală</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="studio-ws__ar-live-close"
-                  onClick={() => dispatch({ type: "arLive", value: false })}
-                >
-                  Închide AR
-                </button>
-              </div>
-            ) : null}
 
             <div className="studio-ws__viewport-overlay">
               <p className="studio-ws__viewport-step">{activeStage?.label}</p>
@@ -1116,8 +1078,8 @@ export function PersonalizePreviewShell({
           <SlidersHorizontal size={17} strokeWidth={1.75} aria-hidden />
           {COPY.rightNavOpen}
         </button>
-        <button type="button" className="studio-ws__dock-cta" onClick={openAr}>
-          {COPY.seeInAr}
+        <button type="button" className="studio-ws__dock-cta" disabled title={COPY.seeInArPreparing}>
+          {COPY.seeInArPreparing}
         </button>
       </nav>
 

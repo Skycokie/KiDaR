@@ -99,6 +99,7 @@ describe("figurine_build stage (Go D retopo)", () => {
         submitCount += 1;
         return { providerTaskId: "task_dup" };
       },
+      submitModelConvert: async () => ({ providerTaskId: "convert_unused" }),
       submitMeshDecimate: async () => {
         retopoCount += 1;
         return { providerTaskId: "retopo_dup" };
@@ -175,6 +176,7 @@ describe("figurine_build stage (Go D retopo)", () => {
         submitCount += 1;
         return { providerTaskId: "gen_1" };
       },
+      submitModelConvert: async () => ({ providerTaskId: "convert_unused" }),
       submitMeshDecimate: async (input) => {
         retopoCount += 1;
         expect(input.sourceTaskId).toBe("gen_1");
@@ -234,6 +236,7 @@ describe("figurine_build stage (Go D retopo)", () => {
     const provider: TripoImageToModelProvider = {
       uploadImage: async () => ({ fileToken: "f" }),
       submitImageToModel: async () => ({ providerTaskId: "t1" }),
+      submitModelConvert: async () => ({ providerTaskId: "convert_unused" }),
       submitMeshDecimate: async () => ({ providerTaskId: "r1" }),
       getTask: async (id) => ({
         status: "success",
@@ -270,6 +273,7 @@ describe("figurine_build stage (Go D retopo)", () => {
     const provider: TripoImageToModelProvider = {
       uploadImage: async () => ({ fileToken: "f" }),
       submitImageToModel: async () => ({ providerTaskId: "t1" }),
+      submitModelConvert: async () => ({ providerTaskId: "convert_unused" }),
       submitMeshDecimate: async () => ({ providerTaskId: "r_fail" }),
       getTask: async (id) => {
         if (id === "t1") {
@@ -318,6 +322,7 @@ describe("figurine_build stage (Go D retopo)", () => {
       submitImageToModel: async () => {
         throw new Error("must not submit");
       },
+      submitModelConvert: async () => ({ providerTaskId: "convert_unused" }),
       submitMeshDecimate: async () => {
         throw new Error("must not retopo");
       },
