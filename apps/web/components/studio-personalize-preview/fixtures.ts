@@ -32,8 +32,11 @@ export const COPY = {
   publishInactive: "Publicarea reală nu este activată încă.",
   publishBack: "Înapoi în Studio",
   seeInAr: "Vezi în AR",
+  seeInArPreparing: "AR în pregătire",
   arPreviewNote:
-    "Previzualizare locală pe acest ecran — fără cameră, fără tracking și fără publicare.",
+    "Previzualizare 2D locală pe acest ecran — fără cameră, fără tracking și fără publicare.",
+  arCardCaption: "Previzualizare 2D locală",
+  arCardEmpty: "Cadru demonstrativ",
   stageHint: "Trage pentru a roti · scroll pentru zoom.",
   showOriginalPage: "Arată pagina originală",
   pageReference: "Referință",

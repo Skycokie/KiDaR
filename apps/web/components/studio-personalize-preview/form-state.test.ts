@@ -278,6 +278,11 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(fixtures).toContain(COPY.savedLocal);
     expect(fixtures).toContain(COPY.publish);
     expect(fixtures).toContain(COPY.seeInAr);
+    expect(fixtures).toContain(COPY.seeInArPreparing);
+    expect(fixtures).toContain(COPY.arCardCaption);
+    expect(shell).toContain("COPY.seeInArPreparing");
+    expect(shell).not.toContain("studio-ws__ar-live");
+    expect(shell).not.toContain("Previzualizare AR locală");
     expect(fixtures).toContain(COPY.regenerate);
     expect(shell).toContain("PERSONALIZE_STUDIO_HREF");
     expect(shell).toContain("studio-ws__dpad");
@@ -388,11 +393,15 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(extractEffect).not.toContain("viewRef");
   });
 
-  it("Vezi în AR stays local-only and does not navigate to a camera route", () => {
+  it("Vezi în AR is disabled until real assets exist and does not open a fake AR overlay", () => {
     const shell = readLocal("personalize-shell.tsx");
+    const fixtures = readLocal("fixtures.ts");
     expect(shell).not.toContain("/studio-preview/personalizeaza/camera");
     expect(shell).not.toContain("PERSONALIZE_CAMERA_HREF");
-    expect(shell).toContain("arLive");
-    expect(shell).toContain("setArLive");
+    expect(shell).toContain("seeInArPreparing");
+    expect(fixtures).toContain("AR în pregătire");
+    expect(fixtures).toContain("Previzualizare 2D locală");
+    expect(shell).not.toContain("studio-ws__ar-live");
+    expect(shell).not.toContain("onClick={openAr}");
   });
 });

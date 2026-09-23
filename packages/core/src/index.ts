@@ -131,6 +131,41 @@ export type {
 } from "./figurine";
 
 export {
+  FIGURE_STAGING_ENVIRONMENT,
+  FIGURE_STAGING_BUCKET_NAME,
+  FIGURE_STAGING_KEY_PREFIX,
+  FIGURE_STAGING_GLB_KIND,
+  FIGURE_STAGING_USDZ_KIND,
+  FIGURE_STAGING_MAX_USDZ_BYTES,
+  FIGURE_STAGING_USDZ_CONTENT_TYPE,
+  FIGURE_STAGING_GLB_PRESIGN_TTL_SEC,
+  FIGURE_STAGING_USDZ_PRESIGN_TTL_SEC,
+  FIGURE_STAGING_SOURCE_PRESIGN_TTL_SEC,
+  FigureStagingError,
+  figureStagingGlbKey,
+  figureStagingUsdzKey,
+  assertFigureStagingObjectKey,
+  isUsdzBuffer,
+  assertUsdzArtifact,
+  publicFigureAssetsForUi,
+  arEnabledFromAssets,
+  assertFigureStagingEnvironment,
+  createInitialFigureAssets,
+  markFigureAssetsProcessing,
+  markFigureAssetsReady,
+  markFigureAssetsFailed,
+  figureStagingUiMessage,
+  figureAssetsReadyKeys
+} from "./figure-staging";
+export type {
+  FigureAssetStatus,
+  FigureAssets,
+  FigureGenerationJob,
+  FigureStagingErrorCode,
+  FigureStagingGuardInput
+} from "./figure-staging";
+
+export {
   MIND_PIPELINE_VERSION,
   MIND_AR_PACKAGE_VERSION,
   MIND_ARTIFACT_KIND,
@@ -285,6 +320,18 @@ export interface ProjectSettings {
    * lives here + job payload — not browser-only storage.
    */
   figurineSubjects?: import("./figurine").FigurineSubjectRecord[];
+  /**
+   * Staging-only figure assets for internal Quick Look tests.
+   * URLs must only be present when status is ready (see publicFigureAssetsForUi).
+   */
+  figureAssets?: import("./figure-staging").FigureAssets;
+  /** Persisted Tripo task ids for idempotent staging retries. */
+  figureStagingTasks?: {
+    jobId?: string;
+    providerTaskId?: string;
+    retopoTaskId?: string;
+    convertTaskId?: string;
+  };
   logoPath?: string;
   soundPath?: string;
   scale: number;

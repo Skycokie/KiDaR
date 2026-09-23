@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="48" viewBox="0 0 320 48" role="img" aria-label="Vezi în AR">
+  <rect width="320" height="48" rx="24" fill="#e8a05a"/>
+  <text x="160" y="30" text-anchor="middle" font-family="system-ui,sans-serif" font-size="16" font-weight="600" fill="#1a120c">Vezi în AR</text>
+</svg>

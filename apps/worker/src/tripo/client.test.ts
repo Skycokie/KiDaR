@@ -42,6 +42,14 @@ describe("tripo provider (mocked fetch)", () => {
           status: 200
         });
       }
+      if (url.endsWith("/models/convert")) {
+        const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+        expect(body.input).toBe("retopo_1");
+        expect(body.format).toBe("USDZ");
+        return new Response(JSON.stringify({ code: 0, data: { task_id: "convert_1" } }), {
+          status: 200
+        });
+      }
       if (url.includes("/tasks/task_1")) {
         return new Response(
           JSON.stringify({
@@ -104,6 +112,12 @@ describe("tripo provider (mocked fetch)", () => {
     expect(buf.byteLength).toBeGreaterThan(0);
 
     expect(calls.some((c) => c.includes("/mesh/decimate"))).toBe(true);
+
+    const convert = await provider.submitModelConvert({
+      sourceTaskId: retopo.providerTaskId,
+      format: "USDZ"
+    });
+    expect(convert.providerTaskId).toBe("convert_1");
 
     const authCalls = fetchMock.mock.calls.filter((c) => {
       const headers = c[1]?.headers as Record<string, string> | undefined;
