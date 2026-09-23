@@ -19,6 +19,8 @@ import {
   LATERAL_ORBIT_YAW,
   nudgeOrbit,
   nudgeOrbitFromScreen,
+  orbitDeltaFromPointer,
+  ORBIT_DRAG_DEG_PER_PX,
   ORBIT_PITCH_MAX,
   ORBIT_PITCH_STEP,
   ORBIT_ROLL_STEP,
@@ -35,7 +37,11 @@ import {
   setArLive,
   summarizePersonalize,
   toggleDecor,
-  toggleGrid
+  toggleGrid,
+  ZOOM_MAX,
+  ZOOM_MIN,
+  zoomFromPinch,
+  zoomFromWheel
 } from "./form-state";
 
 const root = join(__dirname);
@@ -324,8 +330,62 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(poster).toContain("FigurineDrawingShell");
     expect(poster).toContain("figurineVolumeScale");
     expect(poster).toContain("popoutExtrusionPx");
-    expect(fixtures).toContain(COPY.popoutRotateHint);
+    const removedHint = "Rotește lumea pentru a vedea straturile.";
+    expect(fixtures).not.toContain(removedHint);
+    expect(poster).not.toContain(removedHint);
+    expect(shell).not.toContain(removedHint);
+    expect(readLocal("personalize-preview.css")).not.toContain(removedHint);
+    expect(fixtures).toContain("Pregătim Pop-out-ul…");
     expect(fixtures).toContain(COPY.figurineVolumeHint);
+  });
+
+  it("maps pointer drag and wheel or pinch onto the same orbit and zoom", () => {
+    const start = { ...createInitialPersonalizeState(), autoRotate: true };
+    const delta = orbitDeltaFromPointer(40, -20);
+    expect(delta.yaw).toBeCloseTo(40 * ORBIT_DRAG_DEG_PER_PX);
+    expect(delta.pitch).toBeCloseTo(20 * ORBIT_DRAG_DEG_PER_PX);
+    const dragged = nudgeOrbitFromScreen(start, delta.yaw, delta.pitch, 0, true);
+    expect(dragged.autoRotate).toBe(false);
+    expect(dragged.orbitYaw).not.toBe(start.orbitYaw);
+    expect(dragged.orbitPitch).not.toBe(start.orbitPitch);
+    const spinning = nudgeOrbitFromScreen(start, 4, 0, 0, false);
+    expect(spinning.autoRotate).toBe(true);
+
+    expect(zoomFromWheel(100, 12)).toBe(95);
+    expect(zoomFromWheel(ZOOM_MIN, 12)).toBe(ZOOM_MIN);
+    expect(zoomFromWheel(ZOOM_MAX, -12)).toBe(ZOOM_MAX);
+    expect(zoomFromPinch(100, 100, 110)).toBe(110);
+    expect(zoomFromPinch(100, 100, 400)).toBe(ZOOM_MAX);
+    expect(zoomFromPinch(100, 200, 40)).toBe(ZOOM_MIN);
+  });
+
+  it("keeps direct manipulation on the shared orbit path and parks mobile controls in Reglaje", () => {
+    const shell = readLocal("personalize-shell.tsx");
+    const css = readLocal("personalize-preview.css");
+    const stage = readLocal("popout-mesh-stage.tsx");
+    expect(shell).toContain("orbitDeltaFromPointer(dx, dy)");
+    expect(shell).toContain("yaw: delta.yaw, pitch: delta.pitch, user: true");
+    expect(shell).toContain('dispatch({ type: "autoRotate", value: false })');
+    expect(shell).toContain("zoomFromWheel");
+    expect(shell).toContain("zoomFromPinch");
+    expect(shell).toContain("event.preventDefault()");
+    expect(shell).not.toContain("onPointerLeave");
+    expect(shell).toContain("studio-ws__view-controls--sheet");
+    expect(shell).toContain("studio-ws__spin--float");
+    expect(shell).toContain("studio-ws__overlay-tools");
+    expect(shell).toContain('dispatch({ type: "orbit", yaw: 0, pitch: ORBIT_PITCH_STEP, user: true })');
+    expect(css).toContain("touch-action: none");
+    expect(css).toMatch(/@media \(max-width: 959px\)[\s\S]*\.studio-ws__overlay-tools\s*\{\s*display:\s*none/);
+    expect(css).toMatch(/@media \(max-width: 959px\)[\s\S]*\.studio-ws__view-controls--sheet\s*\{\s*display:\s*grid/);
+    expect(css).toMatch(/@media \(min-width: 960px\)[\s\S]*\.studio-ws__view-controls--sheet\s*\{\s*display:\s*none/);
+    expect(stage).toContain("}, [sourceUrl, retryToken]);");
+    expect(stage).toContain("}, [phase, sourceUrl, retryToken]);");
+    expect(stage).toContain("sessionExtracts");
+    expect(stage).not.toContain("}, [sourceUrl, retryToken, yaw");
+    expect(stage).not.toContain("}, [sourceUrl, retryToken, zoom");
+    const extractEffect = stage.slice(stage.indexOf("const cached = retryToken"), stage.indexOf("}, [sourceUrl, retryToken]);"));
+    expect(extractEffect).toContain("createPreviewCutout");
+    expect(extractEffect).not.toContain("viewRef");
   });
 
   it("Vezi în AR stays local-only and does not navigate to a camera route", () => {

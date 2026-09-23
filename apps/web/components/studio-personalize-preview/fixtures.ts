@@ -35,7 +35,6 @@ export const COPY = {
   arPreviewNote:
     "Previzualizare locală pe acest ecran — fără cameră, fără tracking și fără publicare.",
   stageHint: "Trage pentru a roti · scroll pentru zoom.",
-  popoutRotateHint: "Rotește lumea pentru a vedea straturile.",
   showOriginalPage: "Arată pagina originală",
   pageReference: "Referință",
   rotateLeft: "Rotește stânga",
@@ -50,7 +49,7 @@ export const COPY = {
   autoRotateStop: "Oprește 360°",
   autoRotateActive: "Activ",
   resetView: "Resetează vederea",
-  popoutPreparing: "Pregătim straturile desenului…",
+  popoutPreparing: "Pregătim Pop-out-ul…",
   popoutSeparateFailed: "Nu am putut separa elementele desenului în acest preview.",
   popoutRetry: "Încearcă din nou",
   figurineVolumeHint: "O interpretare cu volum a desenului tău.",

@@ -88,7 +88,8 @@ function makeComponentMesh(
   height: number,
   rgba: Uint8ClampedArray,
   depth: number,
-  z: number
+  z: number,
+  shadows: boolean
 ) {
   const shape = new THREE.Shape();
   polygon.points.forEach((point, index) => {
@@ -136,8 +137,8 @@ function makeComponentMesh(
     metalness: 0
   });
   const mesh = new THREE.Mesh(geometry, [front, side]);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
+  mesh.castShadow = shadows;
+  mesh.receiveShadow = shadows;
   return mesh;
 }
 
@@ -233,11 +234,13 @@ export function PopoutMeshStage({
     const extract = extractRef.current;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    const mobile = window.matchMedia("(max-width: 959px)").matches;
+    const lite = mobile || (navigator.hardwareConcurrency || 8) <= 4;
     const renderer = new THREE.WebGLRenderer({ antialias: !reducedMotion, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2));
     renderer.setClearColor(0x000000, 0);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.enabled = !lite;
+    if (!lite) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     mount.appendChild(renderer.domElement);
 
@@ -248,17 +251,19 @@ export function PopoutMeshStage({
 
     const key = new THREE.DirectionalLight(0xfff2df, 1.35);
     key.position.set(1.4, 2.2, 3.2);
-    key.castShadow = true;
-    key.shadow.mapSize.set(1024, 1024);
-    key.shadow.camera.near = 0.2;
-    key.shadow.camera.far = 12;
-    key.shadow.bias = -0.0008;
-    const shadowCam = key.shadow.camera as THREE.OrthographicCamera;
-    shadowCam.left = -4;
-    shadowCam.right = 4;
-    shadowCam.top = 4;
-    shadowCam.bottom = -4;
-    shadowCam.updateProjectionMatrix();
+    if (!lite) {
+      key.castShadow = true;
+      key.shadow.mapSize.set(1024, 1024);
+      key.shadow.camera.near = 0.2;
+      key.shadow.camera.far = 12;
+      key.shadow.bias = -0.0008;
+      const shadowCam = key.shadow.camera as THREE.OrthographicCamera;
+      shadowCam.left = -4;
+      shadowCam.right = 4;
+      shadowCam.top = 4;
+      shadowCam.bottom = -4;
+      shadowCam.updateProjectionMatrix();
+    }
     scene.add(key);
     scene.add(new THREE.AmbientLight(0xffe6cc, 0.42));
     const rim = new THREE.DirectionalLight(0xffd7b0, 0.55);
@@ -288,13 +293,23 @@ export function PopoutMeshStage({
     plane.receiveShadow = false;
     root.add(plane);
 
-    const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(3.4, 48),
-      new THREE.ShadowMaterial({ opacity: 0.42 })
-    );
+    const ground = lite
+      ? new THREE.Mesh(
+          new THREE.CircleGeometry(2.1, 32),
+          new THREE.MeshBasicMaterial({
+            color: 0x1a120c,
+            transparent: true,
+            opacity: 0.38,
+            depthWrite: false
+          })
+        )
+      : new THREE.Mesh(
+          new THREE.CircleGeometry(3.4, 48),
+          new THREE.ShadowMaterial({ opacity: 0.42 })
+        );
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = 0;
-    ground.receiveShadow = true;
+    ground.receiveShadow = !lite;
     scene.add(ground);
 
     const focus = new THREE.Vector3(0, 0.8, 0);
@@ -318,7 +333,8 @@ export function PopoutMeshStage({
             extract.height,
             extract.rgba,
             depth,
-            previewLayerZ(layer.z, volumeRef.current)
+            previewLayerZ(layer.z, volumeRef.current),
+            !lite
           )
         );
       }

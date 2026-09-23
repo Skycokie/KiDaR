@@ -671,11 +671,21 @@
   filter: brightness(1.1);
 }
 
-.studio-ws[data-sheet="open"] .studio-ws__dpad-cluster,
+.studio-ws[data-sheet="open"] .studio-ws__overlay-tools .studio-ws__dpad-cluster,
 .studio-ws[data-sheet="open"] .studio-ws__start-save,
-.studio-ws[data-sheet="open"] .studio-ws__page-toggle--float {
+.studio-ws[data-sheet="open"] .studio-ws__overlay-tools .studio-ws__page-toggle--float,
+.studio-ws[data-sheet="open"] .studio-ws__spin--float {
   opacity: 0.28;
   pointer-events: none;
+}
+
+.studio-ws__overlay-tools {
+  display: contents;
+}
+
+.studio-ws__spin--float,
+.studio-ws__view-controls--sheet {
+  display: none;
 }
 
 .studio-ws__page-toggle {
@@ -1808,9 +1818,21 @@
   touch-action: none;
   cursor: grab;
   position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+  overscroll-behavior: contain;
 }
 
-.studio-ws__viewport:active {
+.studio-ws__stage-frame,
+.studio-stage,
+.studio-stage__popout-live,
+.studio-stage__popout-canvas,
+.studio-stage__popout-canvas canvas {
+  touch-action: none;
+}
+
+.studio-ws__viewport:active,
+.studio-ws__viewport[data-dragging="yes"] {
   cursor: grabbing;
 }
 
@@ -2377,6 +2399,27 @@
   .studio-ws__viewport-step {
     opacity: 0.85;
   }
+
+  .studio-ws__view-controls--sheet {
+    display: none;
+  }
+
+  .studio-ws__overlay-tools .studio-ws__dpad {
+    grid-template-columns: 36px 36px 36px;
+    grid-template-rows: 36px 36px 36px;
+    padding: 4px;
+  }
+
+  .studio-ws__overlay-tools .studio-ws__dpad-btn,
+  .studio-ws__overlay-tools .studio-ws__roll-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .studio-ws__overlay-tools .studio-ws__roll {
+    grid-template-rows: 36px 36px;
+    padding: 4px;
+  }
 }
 
 @media (max-width: 959px) {
@@ -2396,28 +2439,51 @@
     border-radius: 1rem;
   }
 
-  .studio-ws__dpad {
-    grid-template-columns: 48px 48px 48px;
-    grid-template-rows: 48px 48px 48px;
+  .studio-ws__overlay-tools {
+    display: none;
   }
 
-  .studio-ws__dpad-btn {
-    width: 48px;
-    height: 48px;
+  .studio-ws__spin--float {
+    display: inline-flex;
+    position: absolute;
+    top: 0.55rem;
+    right: 0.55rem;
+    z-index: 7;
+    min-width: 44px;
+    justify-content: center;
   }
 
-  .studio-ws__roll {
-    grid-template-rows: 48px 48px;
+  .studio-ws__view-controls--sheet {
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
   }
 
-  .studio-ws__roll-btn {
-    width: 48px;
-    height: 48px;
+  .studio-ws__view-controls--sheet .studio-ws__dpad-cluster {
+    position: static;
+    left: auto;
+    bottom: auto;
+    max-width: none;
+    flex-wrap: wrap;
   }
 
-  .studio-ws__dpad-cluster {
-    bottom: 0.85rem;
-    left: 0.55rem;
+  .studio-ws__view-controls--sheet .studio-ws__viewport-bar {
+    display: grid;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    backdrop-filter: none;
+  }
+
+  .studio-ws__view-controls--sheet .studio-ws__tool span {
+    display: inline;
+  }
+
+  .studio-ws__view-controls--sheet .studio-ws__cam-btn,
+  .studio-ws__view-controls--sheet .studio-ws__tool,
+  .studio-ws__view-controls--sheet .studio-ws__zoom,
+  .studio-ws__view-controls--sheet .studio-ws__page-toggle {
+    min-height: 44px;
   }
 
   .studio-stage {
