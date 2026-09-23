@@ -405,8 +405,35 @@ export function frameFit(state: PersonalizeState): PersonalizeState {
   };
 }
 
+export const ZOOM_MIN = 60;
+export const ZOOM_MAX = 160;
+/** Degrees of orbit per pixel of pointer travel. Shared by mouse and touch drag. */
+export const ORBIT_DRAG_DEG_PER_PX = 0.45;
+
+export function clampZoom(zoom: number): number {
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(zoom)));
+}
+
+/** Horizontal drag yaws; upward drag pitches up. Same axes as the D-pad. */
+export function orbitDeltaFromPointer(dx: number, dy: number): { yaw: number; pitch: number } {
+  return {
+    yaw: dx * ORBIT_DRAG_DEG_PER_PX,
+    pitch: -dy * ORBIT_DRAG_DEG_PER_PX
+  };
+}
+
+export function zoomFromWheel(zoom: number, deltaY: number): number {
+  if (deltaY === 0) return clampZoom(zoom);
+  return clampZoom(zoom + (deltaY > 0 ? -5 : 5));
+}
+
+export function zoomFromPinch(zoom: number, previousDistance: number, nextDistance: number): number {
+  if (!(previousDistance > 0) || !(nextDistance > 0)) return clampZoom(zoom);
+  return clampZoom(zoom * (nextDistance / previousDistance));
+}
+
 export function setZoom(state: PersonalizeState, zoom: number): PersonalizeState {
-  return { ...state, zoom: clamp(zoom, 60, 160) };
+  return { ...state, zoom: clampZoom(zoom) };
 }
 
 export function setLeftOpen(state: PersonalizeState, leftOpen: boolean): PersonalizeState {

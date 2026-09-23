@@ -389,10 +389,6 @@ export function GardenPoster({
         {isFigurine && !hasDrawing ? <FigurineFixtureFigure volume={state.volume} /> : null}
       </div>
 
-      {isPopout ? (
-        <p className="studio-stage__mode-hint studio-stage__mode-hint--popout">{COPY.popoutRotateHint}</p>
-      ) : null}
-
       {isFigurine ? (
         <p className="studio-stage__mode-hint studio-stage__mode-hint--figurine">{COPY.figurineVolumeHint}</p>
       ) : null}

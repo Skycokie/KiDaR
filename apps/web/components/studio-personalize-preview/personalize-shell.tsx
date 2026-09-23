@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import {
   ArrowDown,
   ArrowLeft,
@@ -37,6 +37,7 @@ import {
   frameFit,
   nudgeOrbit,
   nudgeOrbitFromScreen,
+  orbitDeltaFromPointer,
   ORBIT_PITCH_STEP,
   ORBIT_ROLL_STEP,
   ORBIT_YAW_STEP,
@@ -60,6 +61,8 @@ import {
   setVolume,
   setZoom,
   summarizePersonalize,
+  zoomFromPinch,
+  zoomFromWheel,
   toggleDecor,
   toggleGrid,
   type PersonalizeState
@@ -74,6 +77,12 @@ import {
   startSavePresentation
 } from "./save-start-transform";
 import "./personalize-preview.css";
+
+function pointerSpan(points: Map<number, { x: number; y: number }>): number {
+  const pts = [...points.values()];
+  if (pts.length < 2) return 0;
+  return Math.hypot((pts[0]?.x ?? 0) - (pts[1]?.x ?? 0), (pts[0]?.y ?? 0) - (pts[1]?.y ?? 0));
+}
 
 type Action =
   | { type: "stage"; id: StudioStageId }
@@ -555,8 +564,12 @@ export function PersonalizePreviewShell({
     baselineYaw: orbitSeed.yaw ?? createInitialPersonalizeState().orbitYaw,
     baselinePitch: orbitSeed.pitch ?? createInitialPersonalizeState().orbitPitch
   });
-  const dragRef = useRef({ active: false, lastX: 0, lastY: 0 });
+  const dragRef = useRef({ active: false, pointerId: -1, lastX: 0, lastY: 0 });
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{ distance: number } | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const zoomRef = useRef(state.zoom);
+  zoomRef.current = state.zoom;
   const publishDialogRef = useRef<HTMLDivElement | null>(null);
   const summary = summarizePersonalize(state);
   const activeStage = STAGES.find((stage) => stage.id === state.stage);
@@ -594,12 +607,12 @@ export function PersonalizePreviewShell({
     if (!el) return;
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      const delta = event.deltaY > 0 ? -5 : 5;
-      dispatch({ type: "zoom", value: state.zoom + delta });
+      const next = zoomFromWheel(zoomRef.current, event.deltaY);
+      if (next !== zoomRef.current) dispatch({ type: "zoom", value: next });
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [state.zoom]);
+  }, []);
 
   useEffect(() => {
     if (!state.autoRotate) return;
@@ -635,6 +648,76 @@ export function PersonalizePreviewShell({
     };
   }, [state.publishOpen]);
 
+  const markDragging = (active: boolean) => {
+    const el = viewportRef.current;
+    if (!el) return;
+    if (active) el.dataset.dragging = "yes";
+    else delete el.dataset.dragging;
+  };
+
+  const onViewportPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest("button, input, label, a")) return;
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    event.currentTarget.setPointerCapture(event.pointerId);
+    markDragging(true);
+    if (state.autoRotate) dispatch({ type: "autoRotate", value: false });
+    if (pointersRef.current.size >= 2) {
+      dragRef.current.active = false;
+      pinchRef.current = { distance: pointerSpan(pointersRef.current) };
+      return;
+    }
+    dragRef.current = {
+      active: true,
+      pointerId: event.pointerId,
+      lastX: event.clientX,
+      lastY: event.clientY
+    };
+  };
+
+  const onViewportPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!pointersRef.current.has(event.pointerId)) return;
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointersRef.current.size >= 2 && pinchRef.current) {
+      event.preventDefault();
+      const nextDistance = pointerSpan(pointersRef.current);
+      const nextZoom = zoomFromPinch(zoomRef.current, pinchRef.current.distance, nextDistance);
+      pinchRef.current.distance = nextDistance;
+      if (nextZoom !== zoomRef.current) dispatch({ type: "zoom", value: nextZoom });
+      return;
+    }
+    if (!dragRef.current.active || dragRef.current.pointerId !== event.pointerId) return;
+    const dx = event.clientX - dragRef.current.lastX;
+    const dy = event.clientY - dragRef.current.lastY;
+    dragRef.current.lastX = event.clientX;
+    dragRef.current.lastY = event.clientY;
+    if (dx === 0 && dy === 0) return;
+    const delta = orbitDeltaFromPointer(dx, dy);
+    dispatch({ type: "orbit", yaw: delta.yaw, pitch: delta.pitch, user: true });
+  };
+
+  const onViewportPointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    pointersRef.current.delete(event.pointerId);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    if (pointersRef.current.size >= 2) {
+      pinchRef.current = { distance: pointerSpan(pointersRef.current) };
+      dragRef.current.active = false;
+      return;
+    }
+    pinchRef.current = null;
+    if (pointersRef.current.size === 1) {
+      const remaining = [...pointersRef.current.entries()][0];
+      if (!remaining) return;
+      const [id, point] = remaining;
+      dragRef.current = { active: true, pointerId: id, lastX: point.x, lastY: point.y };
+      return;
+    }
+    dragRef.current.active = false;
+    markDragging(false);
+  };
+
   const renderPublish = () => (
     <button
       type="button"
@@ -648,6 +731,160 @@ export function PersonalizePreviewShell({
     >
       {COPY.publish}
     </button>
+  );
+
+  const renderViewControls = (variant: "overlay" | "sheet") => (
+    <>
+      <div className="studio-ws__dpad-cluster">
+        <div className="studio-ws__dpad" role="group" aria-label="Rotire scenă">
+          <button
+            type="button"
+            className="studio-ws__dpad-btn studio-ws__dpad-btn--up"
+            aria-label={COPY.tiltUp}
+            title={COPY.tiltUp}
+            onClick={() => dispatch({ type: "orbit", yaw: 0, pitch: ORBIT_PITCH_STEP, user: true })}
+          >
+            <ArrowUp size={16} strokeWidth={1.75} aria-hidden />
+          </button>
+          <button
+            type="button"
+            className="studio-ws__dpad-btn studio-ws__dpad-btn--left"
+            aria-label={COPY.rotateLeft}
+            title={COPY.rotateLeft}
+            onClick={() => dispatch({ type: "orbit", yaw: -ORBIT_YAW_STEP, pitch: 0, user: true })}
+          >
+            <ArrowLeft size={16} strokeWidth={1.75} aria-hidden />
+          </button>
+          <button
+            type="button"
+            className="studio-ws__dpad-btn studio-ws__dpad-btn--center"
+            aria-label={COPY.resetView}
+            title={COPY.resetView}
+            onClick={() => dispatch({ type: "camera", id: "reset" })}
+          >
+            <span aria-hidden>⊙</span>
+          </button>
+          <button
+            type="button"
+            className="studio-ws__dpad-btn studio-ws__dpad-btn--right"
+            aria-label={COPY.rotateRight}
+            title={COPY.rotateRight}
+            onClick={() => dispatch({ type: "orbit", yaw: ORBIT_YAW_STEP, pitch: 0, user: true })}
+          >
+            <ArrowRight size={16} strokeWidth={1.75} aria-hidden />
+          </button>
+          <button
+            type="button"
+            className="studio-ws__dpad-btn studio-ws__dpad-btn--down"
+            aria-label={COPY.tiltDown}
+            title={COPY.tiltDown}
+            onClick={() => dispatch({ type: "orbit", yaw: 0, pitch: -ORBIT_PITCH_STEP, user: true })}
+          >
+            <ArrowDown size={16} strokeWidth={1.75} aria-hidden />
+          </button>
+        </div>
+        <div className="studio-ws__roll" role="group" aria-label={COPY.rollGroup}>
+          <button
+            type="button"
+            className="studio-ws__roll-btn"
+            aria-label={COPY.rollCcw}
+            title={COPY.rollCcw}
+            onClick={() => dispatch({ type: "orbit", yaw: 0, pitch: 0, roll: -ORBIT_ROLL_STEP, user: true })}
+          >
+            <RotateCcw size={16} strokeWidth={1.75} aria-hidden />
+          </button>
+          <button
+            type="button"
+            className="studio-ws__roll-btn"
+            aria-label={COPY.rollCw}
+            title={COPY.rollCw}
+            onClick={() => dispatch({ type: "orbit", yaw: 0, pitch: 0, roll: ORBIT_ROLL_STEP, user: true })}
+          >
+            <RotateCw size={16} strokeWidth={1.75} aria-hidden />
+          </button>
+        </div>
+        {variant === "overlay" ? (
+          <button
+            type="button"
+            className={`studio-ws__spin${state.autoRotate ? " is-active" : ""}`}
+            aria-label={COPY.autoRotate}
+            aria-pressed={state.autoRotate}
+            title={COPY.autoRotate}
+            onClick={() => dispatch({ type: "autoRotate", value: !state.autoRotate })}
+          >
+            <RotateCw size={16} strokeWidth={1.75} aria-hidden />
+            <span>{state.autoRotate ? COPY.autoRotateStop : COPY.autoRotateOff}</span>
+            {state.autoRotate ? <em>{COPY.autoRotateActive}</em> : null}
+          </button>
+        ) : null}
+      </div>
+      {hasDrawing && state.transformMode === "popout" ? (
+        <label
+          className={
+            variant === "overlay"
+              ? "studio-ws__page-toggle studio-ws__page-toggle--float"
+              : "studio-ws__page-toggle"
+          }
+        >
+          <input
+            type="checkbox"
+            checked={state.showOriginalPage}
+            onChange={(event) => dispatch({ type: "page", value: event.target.checked })}
+          />
+          <span>{COPY.showOriginalPage}</span>
+        </label>
+      ) : null}
+      {variant === "sheet" ? (
+      <div className="studio-ws__viewport-bar">
+        <div className="studio-ws__cam-presets" role="group" aria-label="Cameră">
+          {CAMERA_PRESETS.map((preset) => {
+            const active =
+              preset.id === "reset"
+                ? false
+                : state.cameraPreset === preset.id ||
+                  (state.cameraPreset === "reset" && preset.id === "threequarter");
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                className={`studio-ws__cam-btn${active ? " is-active" : ""}`}
+                onClick={() => dispatch({ type: "camera", id: preset.id })}
+              >
+                {preset.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="studio-ws__viewport-tools">
+          <button
+            type="button"
+            className={`studio-ws__tool${state.gridOn ? " is-active" : ""}`}
+            aria-pressed={state.gridOn}
+            onClick={() => dispatch({ type: "grid" })}
+          >
+            <Grid3x3 size={15} strokeWidth={1.75} aria-hidden />
+            <span>{COPY.grid}</span>
+          </button>
+          <button type="button" className="studio-ws__tool" onClick={() => dispatch({ type: "frame" })}>
+            <Maximize2 size={15} strokeWidth={1.75} aria-hidden />
+            <span>{COPY.frame}</span>
+          </button>
+          <label className="studio-ws__zoom">
+            <span>
+              {COPY.zoom} {state.zoom}%
+            </span>
+            <input
+              type="range"
+              min={60}
+              max={160}
+              value={state.zoom}
+              onChange={(event) => dispatch({ type: "zoom", value: Number(event.target.value) })}
+            />
+          </label>
+        </div>
+      </div>
+      ) : null}
+    </>
   );
 
   return (
@@ -714,26 +951,10 @@ export function PersonalizePreviewShell({
           <div
             ref={viewportRef}
             className={`studio-ws__viewport${state.arLive ? " is-ar-live" : ""}`}
-            onPointerDown={(event) => {
-              const target = event.target as HTMLElement;
-              if (target.closest("button, input, label, a")) return;
-              event.currentTarget.setPointerCapture(event.pointerId);
-              dragRef.current = { active: true, lastX: event.clientX, lastY: event.clientY };
-            }}
-            onPointerMove={(event) => {
-              if (!dragRef.current.active) return;
-              const dx = event.clientX - dragRef.current.lastX;
-              const dy = event.clientY - dragRef.current.lastY;
-              dragRef.current.lastX = event.clientX;
-              dragRef.current.lastY = event.clientY;
-              dispatch({ type: "orbit", yaw: dx / 2, pitch: dy / 2, user: true });
-            }}
-            onPointerUp={() => {
-              dragRef.current.active = false;
-            }}
-            onPointerLeave={() => {
-              dragRef.current.active = false;
-            }}
+            onPointerDown={onViewportPointerDown}
+            onPointerMove={onViewportPointerMove}
+            onPointerUp={onViewportPointerEnd}
+            onPointerCancel={onViewportPointerEnd}
           >
             <div className="studio-ws__stage-frame">
             <GardenPoster
@@ -743,91 +964,18 @@ export function PersonalizePreviewShell({
               showOriginalPage={state.showOriginalPage}
             />
 
-            <div className="studio-ws__dpad-cluster">
-              <div className="studio-ws__dpad" role="group" aria-label="Rotire scenă">
-                <button
-                  type="button"
-                  className="studio-ws__dpad-btn studio-ws__dpad-btn--up"
-                  aria-label={COPY.tiltUp}
-                  title={COPY.tiltUp}
-                  onClick={() => dispatch({ type: "orbit", yaw: 0, pitch: ORBIT_PITCH_STEP, user: true })}
-                >
-                  <ArrowUp size={16} strokeWidth={1.75} aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  className="studio-ws__dpad-btn studio-ws__dpad-btn--left"
-                  aria-label={COPY.rotateLeft}
-                  title={COPY.rotateLeft}
-                  onClick={() => dispatch({ type: "orbit", yaw: -ORBIT_YAW_STEP, pitch: 0, user: true })}
-                >
-                  <ArrowLeft size={16} strokeWidth={1.75} aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  className="studio-ws__dpad-btn studio-ws__dpad-btn--center"
-                  aria-label={COPY.resetView}
-                  title={COPY.resetView}
-                  onClick={() => dispatch({ type: "camera", id: "reset" })}
-                >
-                  <span aria-hidden>⊙</span>
-                </button>
-                <button
-                  type="button"
-                  className="studio-ws__dpad-btn studio-ws__dpad-btn--right"
-                  aria-label={COPY.rotateRight}
-                  title={COPY.rotateRight}
-                  onClick={() => dispatch({ type: "orbit", yaw: ORBIT_YAW_STEP, pitch: 0, user: true })}
-                >
-                  <ArrowRight size={16} strokeWidth={1.75} aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  className="studio-ws__dpad-btn studio-ws__dpad-btn--down"
-                  aria-label={COPY.tiltDown}
-                  title={COPY.tiltDown}
-                  onClick={() => dispatch({ type: "orbit", yaw: 0, pitch: -ORBIT_PITCH_STEP, user: true })}
-                >
-                  <ArrowDown size={16} strokeWidth={1.75} aria-hidden />
-                </button>
-              </div>
-              <div className="studio-ws__roll" role="group" aria-label={COPY.rollGroup}>
-                <button
-                  type="button"
-                  className="studio-ws__roll-btn"
-                  aria-label={COPY.rollCcw}
-                  title={COPY.rollCcw}
-                  onClick={() =>
-                    dispatch({ type: "orbit", yaw: 0, pitch: 0, roll: -ORBIT_ROLL_STEP, user: true })
-                  }
-                >
-                  <RotateCcw size={16} strokeWidth={1.75} aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  className="studio-ws__roll-btn"
-                  aria-label={COPY.rollCw}
-                  title={COPY.rollCw}
-                  onClick={() =>
-                    dispatch({ type: "orbit", yaw: 0, pitch: 0, roll: ORBIT_ROLL_STEP, user: true })
-                  }
-                >
-                  <RotateCw size={16} strokeWidth={1.75} aria-hidden />
-                </button>
-              </div>
-              <button
-                type="button"
-                className={`studio-ws__spin${state.autoRotate ? " is-active" : ""}`}
-                aria-label={COPY.autoRotate}
-                aria-pressed={state.autoRotate}
-                title={COPY.autoRotate}
-                onClick={() => dispatch({ type: "autoRotate", value: !state.autoRotate })}
-              >
-                <RotateCw size={16} strokeWidth={1.75} aria-hidden />
-                <span>{state.autoRotate ? COPY.autoRotateStop : COPY.autoRotateOff}</span>
-                {state.autoRotate ? <em>{COPY.autoRotateActive}</em> : null}
-              </button>
-            </div>
+            <div className="studio-ws__overlay-tools">{renderViewControls("overlay")}</div>
+            <button
+              type="button"
+              className={`studio-ws__spin studio-ws__spin--float${state.autoRotate ? " is-active" : ""}`}
+              aria-label={COPY.autoRotate}
+              aria-pressed={state.autoRotate}
+              title={COPY.autoRotate}
+              onClick={() => dispatch({ type: "autoRotate", value: !state.autoRotate })}
+            >
+              <RotateCw size={16} strokeWidth={1.75} aria-hidden />
+              <span>360°</span>
+            </button>
             <div className="studio-ws__start-save">
               <button
                 type="button"
@@ -842,16 +990,6 @@ export function PersonalizePreviewShell({
               ) : null}
             </div>
 
-            {hasDrawing && state.transformMode === "popout" ? (
-              <label className="studio-ws__page-toggle studio-ws__page-toggle--float">
-                <input
-                  type="checkbox"
-                  checked={state.showOriginalPage}
-                  onChange={(event) => dispatch({ type: "page", value: event.target.checked })}
-                />
-                <span>{COPY.showOriginalPage}</span>
-              </label>
-            ) : null}
             </div>
 
             {state.arLive ? (
@@ -881,6 +1019,7 @@ export function PersonalizePreviewShell({
               <p className="studio-ws__viewport-step">{activeStage?.label}</p>
             </div>
 
+            <div className="studio-ws__overlay-tools">
             <div className="studio-ws__viewport-bar">
               <div className="studio-ws__cam-presets" role="group" aria-label="Cameră">
                 {CAMERA_PRESETS.map((preset) => {
@@ -930,6 +1069,7 @@ export function PersonalizePreviewShell({
                 </label>
               </div>
             </div>
+            </div>
           </div>
 
           <p className="studio-ws__summary" aria-live="polite">
@@ -945,6 +1085,9 @@ export function PersonalizePreviewShell({
             title={activeStage?.label ?? COPY.rightNavOpen}
             onClose={() => dispatch({ type: "right", open: false })}
           />
+          <div className="studio-ws__view-controls studio-ws__view-controls--sheet">
+            {renderViewControls("sheet")}
+          </div>
           <Inspector
             state={state}
             dispatch={dispatch}
