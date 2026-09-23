@@ -49,6 +49,8 @@ Generation poll timeout: 5 minutes. Retopo poll timeout: **15 minutes** (`FIGURI
 4. Set `FIGURINE_3D_ENABLED=true` on Vercel → **redeploy**.
 5. Open to users per plan/quota rules.
 
+Related: the **internal Figure AR staging pilot** (manual job → private R2 → `/internal/ar` → iPhone Quick Look) passed on 2026-09-23. See [figure-ar-staging-pilot.md](./figure-ar-staging-pilot.md). That path does **not** approve Publish Go B2 or production AR.
+
 ## Guards
 
 - One active figurine job per project; max 3 ready assets.
