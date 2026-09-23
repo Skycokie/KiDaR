@@ -10,6 +10,7 @@ import {
   FIGURINE_RETOPO_FACE_LIMIT,
   FIGURINE_RETOPO_TIMEOUT_MS,
   FigurineBuildError,
+  stripFailedFigureFields,
   PublicStorageConfigError,
   assertFigurineInputs,
   assertFigurineSubjectSuitable,
@@ -580,14 +581,14 @@ export async function handleFigurineJobFailure(
     await patchRunningJobResult({
       jobId: job.id,
       lockToken: job.lockToken,
-      result: {
+      result: stripFailedFigureFields({
         ...persistedResult,
         provider: FIGURINE_PROVIDER,
         phase: "failed",
         progress: 0,
         failureCode: code,
-        failureMessage: message.slice(0, 400)
-      }
+        failureMessage: message.replace(/https?:\/\/\S+/g, "[url]").slice(0, 400)
+      })
     });
   } catch {
     // lock may already be lost
@@ -609,6 +610,7 @@ export async function handleFigurineJobFailure(
           ? job.result.subjectId
           : "primary";
     await markProjectStatus(job.projectId, "error", {
+      figurineModelUrl: null,
       figurineSubjects: mergeSubject(project.settings.figurineSubjects, {
         id: subjectId,
         sourceFileId: project.sourceImagePath || "",
@@ -620,8 +622,13 @@ export async function handleFigurineJobFailure(
             ? persistedResult.providerTaskId
             : undefined,
         jobId: job.id,
+        modelUrl: undefined,
         failureCode: code,
-        failureMessage: message.slice(0, 400)
+        failureMessage: message.replace(/https?:\/\/\S+/g, "[url]").slice(0, 400)
+      }).map((subject) => {
+        if (subject.id !== subjectId) return subject;
+        const { modelUrl: _modelUrl, ...rest } = subject;
+        return rest;
       })
     });
   } catch {

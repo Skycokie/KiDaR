@@ -8,7 +8,8 @@ import {
   FIGURINE_MAX_GLB_BYTES,
   FIGURINE_MAX_SOURCE_BYTES,
   FIGURINE_MAX_TRIANGLES,
-  FIGURINE_MAX_VERTICES
+  FIGURINE_MAX_VERTICES,
+  FIGURINE_PIPELINE_VERSION
 } from "./figurine";
 import { FIGURE_STAGING_MAX_USDZ_BYTES } from "./figure-staging";
 
@@ -66,11 +67,11 @@ export type FigureFeatureFlags = {
   publish: boolean;
 };
 
+/** Only the exact characters true. TRUE, whitespace, 1, and yes stay off. */
 export function isExplicitTrue(value: string | undefined | null): boolean {
-  return (value ?? "").trim().toLowerCase() === "true";
+  return value === "true";
 }
 
-/** Missing, empty, "false", "1", and "yes" stay off. Only the exact word true enables a flag. */
 export function readFigureFeatureFlags(
   env: Record<string, string | undefined>
 ): FigureFeatureFlags {
@@ -115,13 +116,25 @@ export type FigureSubmitDecision =
   | { action: "start" | "resume" | "reuse"; jobId: string; idempotencyKey: string }
   | { action: "reject"; code: "flag_off" | "in_flight" | "unauthorized" | "budget" | "circuit" };
 
-export function figureIdempotencyKey(projectId: string, drawingVersion: string): string {
+export function figureIdempotencyKey(
+  projectId: string,
+  drawingVersion: string,
+  pipelineVersion = FIGURINE_PIPELINE_VERSION
+): string {
   const project = projectId.trim();
   const version = drawingVersion.trim();
-  if (!project || !version || project.includes("..") || version.includes("..")) {
+  const pipeline = pipelineVersion.trim();
+  if (
+    !project ||
+    !version ||
+    !pipeline ||
+    project.includes("..") ||
+    version.includes("..") ||
+    pipeline.includes("..")
+  ) {
     throw new Error("Invalid figure idempotency input");
   }
-  return `${project}:${version}`;
+  return `${project}:${version}:${pipeline}`;
 }
 
 /**
@@ -136,13 +149,18 @@ export function decideFigureGeneration(input: {
   ownerId: string;
   existing: FigureJobSnapshot | null;
   proposedJobId: string;
+  pipelineVersion?: string;
   budgetAllowed?: boolean;
   circuitOpen?: boolean;
 }): FigureSubmitDecision {
   if (!input.requesterId || input.requesterId !== input.ownerId) {
     return { action: "reject", code: "unauthorized" };
   }
-  const idempotencyKey = figureIdempotencyKey(input.projectId, input.drawingVersion);
+  const idempotencyKey = figureIdempotencyKey(
+    input.projectId,
+    input.drawingVersion,
+    input.pipelineVersion
+  );
   const existing = input.existing;
 
   if (
@@ -172,6 +190,24 @@ export function decideFigureGeneration(input: {
   }
 
   return { action: "start", jobId: input.proposedJobId, idempotencyKey };
+}
+
+/**
+ * Second caller for the same key observes the job the first caller just reserved.
+ * The map is the stand-in for the server-side job row used by the route and worker.
+ */
+export function claimFigureGeneration(
+  input: Parameters<typeof decideFigureGeneration>[0],
+  held: Map<string, string>
+): FigureSubmitDecision {
+  const decision = decideFigureGeneration(input);
+  if (decision.action !== "start") return decision;
+  const reserved = held.get(decision.idempotencyKey);
+  if (reserved) {
+    return { action: "resume", jobId: reserved, idempotencyKey: decision.idempotencyKey };
+  }
+  held.set(decision.idempotencyKey, decision.jobId);
+  return decision;
 }
 
 export type FigureUploadVerdict =
@@ -250,6 +286,133 @@ export function assertFigureImageDimensions(width: number, height: number): Figu
     return { ok: false, code: "dimensions" };
   }
   return { ok: true };
+}
+
+function u16(bytes: Uint8Array, offset: number): number {
+  return (bytes[offset] << 8) | bytes[offset + 1];
+}
+
+function u32(bytes: Uint8Array, offset: number): number {
+  return (
+    (bytes[offset] * 0x1000000 +
+      (bytes[offset + 1] << 16) +
+      (bytes[offset + 2] << 8) +
+      bytes[offset + 3]) >>>
+    0
+  );
+}
+
+/** Header-only dimensions. Does not decode pixels. */
+export function readRasterDimensions(
+  bytes: Uint8Array,
+  mime: "image/jpeg" | "image/png" | "image/heic"
+): { width: number; height: number } | null {
+  if (mime === "image/png") {
+    if (bytes.byteLength < 24) return null;
+    return { width: u32(bytes, 16), height: u32(bytes, 20) };
+  }
+  if (mime === "image/heic") return null;
+  if (bytes.byteLength < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
+  let offset = 2;
+  const limit = Math.min(bytes.byteLength, 1024 * 1024);
+  while (offset + 8 < limit) {
+    if (bytes[offset] !== 0xff) return null;
+    const marker = bytes[offset + 1];
+    if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      offset += 2;
+      continue;
+    }
+    if (marker === 0xd9 || marker === 0xda) return null;
+    const length = u16(bytes, offset + 2);
+    if (length < 2 || offset + 2 + length > bytes.byteLength) return null;
+    if (marker >= 0xc0 && marker <= 0xc3) {
+      return { height: u16(bytes, offset + 5), width: u16(bytes, offset + 7) };
+    }
+    offset += 2 + length;
+  }
+  return null;
+}
+
+const PNG_KEEP = new Set(["IHDR", "PLTE", "IDAT", "IEND", "tRNS"]);
+
+function chunkType(bytes: Uint8Array, offset: number): string {
+  return String.fromCharCode(bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]);
+}
+
+/** Drop JPEG APP/COM and PNG text metadata. HEIC is not converted here. */
+export function normalizeFigureUpload(
+  bytes: Uint8Array
+):
+  | { ok: true; mime: "image/jpeg" | "image/png"; bytes: Uint8Array }
+  | {
+      ok: false;
+      code: "empty" | "too_large" | "rejected_type" | "mime_mismatch" | "dimensions" | "not_normalized";
+    } {
+  const classified = classifyFigureUpload(bytes);
+  if (!classified.ok) return classified;
+  if (classified.mime === "image/heic") return { ok: false, code: "not_normalized" };
+  const size = readRasterDimensions(bytes, classified.mime);
+  if (!size) return { ok: false, code: "dimensions" };
+  const dims = assertFigureImageDimensions(size.width, size.height);
+  if (!dims.ok) return { ok: false, code: "dimensions" };
+
+  if (classified.mime === "image/png") {
+    const parts: Uint8Array[] = [bytes.slice(0, 8)];
+    let offset = 8;
+    while (offset + 12 <= bytes.byteLength) {
+      const length = u32(bytes, offset);
+      const end = offset + 12 + length;
+      if (end > bytes.byteLength) return { ok: false, code: "rejected_type" };
+      const type = chunkType(bytes, offset + 4);
+      if (PNG_KEEP.has(type)) parts.push(bytes.slice(offset, end));
+      offset = end;
+      if (type === "IEND") break;
+    }
+    return { ok: true, mime: "image/png", bytes: concatBytes(parts) };
+  }
+
+  const parts: Uint8Array[] = [bytes.slice(0, 2)];
+  let offset = 2;
+  while (offset + 4 <= bytes.byteLength) {
+    if (bytes[offset] !== 0xff) return { ok: false, code: "rejected_type" };
+    const marker = bytes[offset + 1];
+    if (marker === 0xda) {
+      parts.push(bytes.slice(offset));
+      return { ok: true, mime: "image/jpeg", bytes: concatBytes(parts) };
+    }
+    if (marker === 0xd9) break;
+    const length = u16(bytes, offset + 2);
+    const end = offset + 2 + length;
+    if (length < 2 || end > bytes.byteLength) return { ok: false, code: "rejected_type" };
+    const drop = (marker >= 0xe0 && marker <= 0xef) || marker === 0xfe;
+    if (!drop) parts.push(bytes.slice(offset, end));
+    offset = end;
+  }
+  return { ok: false, code: "rejected_type" };
+}
+
+function concatBytes(parts: Uint8Array[]): Uint8Array {
+  const total = parts.reduce((sum, part) => sum + part.byteLength, 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) {
+    out.set(part, offset);
+    offset += part.byteLength;
+  }
+  return out;
+}
+
+const ASSET_FIELD = /^(glbKey|usdzKey|posterKey|publicUrl|modelUrl|figurineModelUrl|presignedUrl|sourceUrl)$/i;
+
+/** Failed status must not keep asset keys or URLs. */
+export function stripFailedFigureFields(record: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (ASSET_FIELD.test(key) || SECRET_KEY.test(key)) continue;
+    if (typeof value === "string" && /^https?:\/\//i.test(value)) continue;
+    out[key] = value;
+  }
+  return out;
 }
 
 /** Processing refuses bytes that have not been normalized and, for HEIC, converted. */

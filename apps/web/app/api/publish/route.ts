@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import {
   PublicStorageConfigError,
   PublishPlanError,
+  decideFigurePublish,
+  readFigureFeatureFlags,
   createPublicArtifactStorage,
   planPublishJobs,
   resolveEffectiveArTransform,
@@ -39,6 +41,19 @@ export async function POST(request: Request) {
 
   const project = await getProjectForOwner(body.projectId, user.$id);
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+
+  const publish = decideFigurePublish({
+    flags: readFigureFeatureFlags(process.env),
+    requesterId: user.$id,
+    ownerId: user.$id,
+    allowlisted: false,
+    status: "ready",
+    withinLimits: true,
+    termsAccepted: false
+  });
+  if (!publish.allowed) {
+    return NextResponse.json({ error: "publish_denied", code: publish.code }, { status: 403 });
+  }
 
   try {
     createPublicArtifactStorage(process.env);

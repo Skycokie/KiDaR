@@ -6,6 +6,7 @@ import {
   countReadyFigurineAssets,
   figurineProgressLabel,
   hasActiveFigurineSubject,
+  readFigureFeatureFlags,
   resolveFigurineAvailability,
   type FigurineSubjectRecord,
   type ProjectMode
@@ -70,6 +71,7 @@ export async function GET(_request: Request, { params }: Context) {
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
   const availability = projectFigurineAvailability(project);
+  const arEnabled = readFigureFeatureFlags(process.env).ar;
 
   const inputHash = computeInputHash({
     projectId: project.id,
@@ -98,7 +100,7 @@ export async function GET(_request: Request, { params }: Context) {
     availability,
     disclosure: FIGURINE_DISCLOSURE_RO,
     subjects: project.settings?.figurineSubjects ?? [],
-    figurineModelUrl: project.settings?.figurineModelUrl ?? null,
+    figurineModelUrl: arEnabled ? (project.settings?.figurineModelUrl ?? null) : null,
     job: job
       ? {
           id: job.id,
@@ -112,7 +114,7 @@ export async function GET(_request: Request, { params }: Context) {
                 : 0,
           label: figurineProgressLabel(phase),
           publicUrl:
-            typeof job.result?.publicUrl === "string" ? job.result.publicUrl : null,
+            arEnabled && typeof job.result?.publicUrl === "string" ? job.result.publicUrl : null,
           failureCode:
             typeof job.result?.failureCode === "string" ? job.result.failureCode : null,
           failureMessage:
@@ -135,6 +137,10 @@ export async function GET(_request: Request, { params }: Context) {
 export async function POST(request: Request, { params }: Context) {
   const user = await getLoggedInUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (!readFigureFeatureFlags(process.env).generation) {
+    return NextResponse.json({ error: "generation_disabled" }, { status: 403 });
+  }
 
   const project = await getProjectForOwner(params.projectId, user.$id);
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
@@ -226,6 +232,7 @@ export async function POST(request: Request, { params }: Context) {
       kind: enqueued.kind,
       jobId: enqueued.job.id,
       publicUrl:
+        readFigureFeatureFlags(process.env).ar &&
         typeof enqueued.job.result?.publicUrl === "string"
           ? enqueued.job.result.publicUrl
           : null,

@@ -4,6 +4,7 @@ import {
   PopoutBuildError,
   FigurineBuildError,
   PublicStorageConfigError,
+  readFigureFeatureFlags,
   type PipelineJob
 } from "@kidar/core";
 import { claimNextJob, downloadAssetFile, failJob, markProjectStatus } from "./appwrite/jobs";
@@ -52,6 +53,16 @@ async function processClaimedJob(job: PipelineJob): Promise<void> {
   }
 
   if (job.type === "figurine_build") {
+    if (!readFigureFeatureFlags(process.env).generation) {
+      await handleFigurineJobFailure(
+        job,
+        new FigurineBuildError("Figure generation is disabled", {
+          retryable: false,
+          code: "GENERATION_DISABLED"
+        })
+      );
+      return;
+    }
     try {
       const storage = createWorkerPublicStorage();
       await runFigurineBuildStage(job, { storage });
@@ -81,6 +92,18 @@ async function processClaimedJob(job: PipelineJob): Promise<void> {
   }
 
   if (job.type === "page_render") {
+    if (!readFigureFeatureFlags(process.env).publish) {
+      await handlePageRenderJobFailure(
+        job,
+        new PageRenderError("Publish is disabled", {
+          retryable: false,
+          code: "PUBLISH_DISABLED"
+        }),
+        failJob,
+        markProjectStatus
+      );
+      return;
+    }
     try {
       const storage = createWorkerPublicStorage();
       await runPageRenderStage(job, {

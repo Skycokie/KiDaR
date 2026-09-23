@@ -6,8 +6,12 @@ import {
   authorizeFigureRequest,
   buildFigureAuditEvent,
   classifyFigureUpload,
+  claimFigureGeneration,
   decideFigureGeneration,
   decideFigurePublish,
+  figureIdempotencyKey,
+  normalizeFigureUpload,
+  stripFailedFigureFields,
   evaluateFigureBudget,
   figureDeliveryForStatus,
   readFigureFeatureFlags,
@@ -68,9 +72,12 @@ describe("figure feature flags", () => {
   it("stays off unless the value is exactly true", () => {
     expect(flagsOff).toEqual({ generation: false, ar: false, publish: false });
     expect(readFigureFeatureFlags({ FIGURE_GENERATION_ENABLED: "false" }).generation).toBe(false);
+    expect(readFigureFeatureFlags({ FIGURE_GENERATION_ENABLED: "TRUE" }).generation).toBe(false);
+    expect(readFigureFeatureFlags({ FIGURE_GENERATION_ENABLED: " TRUE " }).generation).toBe(false);
+    expect(readFigureFeatureFlags({ FIGURE_GENERATION_ENABLED: "true " }).generation).toBe(false);
     expect(readFigureFeatureFlags({ FIGURE_GENERATION_ENABLED: "1" }).generation).toBe(false);
     expect(readFigureFeatureFlags({ FIGURE_GENERATION_ENABLED: "yes" }).generation).toBe(false);
-    expect(readFigureFeatureFlags({ FIGURE_GENERATION_ENABLED: " TRUE " }).generation).toBe(true);
+    expect(readFigureFeatureFlags({ FIGURE_GENERATION_ENABLED: "true" }).generation).toBe(true);
   });
 });
 
@@ -146,6 +153,15 @@ describe("figure idempotency", () => {
       "budget"
     );
   });
+
+  it("uses project, drawing version, and pipeline in one key, and reserves a single job", () => {
+    expect(figureIdempotencyKey("proj", "file-1")).toBe("proj:file-1:figurine-tripo-v2");
+    const held = new Map<string, string>();
+    const first = claimFigureGeneration({ ...base, proposedJobId: "job-a", existing: null }, held);
+    const second = claimFigureGeneration({ ...base, proposedJobId: "job-b", existing: null }, held);
+    expect(first).toMatchObject({ action: "start", jobId: "job-a" });
+    expect(second).toMatchObject({ action: "resume", jobId: "job-a" });
+  });
 });
 
 describe("figure upload validation", () => {
@@ -185,6 +201,26 @@ describe("figure upload validation", () => {
       )
     ).toBe("not_normalized");
     expect(acceptUploadForProcessing({ verdict, metadataStripped: true }).ok).toBe(true);
+  });
+
+  it("strips jpeg metadata and refuses heic until it is converted", () => {
+    const app1 = Uint8Array.from([0xff, 0xe1, 0x00, 0x08, 0x45, 0x78, 0x69, 0x66, 0x00, 0x00]);
+    const sof = Uint8Array.from([
+      0xff, 0xc0, 0x00, 0x0b, 0x08, 0x00, 0x10, 0x00, 0x10, 0x01, 0x01, 0x11, 0x00
+    ]);
+    const sos = Uint8Array.from([0xff, 0xda, 0x00, 0x02, 0xff, 0xd9]);
+    const raw = new Uint8Array(2 + app1.length + sof.length + sos.length);
+    raw.set([0xff, 0xd8], 0);
+    raw.set(app1, 2);
+    raw.set(sof, 2 + app1.length);
+    raw.set(sos, 2 + app1.length + sof.length);
+    const normalized = normalizeFigureUpload(raw);
+    expect(normalized.ok).toBe(true);
+    if (normalized.ok) {
+      expect(normalized.bytes.includes(0xe1)).toBe(false);
+      expect(normalized.mime).toBe("image/jpeg");
+    }
+    expect(normalizeFigureUpload(heic).ok).toBe(false);
   });
 });
 
@@ -268,6 +304,15 @@ describe("figure access, budget, audit, and publish", () => {
     });
     expect(JSON.stringify(event)).not.toContain("https://");
     expect(JSON.stringify(event)).not.toContain("raw");
+    expect(
+      stripFailedFigureFields({
+        jobId: "job-1",
+        glbKey: "staging/projects/p/figures/j/model.glb",
+        usdzKey: "staging/projects/p/figures/j/model.usdz",
+        publicUrl: "https://example.test/model.usdz",
+        status: "failed"
+      })
+    ).toEqual({ jobId: "job-1", status: "failed" });
     expect(event).toEqual({
       name: "asset_signed",
       jobId: "job-1",

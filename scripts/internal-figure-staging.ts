@@ -264,8 +264,6 @@ async function main() {
         action: "figure_staging_done",
         kind: result.kind,
         status: result.assets.status,
-        glbKey: result.glbKey,
-        usdzKey: result.usdzKey,
         errorCode: result.assets.errorCode ?? null
       },
       null,
