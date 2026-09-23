@@ -22,7 +22,10 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      # The workspace also contains @kidar/worker. Its canvas package has no
+      # Node 22 prebuild, so a full install tries to compile it. Checks only
+      # needs core and web.
+      - run: pnpm install --frozen-lockfile --filter @kidar/core... --filter @kidar/web...
       - run: pnpm --filter @kidar/core test
       - run: pnpm --filter @kidar/web test
       - run: pnpm --filter @kidar/web lint
@@ -93,6 +96,6 @@ jobs:
           set_if_present APPWRITE_JOBS_COLLECTION "$APPWRITE_E2E_JOBS_COLLECTION"
           set_if_present APPWRITE_SOURCE_BUCKET "$APPWRITE_E2E_SOURCE_BUCKET"
           set_if_present APPWRITE_ASSETS_BUCKET "$APPWRITE_E2E_ASSETS_BUCKET"
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile --filter kidar-studio... --filter @kidar/web...
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
