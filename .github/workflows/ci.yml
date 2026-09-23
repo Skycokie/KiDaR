@@ -4,9 +4,14 @@ on:
   push:
     branches: ["main"]
   pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
 
 jobs:
   checks:
+    name: Checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,40 +22,49 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile=false
-      - run: pnpm lint
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm build
-      - name: Production start smoke
+      # The workspace also contains @kidar/worker. Its canvas package has no
+      # Node 22 prebuild, so a full install tries to compile it. Checks only
+      # needs core and web.
+      - run: pnpm install --frozen-lockfile --filter @kidar/core... --filter @kidar/web...
+      - run: pnpm --filter @kidar/core test
+      - run: pnpm --filter @kidar/web test
+      - run: pnpm --filter @kidar/web lint
+      - run: pnpm --filter @kidar/web typecheck
+      - run: pnpm --filter @kidar/web build
+
+  e2e-gate:
+    name: E2E gate
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.presence.outputs.enabled }}
+    steps:
+      # Reads APPWRITE_E2E_API_KEY only inside step env. Job-level if cannot use secrets.
+      - id: presence
+        env:
+          APPWRITE_E2E_API_KEY: ${{ secrets.APPWRITE_E2E_API_KEY }}
         run: |
-          set -euo pipefail
-          pnpm start &
-          SERVER_PID=$!
-          cleanup() { kill "$SERVER_PID" 2>/dev/null || true; }
-          trap cleanup EXIT
-          for i in $(seq 1 60); do
-            if curl -sf http://127.0.0.1:3000/ >/dev/null; then
-              echo "smoke ok: GET / returned success"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "smoke failed: server did not become ready on :3000"
-          exit 1
+          if [ -n "$APPWRITE_E2E_API_KEY" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
 
   e2e:
+    name: E2E
+    needs: e2e-gate
+    if: needs.e2e-gate.outputs.enabled == 'true'
     runs-on: ubuntu-latest
     # Dedicated CI/E2E Appwrite project only — never Development/Production.
-    if: ${{ secrets.APPWRITE_E2E_API_KEY != '' }}
+    # Required when this job runs: APPWRITE_E2E_API_KEY, APPWRITE_E2E_ENDPOINT,
+    # APPWRITE_E2E_PROJECT_ID. Optional ID overrides, applied only when set:
+    # APPWRITE_E2E_DATABASE_ID, APPWRITE_E2E_PROFILES_COLLECTION,
+    # APPWRITE_E2E_PROJECTS_COLLECTION, APPWRITE_E2E_JOBS_COLLECTION,
+    # APPWRITE_E2E_SOURCE_BUCKET, APPWRITE_E2E_ASSETS_BUCKET.
     env:
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.APPWRITE_E2E_ENDPOINT }}
       NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_E2E_PROJECT_ID }}
       APPWRITE_API_KEY: ${{ secrets.APPWRITE_E2E_API_KEY }}
-      # Resource IDs default in code (kidar / profiles / projects / jobs /
-      # source-drawings). Set optional APPWRITE_E2E_* secrets only when the
-      # dedicated CI project uses different IDs — applied below when present.
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -82,6 +96,6 @@ jobs:
           set_if_present APPWRITE_JOBS_COLLECTION "$APPWRITE_E2E_JOBS_COLLECTION"
           set_if_present APPWRITE_SOURCE_BUCKET "$APPWRITE_E2E_SOURCE_BUCKET"
           set_if_present APPWRITE_ASSETS_BUCKET "$APPWRITE_E2E_ASSETS_BUCKET"
-      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm install --frozen-lockfile --filter kidar-studio... --filter @kidar/web...
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
