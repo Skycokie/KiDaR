@@ -168,6 +168,104 @@ function makeExtrudedSticker(
   return mesh;
 }
 
+type SceneHandle = {
+  scene: THREE.Scene;
+  camera: THREE.PerspectiveCamera;
+  controls: OrbitControls;
+  root: THREE.Group;
+  backdrop: THREE.Group;
+  ground: THREE.Mesh;
+  hemi: THREE.HemisphereLight;
+  key: THREE.DirectionalLight;
+  fill: THREE.DirectionalLight;
+  ambient: THREE.AmbientLight;
+  rim: THREE.DirectionalLight;
+};
+
+function clearGroup(group: THREE.Group) {
+  while (group.children.length > 0) {
+    const child = group.children[0]!;
+    group.remove(child);
+    child.traverse((obj) => {
+      const mesh = obj as THREE.Mesh;
+      if (mesh.isMesh) {
+        mesh.geometry?.dispose();
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const material of materials) {
+          const map = (material as THREE.MeshBasicMaterial).map;
+          map?.dispose();
+          material.dispose();
+        }
+      }
+    });
+  }
+}
+
+function applyFigurineLighting(handle: SceneHandle, isFigurine: boolean) {
+  handle.hemi.intensity = isFigurine ? 0.75 : 0.55;
+  handle.key.intensity = isFigurine ? 1.2 : 1.35;
+  handle.fill.intensity = isFigurine ? 0.65 : 0.35;
+  handle.fill.position.set(isFigurine ? -3 : -2.2, isFigurine ? 2 : 1.2, isFigurine ? -2 : 1.5);
+  handle.ambient.intensity = isFigurine ? 0.55 : 0;
+  handle.rim.intensity = isFigurine ? 0.35 : 0;
+  handle.ground.position.y = isFigurine ? 0 : -0.85;
+  (handle.ground.material as THREE.ShadowMaterial).opacity = isFigurine ? 0.12 : 0.18;
+}
+
+function groundFigurineModel(scene: THREE.Object3D) {
+  const box0 = new THREE.Box3().setFromObject(scene);
+  const size0 = box0.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size0.x, size0.y, size0.z, 0.01);
+  scene.scale.setScalar(1.6 / maxDim);
+
+  const box = new THREE.Box3().setFromObject(scene);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  scene.position.x = -center.x;
+  scene.position.z = -center.z;
+  scene.position.y = -box.min.y;
+
+  scene.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (mesh.isMesh) {
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    }
+  });
+
+  return size;
+}
+
+function makeContactShadow(size: THREE.Vector3) {
+  const shadowSize = Math.max(size.x, size.z) * 1.25;
+  const shadowCanvas = document.createElement("canvas");
+  shadowCanvas.width = 128;
+  shadowCanvas.height = 128;
+  const ctx = shadowCanvas.getContext("2d");
+  if (ctx) {
+    const g = ctx.createRadialGradient(64, 64, 8, 64, 64, 62);
+    g.addColorStop(0, "rgba(20,16,28,0.45)");
+    g.addColorStop(0.55, "rgba(20,16,28,0.18)");
+    g.addColorStop(1, "rgba(20,16,28,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 128, 128);
+  }
+  const shadowMap = new THREE.CanvasTexture(shadowCanvas);
+  const shadowPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(shadowSize, shadowSize),
+    new THREE.MeshBasicMaterial({
+      map: shadowMap,
+      transparent: true,
+      opacity: 0.9,
+      depthWrite: false
+    })
+  );
+  shadowPlane.rotation.x = -Math.PI / 2;
+  shadowPlane.position.y = 0.002;
+  shadowPlane.renderOrder = -1;
+  return shadowPlane;
+}
+
 export function ThreePreview({
   sourceUrl,
   mode,
@@ -180,19 +278,42 @@ export function ThreePreview({
   onPopoutStats?: (stats: ReturnType<typeof getSilhouetteStats>) => void;
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
+  const handleRef = useRef<SceneHandle | null>(null);
+  const lastContentKeyRef = useRef<string | null>(null);
+  const onPopoutStatsRef = useRef(onPopoutStats);
+  onPopoutStatsRef.current = onPopoutStats;
+
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const modelUrl =
+    mode === "gallery"
+      ? settings.galleryModelUrl ?? null
+      : mode === "figurine_3d"
+        ? settings.figurineModelUrl ?? null
+        : settings.uploadModelUrl ?? null;
+
+  const contentKey =
+    mode === "popout"
+      ? `popout:${sourceUrl ?? ""}`
+      : mode === "figurine_3d"
+        ? `figurine:${modelUrl ?? ""}`
+        : mode === "gallery"
+          ? `gallery:${modelUrl ?? ""}:${sourceUrl ?? ""}`
+          : `upload:${modelUrl ?? ""}:${sourceUrl ?? ""}`;
+
+  // Mount renderer / camera / controls once — never tear down on poll/autosave.
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(35, 1, 0.01, 100);
-    // ~30° side / ~18° above so thickness reads immediately.
     camera.position.set(1.55, 1.05, 3.35);
+
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 0);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     mount.appendChild(renderer.domElement);
@@ -209,9 +330,14 @@ export function ThreePreview({
     key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
     scene.add(key);
-    const fill = new THREE.DirectionalLight("#d8e4ff", 0.35);
+    const fill = new THREE.DirectionalLight("#eaeeff", 0.35);
     fill.position.set(-2.2, 1.2, 1.5);
     scene.add(fill);
+    const ambient = new THREE.AmbientLight(0xffffff, 0);
+    scene.add(ambient);
+    const rim = new THREE.DirectionalLight("#fff8f0", 0);
+    rim.position.set(0.5, 1.5, -3);
+    scene.add(rim);
 
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(8, 8),
@@ -222,13 +348,25 @@ export function ThreePreview({
     ground.receiveShadow = true;
     scene.add(ground);
 
+    const backdrop = new THREE.Group();
+    scene.add(backdrop);
     const root = new THREE.Group();
-    root.position.set(settings.offset.x, settings.offset.y, settings.offset.z);
-    root.scale.setScalar(settings.scale);
     scene.add(root);
 
-    let disposed = false;
-    const textureLoader = new THREE.TextureLoader();
+    handleRef.current = {
+      scene,
+      camera,
+      controls,
+      root,
+      backdrop,
+      ground,
+      hemi,
+      key,
+      fill,
+      ambient,
+      rim
+    };
+
     const resize = () => {
       const width = mount.clientWidth || 640;
       const height = mount.clientHeight || 480;
@@ -240,92 +378,6 @@ export function ThreePreview({
     const observer = new ResizeObserver(resize);
     observer.observe(mount);
 
-    const addPopout = async () => {
-      if (!sourceUrl) return;
-      setProcessing(true);
-      setError(null);
-      try {
-        const { canvas, imageData, polygons, stats } = await createCutout(sourceUrl);
-        if (disposed) return;
-        onPopoutStats?.(stats);
-        const texture = new THREE.CanvasTexture(canvas);
-        texture.colorSpace = THREE.SRGBColorSpace;
-        // Default flipY=true: v=0 is the canvas bottom. popoutCapUv uses the same
-        // convention as glTF (v=0 = image bottom). Do not set flipY=false here.
-        texture.flipY = true;
-        const layers = assignPopoutDepthLayers(polygons);
-        layers.forEach(({ polygon, z }) => {
-          root.add(
-            makeExtrudedSticker(
-              polygon,
-              texture,
-              canvas.width,
-              canvas.height,
-              imageData.data,
-              z
-            )
-          );
-        });
-        setProcessing(false);
-      } catch (cause) {
-        if (!disposed) {
-          setProcessing(false);
-          setError(cause instanceof Error ? cause.message : "Could not create sticker silhouette");
-        }
-      }
-    };
-
-    const addModel = () => {
-      const modelUrl =
-        mode === "gallery"
-          ? settings.galleryModelUrl
-          : mode === "figurine_3d"
-            ? settings.figurineModelUrl
-            : settings.uploadModelUrl;
-      if (!modelUrl) return;
-      new GLTFLoader().load(
-        modelUrl,
-        (gltf) => {
-          if (!disposed) {
-            // Frame the figurine with a slight orbit so volume is visible.
-            const box = new THREE.Box3().setFromObject(gltf.scene);
-            const size = box.getSize(new THREE.Vector3());
-            const maxDim = Math.max(size.x, size.y, size.z, 0.01);
-            const scale = 1.6 / maxDim;
-            gltf.scene.scale.setScalar(scale);
-            box.setFromObject(gltf.scene);
-            const center = box.getCenter(new THREE.Vector3());
-            gltf.scene.position.sub(center);
-            gltf.scene.position.y += 0.2;
-            root.add(gltf.scene);
-            if (mode === "figurine_3d") {
-              camera.position.set(2.2, 1.4, 2.4);
-              controls.target.set(0, 0.2, 0);
-              controls.update();
-            }
-          }
-        },
-        undefined,
-        () => undefined
-      );
-    };
-
-    // The source plane is useful for marker/model modes. Pop-out deliberately
-    // does not render it: only the cutout extrusion may appear in that mode.
-    if (mode !== "popout" && sourceUrl) {
-      const baseTexture = textureLoader.load(sourceUrl);
-      baseTexture.colorSpace = THREE.SRGBColorSpace;
-      const plane = new THREE.Mesh(
-        new THREE.PlaneGeometry(2.6, 2.6),
-        new THREE.MeshBasicMaterial({ map: baseTexture, transparent: true, opacity: 0.28 })
-      );
-      plane.position.z = -0.2;
-      scene.add(plane);
-    }
-
-    if (mode === "popout") void addPopout();
-    else addModel();
-
     let frame = 0;
     const animate = () => {
       frame = requestAnimationFrame(animate);
@@ -335,33 +387,188 @@ export function ThreePreview({
     animate();
 
     return () => {
-      disposed = true;
       cancelAnimationFrame(frame);
       observer.disconnect();
       controls.dispose();
       renderer.dispose();
-      mount.removeChild(renderer.domElement);
+      clearGroup(root);
+      clearGroup(backdrop);
+      handleRef.current = null;
+      lastContentKeyRef.current = null;
+      if (renderer.domElement.parentNode === mount) {
+        mount.removeChild(renderer.domElement);
+      }
     };
-  }, [mode, onPopoutStats, settings, sourceUrl]);
+  }, []);
+
+  // Offset / scale can change without remounting the scene or resetting orbit.
+  useEffect(() => {
+    const handle = handleRef.current;
+    if (!handle) return;
+    handle.root.position.set(settings.offset.x, settings.offset.y, settings.offset.z);
+    handle.root.scale.setScalar(settings.scale);
+  }, [settings.offset.x, settings.offset.y, settings.offset.z, settings.scale]);
+
+  // Reload mesh / popout only when mode or model/source URL actually changes.
+  useEffect(() => {
+    const handle = handleRef.current;
+    if (!handle) return;
+    if (contentKey === lastContentKeyRef.current) return;
+    lastContentKeyRef.current = contentKey;
+
+    let cancelled = false;
+    const { camera, controls, root, backdrop } = handle;
+    clearGroup(root);
+    clearGroup(backdrop);
+    applyFigurineLighting(handle, mode === "figurine_3d");
+    setError(null);
+
+    if (mode === "figurine_3d") {
+      controls.target.set(0, 0.55, 0);
+      controls.update();
+    } else {
+      controls.target.set(0, 0.05, 0);
+      controls.update();
+    }
+
+    if (mode === "popout") {
+      if (!sourceUrl) return;
+      setProcessing(true);
+      void (async () => {
+        try {
+          const { canvas, imageData, polygons, stats } = await createCutout(sourceUrl);
+          if (cancelled) return;
+          onPopoutStatsRef.current?.(stats);
+          const texture = new THREE.CanvasTexture(canvas);
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.flipY = true;
+          const layers = assignPopoutDepthLayers(polygons);
+          layers.forEach(({ polygon, z }) => {
+            root.add(
+              makeExtrudedSticker(
+                polygon,
+                texture,
+                canvas.width,
+                canvas.height,
+                imageData.data,
+                z
+              )
+            );
+          });
+          setProcessing(false);
+        } catch (cause) {
+          if (!cancelled) {
+            setProcessing(false);
+            setError(cause instanceof Error ? cause.message : "Could not create sticker silhouette");
+          }
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    // Gallery / upload: faint source plane. Figurine: never show 2D ghost.
+    if (mode !== "figurine_3d" && sourceUrl) {
+      const textureLoader = new THREE.TextureLoader();
+      const baseTexture = textureLoader.load(sourceUrl);
+      baseTexture.colorSpace = THREE.SRGBColorSpace;
+      const plane = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.6, 2.6),
+        new THREE.MeshBasicMaterial({ map: baseTexture, transparent: true, opacity: 0.28 })
+      );
+      plane.position.z = -0.2;
+      backdrop.add(plane);
+    }
+
+    if (!modelUrl) return;
+
+    const loader = new GLTFLoader();
+    loader.load(
+      modelUrl,
+      (gltf) => {
+        if (cancelled) return;
+
+        if (mode === "figurine_3d") {
+          const size = groundFigurineModel(gltf.scene);
+          root.add(makeContactShadow(size));
+          root.add(gltf.scene);
+          // Frame only on first load of this URL — orbit stays user-controlled after that.
+          camera.position.set(2.1, 1.15, 2.35);
+          controls.target.set(0, size.y * 0.42, 0);
+          controls.update();
+          return;
+        }
+
+        const box = new THREE.Box3().setFromObject(gltf.scene);
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z, 0.01);
+        gltf.scene.scale.setScalar(1.6 / maxDim);
+        box.setFromObject(gltf.scene);
+        const center = box.getCenter(new THREE.Vector3());
+        gltf.scene.position.sub(center);
+        gltf.scene.position.y += 0.2;
+        root.add(gltf.scene);
+      },
+      undefined,
+      () => undefined
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [contentKey, mode, modelUrl, sourceUrl]);
+
+  const isFigurine = mode === "figurine_3d";
 
   return (
     <div
       ref={mountRef}
-      style={{
-        minHeight: 420,
-        width: "100%",
-        position: "relative",
-        backgroundColor: "#f4f1ff",
-        backgroundImage:
-          "linear-gradient(45deg, #e9e4fb 25%, transparent 25%), linear-gradient(-45deg, #e9e4fb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e9e4fb 75%), linear-gradient(-45deg, transparent 75%, #e9e4fb 75%)",
-        backgroundSize: "24px 24px",
-        backgroundPosition: "0 0, 0 12px, 12px -12px, -12px 0"
-      }}
+      style={
+        isFigurine
+          ? {
+              minHeight: "80vh",
+              width: "100%",
+              position: "relative",
+              overflow: "hidden",
+              background:
+                "linear-gradient(180deg, #1c1b1f 0%, #141316 55%, #0e0d10 100%)"
+            }
+          : {
+              minHeight: 420,
+              width: "100%",
+              position: "relative",
+              backgroundColor: "#f4f1ff",
+              backgroundImage:
+                "linear-gradient(45deg, #e9e4fb 25%, transparent 25%), linear-gradient(-45deg, #e9e4fb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e9e4fb 75%), linear-gradient(-45deg, transparent 75%, #e9e4fb 75%)",
+              backgroundSize: "24px 24px",
+              backgroundPosition: "0 0, 0 12px, 12px -12px, -12px 0"
+            }
+      }
     >
-      {!sourceUrl && <p>Upload a drawing to preview the AR scene.</p>}
-      {processing && <p style={{ position: "absolute", top: 12, left: 12 }}>Cutting out foreground…</p>}
+      {!sourceUrl && !isFigurine && <p>Upload a drawing to preview the AR scene.</p>}
+      {processing && (
+        <p
+          style={{
+            position: "absolute",
+            top: 12,
+            left: 12,
+            color: isFigurine ? "#f5f0e8" : undefined
+          }}
+        >
+          Cutting out foreground…
+        </p>
+      )}
       {error && (
-        <p role="alert" style={{ position: "absolute", top: 12, left: 12 }}>
+        <p
+          role="alert"
+          style={{
+            position: "absolute",
+            top: 12,
+            left: 12,
+            color: isFigurine ? "#ffb4a8" : undefined
+          }}
+        >
           {error}
         </p>
       )}

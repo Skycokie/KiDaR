@@ -7,12 +7,12 @@ import {
   type StudioWorldCard,
   type StudioWorldsResult
 } from "@/lib/studio-worlds";
+import { SiteHeader } from "@/components/site-nav";
 import { Artwork, HeroStage } from "./artworks";
 import {
   CREATE_CHOICES,
   FIXTURE_ASSETS,
   FIXTURE_PROJECTS,
-  HEADER_NAV,
   LIBRARY_FILTERS,
   MOBILE_NAV,
   type FixtureAssetKind,
@@ -43,7 +43,6 @@ export function StudioShell({
 }) {
   const worlds = worldsResult.kind === "fixtures" || worldsResult.kind === "live" ? worldsResult.worlds : [];
   const [view, setView] = useState<FixtureView>("atelier");
-  const [menuOpen, setMenuOpen] = useState(false);
   const [libraryFilter, setLibraryFilter] = useState<"all" | FixtureAssetKind>("all");
   const [selectedWorld, setSelectedWorld] = useState(worlds[0]?.id ?? "");
 
@@ -57,7 +56,6 @@ export function StudioShell({
 
   function go(next: FixtureView) {
     setView(next);
-    setMenuOpen(false);
   }
 
   return (
@@ -66,52 +64,63 @@ export function StudioShell({
         Sari la conținut
       </a>
 
-      <header className="studio-header">
-        <button type="button" className="studio-brand" onClick={() => go("atelier")}>
-          kidAR
-        </button>
-
-        <nav className="studio-header__nav" aria-label="Principal">
-          {HEADER_NAV.map((item) => (
+      <SiteHeader
+        brandHref="/studio"
+        trailing={
+          <>
             <button
-              key={item.id}
               type="button"
-              className="studio-header__link"
-              aria-current={view === item.id ? "page" : undefined}
-              onClick={() => go(item.id)}
+              className="studio-header__ghost studio-header__secondary"
+              aria-current={view === "worlds" ? "page" : undefined}
+              onClick={() => go("worlds")}
             >
-              {item.label}
+              Lumi
             </button>
-          ))}
-        </nav>
-
-        <div className="studio-header__actions">
-          <button
-            type="button"
-            className="studio-header__ghost"
-            onClick={() => setMenuOpen((open) => !open)}
-            aria-expanded={menuOpen}
-            aria-controls="studio-sheet"
-          >
-            Meniu
-          </button>
-          <button type="button" className="studio-header__ghost" disabled>
-            Profil
-          </button>
-        </div>
-      </header>
-
-      {menuOpen ? (
-        <div id="studio-sheet" className="studio-sheet is-open" role="dialog" aria-label="Meniu Studio">
-          {[...HEADER_NAV, { id: "create" as const, label: "Creează" }, { id: "settings" as const, label: "Setări" }].map(
-            (item) => (
-              <button key={item.id} type="button" onClick={() => go(item.id)}>
-                {item.label}
-              </button>
-            )
-          )}
-        </div>
-      ) : null}
+            <button
+              type="button"
+              className="studio-header__ghost studio-header__secondary"
+              aria-current={view === "library" ? "page" : undefined}
+              onClick={() => go("library")}
+            >
+              Bibliotecă
+            </button>
+            <button type="button" className="studio-header__ghost" disabled>
+              Profil
+            </button>
+          </>
+        }
+        mobileExtra={
+          <>
+            <button
+              type="button"
+              className="site-header__sheet-btn"
+              aria-current={view === "worlds" ? "page" : undefined}
+              onClick={() => go("worlds")}
+            >
+              Lumi
+            </button>
+            <button
+              type="button"
+              className="site-header__sheet-btn"
+              aria-current={view === "library" ? "page" : undefined}
+              onClick={() => go("library")}
+            >
+              Bibliotecă
+            </button>
+            <button
+              type="button"
+              className="site-header__sheet-btn"
+              aria-current={view === "create" ? "page" : undefined}
+              onClick={() => go("create")}
+            >
+              Creează
+            </button>
+            <button type="button" className="site-header__sheet-btn" disabled>
+              Profil
+            </button>
+          </>
+        }
+      />
 
       <main id="studio-main" className="studio-main">
         {view === "atelier" ? (
@@ -120,16 +129,16 @@ export function StudioShell({
               <div className="atelier-hero__copy">
                 <p className="atelier-kicker">Atelier</p>
                 <h1 id="atelier-title" className="atelier-title">
-                  Orice desen poate
+                  Orice poză poate
                   <br />
                   deveni o lume.
                 </h1>
                 <p className="atelier-lead">
-                  Încarcă un desen, alege ce prinde viață și vezi-l în AR.
+                  Adaugă o poză, alege ce prinde viață și vezi-l în AR.
                 </p>
                 <div className="atelier-actions">
                   <a className="atelier-cta" href={createHref}>
-                    Începe cu un desen
+                    Începe cu o poză
                   </a>
                   <button type="button" className="atelier-secondary" onClick={() => go("worlds")}>
                     Vezi lumile tale →
@@ -137,7 +146,7 @@ export function StudioShell({
                 </div>
                 <ol className="atelier-steps" aria-label="Cum începe">
                   <li>
-                    <span>01</span> Desenul tău
+                    <span>01</span> Poza ta
                   </li>
                   <li>
                     <span>02</span> Lumea ta
@@ -184,6 +193,10 @@ export function StudioShell({
       </main>
 
       <nav className="studio-mobile-nav" aria-label="Mobil">
+        <a href="/creaza">Atelier</a>
+        <a href="/studio" aria-current="page">
+          Studio
+        </a>
         {MOBILE_NAV.map((item) => (
           <button
             key={item.id}
@@ -220,7 +233,7 @@ function WorldsGallery({
       <div className="worlds__intro">
         <div>
           <h2 id="worlds-title">Lumile tale</h2>
-          <p>Nu o listă de fișiere — afișe, coperți, postere din desenele tale.</p>
+          <p>Nu o listă de fișiere — afișe, coperți, postere din pozele tale.</p>
         </div>
         <a className="atelier-secondary" href={createHref}>
           Începe o lume nouă →
@@ -245,9 +258,9 @@ function WorldsGallery({
       {result.kind === "live" && worlds.length === 0 ? (
         <div className="worlds__empty">
           <p className="worlds__empty-title">Nicio lume încă.</p>
-          <p>Începe cu un desen — aici va apărea ca un afiș, nu ca un fișier.</p>
+          <p>Începe cu o poză — aici va apărea ca un afiș, nu ca un fișier.</p>
           <a className="atelier-cta" href={createHref}>
-            Începe cu un desen
+            Începe cu o poză
           </a>
         </div>
       ) : null}
@@ -307,7 +320,7 @@ function WorldsGallery({
           })}
 
           <blockquote className="world-quote">
-            <p>„Desenul devine poartă.”</p>
+            <p>„Poza devine poartă.”</p>
           </blockquote>
         </div>
       )}
@@ -374,7 +387,7 @@ function CreateView({ createHref }: { createHref: string }) {
           event.preventDefault();
         }}
       >
-        <label htmlFor="imagine-prompt">Imaginează ce apare din desen…</label>
+        <label htmlFor="imagine-prompt">Imaginează ce apare din poză…</label>
         <textarea
           id="imagine-prompt"
           name="prompt"

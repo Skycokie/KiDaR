@@ -1,0 +1,407 @@
+/* Scoped to .cam-ar — Cameră AR Preview Go B, static mock only. */
+
+.cam-ar {
+  --bg: #0a0e14;
+  --ink: #f3efe6;
+  --muted: #b8b0a4;
+  --warm: #d9774f;
+  --cool: #6a8fd6;
+  --line: rgba(243, 239, 230, 0.14);
+  --focus: #e0d6a8;
+  --display: var(--font-studio-display), "Avenir Next", "Segoe UI", sans-serif;
+  --body: var(--font-studio-body), "Segoe UI", sans-serif;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --gutter: clamp(1rem, 3vw, 2.25rem);
+  --touch: 2.75rem;
+
+  min-height: 100vh;
+  color: var(--ink);
+  background:
+    radial-gradient(640px 380px at 80% 8%, rgba(217, 119, 79, 0.14), transparent 55%),
+    linear-gradient(165deg, #121826 0%, var(--bg) 50%, #070a0f 100%);
+  font-family: var(--body);
+  line-height: 1.45;
+}
+
+.cam-ar *,
+.cam-ar *::before,
+.cam-ar *::after {
+  box-sizing: border-box;
+}
+
+.cam-ar :focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.cam-ar__skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 50;
+  padding: 0.75rem 1rem;
+  background: #1a1d27;
+  color: var(--ink);
+}
+
+.cam-ar__skip:focus {
+  left: 1rem;
+  top: 1rem;
+}
+
+.cam-ar__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem var(--gutter);
+}
+
+.cam-ar__brand {
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  text-decoration: none;
+}
+
+.cam-ar__badge {
+  margin: 0;
+  max-width: 16rem;
+  color: var(--warm);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: right;
+}
+
+.cam-ar__main {
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: 0 var(--gutter) 2.5rem;
+}
+
+.cam-ar__kicker {
+  margin: 0 0 0.35rem;
+  color: var(--warm);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.cam-ar__title {
+  margin: 0 0 0.5rem;
+  font-family: var(--display);
+  font-size: clamp(1.55rem, 4.2vw, 2.15rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.cam-ar__title--status {
+  font-size: clamp(1.35rem, 3.8vw, 1.85rem);
+}
+
+.cam-ar__lead,
+.cam-ar__hint {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.cam-ar__live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.cam-ar__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 1.1rem;
+}
+
+.cam-ar__cta,
+.cam-ar__ghost,
+.cam-ar__chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch);
+  min-width: var(--touch);
+  padding: 0.65rem 1.15rem;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.2s var(--ease), background 0.2s var(--ease);
+}
+
+.cam-ar__cta {
+  border: 0;
+  background: var(--warm);
+  color: #1a120e;
+}
+
+.cam-ar__cta:hover {
+  transform: translateY(-1px);
+}
+
+.cam-ar__ghost {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+}
+
+.cam-ar__demo {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.cam-ar__demo-label {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.cam-ar__demo-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.cam-ar__chip {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* —— Scene —— */
+
+.cam-ar-scene {
+  position: relative;
+  overflow: hidden;
+  margin-top: 0.75rem;
+  border-radius: 1.15rem;
+  border: 1px solid var(--line);
+  aspect-ratio: 3 / 4;
+  background: #121820;
+}
+
+.cam-ar-scene__feed {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      -18deg,
+      transparent,
+      transparent 12px,
+      rgba(255, 255, 255, 0.025) 12px,
+      rgba(255, 255, 255, 0.025) 24px
+    ),
+    radial-gradient(circle at 40% 30%, rgba(106, 143, 214, 0.12), transparent 55%);
+}
+
+.cam-ar-scene__poster {
+  position: absolute;
+  inset: 18% 16%;
+  display: grid;
+  place-items: center;
+}
+
+.cam-ar-scene__paper {
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.35));
+}
+
+.cam-ar-scene__guide {
+  position: absolute;
+  inset: 14% 12%;
+  pointer-events: none;
+}
+
+.cam-ar-scene__corner {
+  position: absolute;
+  width: 1.35rem;
+  height: 1.35rem;
+  border: 2px solid rgba(243, 239, 230, 0.85);
+}
+
+.cam-ar-scene__corner--tl {
+  top: 0;
+  left: 0;
+  border-right: 0;
+  border-bottom: 0;
+}
+.cam-ar-scene__corner--tr {
+  top: 0;
+  right: 0;
+  border-left: 0;
+  border-bottom: 0;
+}
+.cam-ar-scene__corner--bl {
+  bottom: 0;
+  left: 0;
+  border-right: 0;
+  border-top: 0;
+}
+.cam-ar-scene__corner--br {
+  bottom: 0;
+  right: 0;
+  border-left: 0;
+  border-top: 0;
+}
+
+.cam-ar-scene__world {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 4.5rem;
+  height: 4.5rem;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s var(--ease);
+}
+
+.cam-ar-scene__world.is-visible {
+  opacity: 1;
+}
+
+.cam-ar-scene__world.is-dimmed {
+  opacity: 0.22;
+  filter: grayscale(0.4);
+}
+
+.cam-ar-scene__glyph {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.3));
+}
+
+.cam-ar-scene__stars span {
+  position: absolute;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #ffd27a;
+  box-shadow: 0 0 6px rgba(255, 210, 122, 0.65);
+  animation: cam-ar-twinkle 2.8s var(--ease) infinite;
+}
+
+.cam-ar-scene__stars span:nth-child(1) {
+  left: -0.8rem;
+  top: 0.2rem;
+}
+.cam-ar-scene__stars span:nth-child(2) {
+  right: -1rem;
+  top: 0.6rem;
+  animation-delay: 0.5s;
+}
+.cam-ar-scene__stars span:nth-child(3) {
+  left: 0.4rem;
+  bottom: -0.6rem;
+  animation-delay: 1s;
+}
+.cam-ar-scene__stars span:nth-child(4) {
+  right: 0.2rem;
+  bottom: 0.1rem;
+  animation-delay: 1.4s;
+}
+
+.cam-ar-scene__loader {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(10, 14, 20, 0.35);
+}
+
+.cam-ar-scene__spinner {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 3px solid rgba(243, 239, 230, 0.2);
+  border-top-color: var(--warm);
+  border-radius: 50%;
+  animation: cam-ar-spin 0.9s linear infinite;
+}
+
+.cam-ar-scene--unavailable .cam-ar-scene__poster,
+.cam-ar-scene--incompatible .cam-ar-scene__poster,
+.cam-ar-scene--intro .cam-ar-scene__poster {
+  opacity: 0.55;
+}
+
+@keyframes cam-ar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes cam-ar-twinkle {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cam-ar-scene__spinner,
+  .cam-ar-scene__stars span,
+  .cam-ar__cta {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .cam-ar-scene__spinner {
+    border-top-color: var(--ink);
+    opacity: 0.7;
+  }
+}
+
+@media (min-width: 900px) {
+  .cam-ar__main {
+    max-width: 30rem;
+    padding-top: 0.5rem;
+  }
+
+  .cam-ar__actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .cam-ar__cta,
+  .cam-ar__ghost {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 374px) {
+  .cam-ar__title {
+    font-size: 1.4rem;
+  }
+
+  .cam-ar__badge {
+    max-width: 100%;
+    text-align: left;
+  }
+}

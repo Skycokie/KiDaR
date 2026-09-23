@@ -116,6 +116,10 @@ export async function generateA4PrintPdf(input: GenerateA4PrintPdfInput): Promis
   assertPng(input.qrPngBytes, "qrPngBytes");
 
   const pdf = await PDFDocument.create();
+  // Fixed timestamps keep page_render checksums stable across reruns.
+  const stableTimestamp = new Date(0);
+  pdf.setCreationDate(stableTimestamp);
+  pdf.setModificationDate(stableTimestamp);
   const page = pdf.addPage([A4_WIDTH, A4_HEIGHT]);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);

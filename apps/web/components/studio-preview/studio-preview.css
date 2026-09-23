@@ -795,8 +795,12 @@
   border-top: 1px solid var(--line);
 }
 
+.studio-mobile-nav a,
 .studio-mobile-nav button {
   flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 48px;
   border: 0;
   border-radius: 999px;
@@ -804,9 +808,11 @@
   color: var(--muted);
   font: inherit;
   font-size: 0.78rem;
+  text-decoration: none;
   cursor: pointer;
 }
 
+.studio-mobile-nav a[aria-current="page"],
 .studio-mobile-nav button[aria-current="page"] {
   color: var(--ink);
 }

@@ -1,4 +1,4 @@
-/* Scoped to .creaza-preview — static ritual UI, no writes. */
+/* Scoped to .creaza-preview — Create Go B may POST /api/projects; source upload still blocked. */
 
 .creaza-preview {
   --bg: #090b10;
@@ -77,6 +77,17 @@
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.site-header__actions .creaza-preview__badge {
+  display: none;
+}
+
+@media (min-width: 821px) {
+  .site-header__actions .creaza-preview__badge {
+    display: block;
+    margin-right: 0.35rem;
+  }
 }
 
 .creaza-preview__main {
@@ -175,6 +186,13 @@
 .creaza-cta:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.creaza-status {
+  min-height: 1.4em;
+  margin: 1rem 0 0;
+  color: var(--muted, #5c5a66);
+  font-size: 0.95rem;
 }
 
 .creaza-ghost {

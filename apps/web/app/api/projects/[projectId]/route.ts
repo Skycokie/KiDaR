@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { mergeSettings, type ProjectSettingsPatch } from "@kidar/core";
+import { mergeSettings, validateSceneSettingsPatch, type ProjectSettingsPatch } from "@kidar/core";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import {
   deleteProjectDocument,
@@ -58,6 +58,11 @@ export async function PATCH(request: Request, { params }: Context) {
 
   const existing = await getProjectForOwner(params.projectId, user.$id);
   if (!existing) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+
+  if (body.settings && Object.prototype.hasOwnProperty.call(body.settings, "scene")) {
+    const sceneError = validateSceneSettingsPatch(body.settings.scene);
+    if (sceneError) return NextResponse.json({ error: sceneError }, { status: 400 });
+  }
 
   try {
     const patch: Record<string, unknown> = {

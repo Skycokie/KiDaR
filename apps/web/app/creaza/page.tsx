@@ -1,19 +1,33 @@
+import type { Metadata } from "next";
+import { DM_Sans, Syne } from "next/font/google";
 import { redirect } from "next/navigation";
-import { SimpleCreatorShell } from "@/components/simple-creator/shell";
+import { CreazaPreviewShell } from "@/components/creaza-preview";
 import { getLoggedInUser } from "@/lib/appwrite/client";
-import { CreazaPresetForm } from "./creaza-preset-form";
+
+const display = Syne({
+  subsets: ["latin"],
+  variable: "--font-studio-display",
+  display: "swap"
+});
+
+const body = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-studio-body",
+  display: "swap"
+});
+
+export const metadata: Metadata = {
+  title: "Creează · kidAR",
+  description: "Fotografiază un desen, alege scena, și fă pagina să prindă viață."
+};
 
 export default async function CreazaPage() {
   const user = await getLoggedInUser();
   if (!user) redirect("/intra");
 
   return (
-    <SimpleCreatorShell progress="Pasul 1 din 5">
-      <h1>Ce vrei să prindă viață?</h1>
-      <p className="creaza-lead">
-        Fotografiază o pagină. Copilul deschide un link pe telefon. Fără aplicație.
-      </p>
-      <CreazaPresetForm />
-    </SimpleCreatorShell>
+    <div className={`${display.variable} ${body.variable}`}>
+      <CreazaPreviewShell />
+    </div>
   );
 }

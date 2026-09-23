@@ -14,6 +14,7 @@ import {
 import { assertPublicAbsoluteUrl, PublicUrlError } from "./public-url";
 import type { JobType, PipelineJob } from "./jobs";
 import type { HashableProjectSettings } from "./hash";
+import { resolveEffectiveArTransform } from "./start-transform";
 import { IMMUTABLE_CACHE_CONTROL } from "./storage-keys";
 
 export const PAGE_RENDER_PIPELINE_VERSION = "m4.4b.0";
@@ -276,7 +277,11 @@ export function assertModelUrlForMode(
 }
 
 export interface MapArPageInput {
-  settings: HashableProjectSettings & { logoUrl?: string; soundUrl?: string };
+  settings: HashableProjectSettings & {
+    logoUrl?: string;
+    soundUrl?: string;
+    scene?: { startTransform?: unknown } | null;
+  };
   modelUrl: string;
   targetUrl: string;
   audioUrl?: string | null;
@@ -303,6 +308,7 @@ export function selectClickableCta(input: {
 
 export function mapSettingsToArPageConfig(input: MapArPageInput): NormalizedArPageConfig {
   const cta = selectClickableCta(input.settings);
+  const transform = resolveEffectiveArTransform(input.settings);
   const config: ArPageConfig = {
     title: input.settings.title?.trim() || "Surpriza kidAR",
     theme: input.settings.theme || "#6d5dfc",
@@ -313,8 +319,9 @@ export function mapSettingsToArPageConfig(input: MapArPageInput): NormalizedArPa
     ctaUrl: cta.ctaUrl,
     audioUrl: input.audioUrl || input.settings.soundUrl,
     transform: {
-      position: input.settings.offset,
-      scale: input.settings.scale
+      position: transform.position,
+      rotation: transform.rotation,
+      scale: transform.scale
     },
     showWatermark: input.showWatermark,
     allowLocalOrigins: input.allowLocalOrigins

@@ -1,0 +1,111 @@
+.studio-shell {
+  min-height: 100vh;
+  padding: 20px;
+  background: #faf9ff;
+}
+
+.studio-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 20px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.preview-panel {
+  min-height: 80vh;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #f4f1ff;
+  position: sticky;
+  top: 20px;
+}
+
+.preview-panel--figurine {
+  background: #141316;
+}
+
+.inspector {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.inspector details {
+  background: white;
+  border: 1px solid #e5e1f2;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.inspector details[open] summary {
+  margin-bottom: 12px;
+}
+
+.inspector summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.control {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.control input,
+.control textarea,
+.control select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+}
+
+.segmented {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.segmented button[aria-pressed="true"] {
+  background: #6d5dfc;
+  color: white;
+}
+
+.dropzone {
+  border: 1px dashed #8d83c7;
+  padding: 18px;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.model-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.model-grid button {
+  text-align: left;
+  padding: 6px;
+}
+
+.model-grid img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+@media (max-width: 800px) {
+  .studio-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-panel {
+    min-height: 55vh;
+    position: relative;
+    top: 0;
+  }
+}

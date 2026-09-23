@@ -66,7 +66,7 @@ export async function buildLocalSourceImage(file: File): Promise<LocalSourceBuil
     image: {
       file,
       objectUrl,
-      name: file.name || "desen.jpg",
+      name: file.name || "poza.jpg",
       mimeType,
       sizeBytes: file.size,
       width,

@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useReducer, useRef } from "react";
 import { SOURCE_ACCEPT, type SimpleCreatorPreset } from "@/lib/simple-creator";
 import { CreazaArt } from "./art";
+import { buildCreateProjectPayload, postCreateProject } from "./create-project";
 import {
   COPY,
   CREAZA_STEPS,
@@ -14,45 +15,68 @@ import {
 } from "./fixtures";
 import {
   applyFotoFixture,
+  beginPresetCreate,
+  beginSceneSave,
+  beginSourceUpload,
   clearLocalSource,
-  continueFromExperienta,
-  continueFromFoto,
-  continueFromPreset,
+  completePresetCreate,
+  completeSceneSave,
+  completeSourceUpload,
   createInitialCreazaFormState,
+  decidePresetCta,
+  decideSceneCta,
+  decideSourceCta,
+  failPresetCreate,
+  failSceneSave,
+  failSourceUpload,
   FOTO_ERROR_COPY,
   fotoDisplayName,
   goBack,
   PRESET_ERROR_COPY,
   resetCreazaForm,
+  resumeExistingDraft,
+  SCENE_ERROR_COPY,
   selectExperience,
   selectPreset,
   setFotoDragOver,
   setLocalSourceFailure,
   setLocalSourceSuccess,
-  type CreazaLocalFormState
+  UPLOAD_ERROR_COPY,
+  type CreazaLocalFormState,
+  type SceneError,
+  type UploadError
 } from "./form-state";
 import {
   buildLocalSourceImage,
   pickFirstImageFile,
   type LocalSourceImage
 } from "./local-source";
+import { SiteHeader } from "@/components/site-nav";
+import { patchSceneMode } from "./save-scene";
+import { postSourceUpload } from "./upload-source";
 import "./creaza-preview.css";
-
 const PRESET_TITLES: Record<string, string> = Object.fromEntries(
   PRESET_DOORS.map((door) => [door.id, door.title])
 );
 
 type Action =
   | { type: "select-preset"; preset: SimpleCreatorPreset }
-  | { type: "continue-preset" }
+  | { type: "begin-create" }
+  | { type: "resume-draft" }
+  | { type: "complete-create"; projectId: string }
+  | { type: "fail-create"; error: "auth" | "quota" | "generic" | "ambiguous" }
   | { type: "foto-fixture"; ui: FotoFixtureState }
   | { type: "foto-drag-over" }
   | { type: "local-success"; image: LocalSourceImage; smallWarning: boolean }
   | { type: "local-failure"; code: "type" | "size" }
   | { type: "local-clear" }
-  | { type: "continue-foto" }
+  | { type: "begin-upload" }
+  | { type: "complete-upload"; sourceUrl: string }
+  | { type: "fail-upload"; error: Exclude<UploadError, ""> }
   | { type: "select-experience"; experience: "popout" | "gallery" }
-  | { type: "continue-experience" }
+  | { type: "begin-scene" }
+  | { type: "complete-scene" }
+  | { type: "fail-scene"; error: Exclude<SceneError, ""> }
   | { type: "back" }
   | { type: "reset" };
 
@@ -60,8 +84,14 @@ function reducer(state: CreazaLocalFormState, action: Action): CreazaLocalFormSt
   switch (action.type) {
     case "select-preset":
       return selectPreset(state, action.preset);
-    case "continue-preset":
-      return continueFromPreset(state);
+    case "begin-create":
+      return beginPresetCreate(state);
+    case "resume-draft":
+      return resumeExistingDraft(state);
+    case "complete-create":
+      return completePresetCreate(state, action.projectId);
+    case "fail-create":
+      return failPresetCreate(state, action.error);
     case "foto-fixture":
       return applyFotoFixture(state, action.ui);
     case "foto-drag-over":
@@ -72,12 +102,20 @@ function reducer(state: CreazaLocalFormState, action: Action): CreazaLocalFormSt
       return setLocalSourceFailure(state, action.code);
     case "local-clear":
       return clearLocalSource(state);
-    case "continue-foto":
-      return continueFromFoto(state);
+    case "begin-upload":
+      return beginSourceUpload(state);
+    case "complete-upload":
+      return completeSourceUpload(state, action.sourceUrl);
+    case "fail-upload":
+      return failSourceUpload(state, action.error);
     case "select-experience":
       return selectExperience(state, action.experience);
-    case "continue-experience":
-      return continueFromExperienta(state);
+    case "begin-scene":
+      return beginSceneSave(state);
+    case "complete-scene":
+      return completeSceneSave(state);
+    case "fail-scene":
+      return failSceneSave(state, action.error);
     case "back":
       return goBack(state);
     case "reset":
@@ -88,16 +126,17 @@ function reducer(state: CreazaLocalFormState, action: Action): CreazaLocalFormSt
 }
 
 /**
- * Atelier UI + local form state + in-memory File preview.
- * No fetch, upload, magic-link, or production `/creaza/*` changes.
+ * Atelier preview: Create Go B + Source Go B + Scene Go B.
+ * Publish remains blocked. Scene PATCH is `{ mode: "popout" }` only.
  */
 export function CreazaPreviewShell() {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialCreazaFormState);
   const fileInputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const createInFlightRef = useRef(false);
+  const uploadInFlightRef = useRef(false);
+  const sceneInFlightRef = useRef(false);
   const stepMeta = useMemo(() => CREAZA_STEPS.find((item) => item.id === state.step)!, [state.step]);
-
-  // Revoke previous Object URL when replaced/cleared/unmounted.
   useEffect(() => {
     const url = state.localSource?.objectUrl;
     return () => {
@@ -106,7 +145,7 @@ export function CreazaPreviewShell() {
   }, [state.localSource?.objectUrl]);
 
   async function ingestFile(file: File | null) {
-    if (!file) return;
+    if (!file || state.fotoBusy) return;
     const result = await buildLocalSourceImage(file);
     if (!result.ok) {
       dispatch({ type: "local-failure", code: result.code });
@@ -115,18 +154,99 @@ export function CreazaPreviewShell() {
     dispatch({ type: "local-success", image: result.image, smallWarning: result.smallWarning });
   }
 
+  async function startWorld() {
+    if (createInFlightRef.current || state.presetBusy || state.fotoBusy || state.sceneBusy) return;
+
+    const decision = decidePresetCta(state);
+    if (decision.kind === "select-error") {
+      dispatch({ type: "begin-create" });
+      return;
+    }
+
+    if (decision.kind === "resume") {
+      dispatch({ type: "resume-draft" });
+      return;
+    }
+
+    createInFlightRef.current = true;
+    dispatch({ type: "begin-create" });
+
+    const payload = buildCreateProjectPayload(decision.preset);
+    const result = await postCreateProject(payload);
+
+    createInFlightRef.current = false;
+    if (result.ok) {
+      dispatch({ type: "complete-create", projectId: result.projectId });
+      return;
+    }
+    dispatch({ type: "fail-create", error: result.error });
+  }
+
+  async function savePhoto() {
+    if (uploadInFlightRef.current || state.fotoBusy || state.presetBusy || state.sceneBusy) return;
+
+    const decision = decideSourceCta(state);
+    if (decision.kind !== "upload") {
+      dispatch({ type: "begin-upload" });
+      return;
+    }
+
+    uploadInFlightRef.current = true;
+    dispatch({ type: "begin-upload" });
+
+    const result = await postSourceUpload(decision.projectId, decision.file);
+
+    uploadInFlightRef.current = false;
+    if (result.ok) {
+      dispatch({ type: "complete-upload", sourceUrl: result.sourceUrl });
+      return;
+    }
+    dispatch({ type: "fail-upload", error: result.error });
+  }
+
+  async function saveScene() {
+    if (sceneInFlightRef.current || state.sceneBusy || state.fotoBusy || state.presetBusy) return;
+
+    const decision = decideSceneCta(state);
+    if (decision.kind !== "patch") {
+      dispatch({ type: "begin-scene" });
+      return;
+    }
+
+    sceneInFlightRef.current = true;
+    dispatch({ type: "begin-scene" });
+
+    const result = await patchSceneMode(decision.projectId);
+
+    sceneInFlightRef.current = false;
+    if (result.ok) {
+      dispatch({ type: "complete-scene" });
+      return;
+    }
+    dispatch({ type: "fail-scene", error: result.error });
+  }
+
+  const dropLocked = state.fotoBusy;
+  const sceneLocked = state.sceneBusy;
+  const fotoAlert =
+    state.uploadError && UPLOAD_ERROR_COPY[state.uploadError]
+      ? UPLOAD_ERROR_COPY[state.uploadError]
+      : state.fotoError
+        ? FOTO_ERROR_COPY[state.fotoError]
+        : null;
+  const sceneAlert =
+    state.sceneError && SCENE_ERROR_COPY[state.sceneError] ? SCENE_ERROR_COPY[state.sceneError] : null;
+
   return (
-    <div className="creaza-preview" data-creaza-mode="local-file-preview">
-      <a className="creaza-preview__skip" href="#creaza-preview-main">
+    <div className="creaza-preview" data-creaza-mode="scene-go-b">      <a className="creaza-preview__skip" href="#creaza-preview-main">
         Sari la conținut
       </a>
 
-      <header className="creaza-preview__top">
-        <a className="creaza-preview__brand" href="/studio-preview">
-          kidAR
-        </a>
-        <p className="creaza-preview__badge">{COPY.previewBadge}</p>
-      </header>
+      <SiteHeader
+        brandHref="/studio"
+        studioHref="/studio-preview/personalizeaza"
+        trailing={<p className="creaza-preview__badge">{COPY.previewBadge}</p>}
+      />
 
       <main id="creaza-preview-main" className="creaza-preview__main">
         <ol className="creaza-progress" aria-label={`Progres: pasul ${stepMeta.index} din ${TOTAL_STEPS}`}>
@@ -150,7 +270,7 @@ export function CreazaPreviewShell() {
         </ol>
 
         {state.step === "preset" ? (
-          <section aria-labelledby="creaza-preset-title">
+          <section aria-labelledby="creaza-preset-title" aria-busy={state.presetBusy}>
             <p className="creaza-kicker">{COPY.brandKicker}</p>
             <h1 id="creaza-preset-title" className="creaza-title">
               {COPY.preset.title}
@@ -165,6 +285,7 @@ export function CreazaPreviewShell() {
                   role="option"
                   aria-selected={state.preset === door.id}
                   className={`creaza-door${state.preset === door.id ? " is-selected" : ""}`}
+                  disabled={state.presetBusy}
                   onClick={() => dispatch({ type: "select-preset", preset: door.id })}
                 >
                   <span className="creaza-door__art">
@@ -184,20 +305,25 @@ export function CreazaPreviewShell() {
               </p>
             ) : null}
 
+            <p className="creaza-status" role="status" aria-live="polite">
+              {state.presetBusy ? COPY.preset.ctaBusy : ""}
+            </p>
+
             <div className="creaza-actions">
               <button
                 type="button"
                 className="creaza-cta"
-                onClick={() => dispatch({ type: "continue-preset" })}
+                disabled={state.presetBusy}
+                onClick={() => void startWorld()}
               >
-                {COPY.preset.cta}
+                {state.presetBusy ? COPY.preset.ctaBusy : COPY.preset.cta}
               </button>
             </div>
           </section>
         ) : null}
 
         {state.step === "foto" ? (
-          <section aria-labelledby="creaza-foto-title">
+          <section aria-labelledby="creaza-foto-title" aria-busy={state.fotoBusy}>
             <p className="creaza-kicker">{COPY.brandKicker}</p>
             <h1 id="creaza-foto-title" className="creaza-title">
               {COPY.foto.title}
@@ -210,6 +336,7 @@ export function CreazaPreviewShell() {
               className="creaza-file-input"
               type="file"
               accept={SOURCE_ACCEPT}
+              disabled={dropLocked}
               onChange={(event) => {
                 const file = pickFirstImageFile(event.target.files);
                 void ingestFile(file);
@@ -229,17 +356,19 @@ export function CreazaPreviewShell() {
                         : ""
                 }`}
                 role="button"
-                tabIndex={0}
+                tabIndex={dropLocked ? -1 : 0}
+                aria-disabled={dropLocked || undefined}
                 aria-controls={fileInputId}
                 aria-label={
-                  state.fotoError
-                    ? FOTO_ERROR_COPY[state.fotoError]
-                    : state.localSource
-                      ? COPY.foto.dropSelected
-                      : COPY.foto.dropEmpty
+                  fotoAlert ??
+                  (state.localSource ? COPY.foto.dropSelected : COPY.foto.dropEmpty)
                 }
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => {
+                  if (dropLocked) return;
+                  fileInputRef.current?.click();
+                }}
                 onKeyDown={(event) => {
+                  if (dropLocked) return;
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
                     fileInputRef.current?.click();
@@ -247,17 +376,20 @@ export function CreazaPreviewShell() {
                 }}
                 onDragEnter={(event) => {
                   event.preventDefault();
+                  if (dropLocked) return;
                   dispatch({ type: "foto-drag-over" });
                 }}
                 onDragOver={(event) => event.preventDefault()}
                 onDragLeave={(event) => {
                   event.preventDefault();
+                  if (dropLocked) return;
                   if (!state.localSource) {
                     dispatch({ type: "foto-fixture", ui: "empty" });
                   }
                 }}
                 onDrop={(event) => {
                   event.preventDefault();
+                  if (dropLocked) return;
                   const file = pickFirstImageFile(event.dataTransfer.files);
                   void ingestFile(file);
                 }}
@@ -267,7 +399,7 @@ export function CreazaPreviewShell() {
                   <img
                     className="creaza-drop__preview"
                     src={state.localSource.objectUrl}
-                    alt={`Preview local: ${state.localSource.name}`}
+                    alt={`Previzualizare poză: ${state.localSource.name}`}
                   />
                 ) : (state.fotoUi === "selected" || state.fotoUi === "loading") && !state.fotoError ? (
                   <div className="creaza-drop__paper">
@@ -276,14 +408,14 @@ export function CreazaPreviewShell() {
                 ) : null}
 
                 <p className="creaza-drop__label">
-                  {state.fotoError
-                    ? FOTO_ERROR_COPY[state.fotoError]
+                  {fotoAlert
+                    ? fotoAlert
                     : state.localSource
                       ? COPY.foto.dropSelected
                       : state.fotoUi === "loading"
                         ? COPY.foto.dropLoading
                         : state.fotoUi === "drag-over"
-                          ? "Lasă desenul aici"
+                          ? "Trage poza aici"
                           : COPY.foto.dropEmpty}
                 </p>
                 <p className="creaza-drop__hint">
@@ -311,11 +443,22 @@ export function CreazaPreviewShell() {
               </ul>
             </div>
 
+            {fotoAlert ? (
+              <p className="creaza-inline-error" role="alert">
+                {fotoAlert}
+              </p>
+            ) : null}
+
+            <p className="creaza-status" role="status" aria-live="polite">
+              {state.fotoBusy ? COPY.foto.ctaBusy : ""}
+            </p>
+
             <div className="creaza-fixture-bar" role="group" aria-label="Stări fixture (opțional)">
               {(Object.keys(FOTO_FIXTURE_LABELS) as FotoFixtureState[]).map((key) => (
                 <button
                   key={key}
                   type="button"
+                  disabled={dropLocked}
                   className={!state.localSource && state.fotoUi === key ? "is-active" : undefined}
                   onClick={() => dispatch({ type: "foto-fixture", ui: key })}
                 >
@@ -323,29 +466,39 @@ export function CreazaPreviewShell() {
                 </button>
               ))}
               {state.localSource ? (
-                <button type="button" onClick={() => dispatch({ type: "local-clear" })}>
-                  Elimină fișierul
+                <button
+                  type="button"
+                  disabled={dropLocked}
+                  onClick={() => dispatch({ type: "local-clear" })}
+                >
+                  Elimină poza
                 </button>
               ) : null}
             </div>
 
             <div className="creaza-actions">
-              <button type="button" className="creaza-ghost" onClick={() => dispatch({ type: "back" })}>
+              <button
+                type="button"
+                className="creaza-ghost"
+                disabled={dropLocked}
+                onClick={() => dispatch({ type: "back" })}
+              >
                 {COPY.foto.back}
               </button>
               <button
                 type="button"
                 className="creaza-cta"
-                onClick={() => dispatch({ type: "continue-foto" })}
+                disabled={dropLocked}
+                onClick={() => void savePhoto()}
               >
-                {COPY.foto.cta}
+                {state.fotoBusy ? COPY.foto.ctaBusy : COPY.foto.cta}
               </button>
             </div>
           </section>
         ) : null}
 
         {state.step === "experienta" ? (
-          <section aria-labelledby="creaza-exp-title">
+          <section aria-labelledby="creaza-exp-title" aria-busy={state.sceneBusy}>
             <p className="creaza-kicker">{COPY.brandKicker}</p>
             <h1 id="creaza-exp-title" className="creaza-title">
               {COPY.experienta.title}
@@ -362,10 +515,10 @@ export function CreazaPreviewShell() {
                     className={`creaza-scene${state.experience === door.id ? " is-selected" : ""}${
                       soon ? " is-soon" : ""
                     }`}
-                    disabled={Boolean(soon)}
+                    disabled={Boolean(soon) || sceneLocked}
                     aria-pressed={state.experience === door.id}
                     onClick={() => {
-                      if (soon) return;
+                      if (soon || sceneLocked) return;
                       dispatch({ type: "select-experience", experience: door.id });
                     }}
                   >
@@ -377,16 +530,28 @@ export function CreazaPreviewShell() {
               })}
             </div>
 
+            {sceneAlert ? (
+              <p className="creaza-inline-error" role="alert">
+                {sceneAlert}
+              </p>
+            ) : null}
+
             <div className="creaza-actions">
-              <button type="button" className="creaza-ghost" onClick={() => dispatch({ type: "back" })}>
+              <button
+                type="button"
+                className="creaza-ghost"
+                disabled={sceneLocked}
+                onClick={() => dispatch({ type: "back" })}
+              >
                 {COPY.experienta.back}
               </button>
               <button
                 type="button"
                 className="creaza-cta"
-                onClick={() => dispatch({ type: "continue-experience" })}
+                disabled={sceneLocked}
+                onClick={() => void saveScene()}
               >
-                {COPY.experienta.cta}
+                {state.sceneBusy ? COPY.experienta.ctaBusy : COPY.experienta.cta}
               </button>
             </div>
           </section>
@@ -407,7 +572,7 @@ export function CreazaPreviewShell() {
                   <img
                     className="creaza-drop__preview"
                     src={state.localSource.objectUrl}
-                    alt={`Preview local: ${state.localSource.name}`}
+                    alt={`Previzualizare poză: ${state.localSource.name}`}
                   />
                 ) : (
                   <CreazaArt kind="paper" />
@@ -435,7 +600,14 @@ export function CreazaPreviewShell() {
               <button type="button" className="creaza-cta" onClick={() => dispatch({ type: "reset" })}>
                 {COPY.confirmare.again}
               </button>
-              <a className="creaza-ghost" href="/studio-preview">
+              <a
+                className="creaza-ghost"
+                href={
+                  state.projectId
+                    ? `/studio-preview/personalizeaza?projectId=${encodeURIComponent(state.projectId)}`
+                    : "/studio-preview/personalizeaza"
+                }
+              >
                 {COPY.confirmare.atelier}
               </a>
             </div>

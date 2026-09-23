@@ -273,7 +273,7 @@ export function HeroStage() {
       <div className="atelier-stage__cutout">
         <HeroEmergence />
       </div>
-      <p className="atelier-stage__label">Desen → Lume AR</p>
+      <p className="atelier-stage__label">Poză → Lume AR</p>
     </div>
   );
 }

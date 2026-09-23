@@ -1,4 +1,4 @@
-import { ID } from "node-appwrite";
+import { ID, Query } from "node-appwrite";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/appwrite/client";
@@ -17,8 +17,13 @@ export async function POST(request: Request) {
   const { users } = createAdminClient();
   let userId: string | null = null;
 
-  const listed = await users.list({ search: email });
-  userId = listed.users.find((user) => user.email?.toLowerCase() === email)?.$id ?? null;
+  // Prefer exact email query — `search` can time out on larger user sets.
+  try {
+    const listed = await users.list([Query.equal("email", email), Query.limit(1)]);
+    userId = listed.users[0]?.$id ?? null;
+  } catch {
+    userId = null;
+  }
 
   if (!userId) {
     const created = await users.create(ID.unique(), email, undefined, `E2E-${ID.unique()}a1`);
@@ -33,7 +38,12 @@ export async function POST(request: Request) {
     path: "/",
     expires: new Date(session.expire)
   });
-  await ensureProfile(userId);
+  // Profile is nice-to-have for Studio plan; don't fail login if Appwrite DB times out.
+  try {
+    await ensureProfile(userId);
+  } catch {
+    // best-effort
+  }
 
   return NextResponse.json({ ok: true, userId });
 }

@@ -2,10 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   applyFotoFixture,
   clearLocalSource,
-  continueFromFoto,
   createInitialCreazaFormState,
   selectPreset,
-  continueFromPreset,
+  beginPresetCreate,
+  completePresetCreate,
+  completeSourceUpload,
+  beginSourceUpload,
   setLocalSourceFailure,
   setLocalSourceSuccess
 } from "./form-state";
@@ -75,7 +77,7 @@ describe("creaza-preview local File preview", () => {
   it("setLocalSourceSuccess stores real preview and clears fixture name", () => {
     let state = createInitialCreazaFormState();
     state = selectPreset(state, "coloring");
-    state = continueFromPreset(state);
+    state = completePresetCreate(beginPresetCreate(state), "proj_local");
     state = applyFotoFixture(state, "selected");
     expect(state.fotoMockName).toBeTruthy();
 
@@ -90,8 +92,11 @@ describe("creaza-preview local File preview", () => {
     expect(state.localSource?.name).toBe("live.jpg");
     expect(state.fotoMockName).toBeNull();
     expect(state.fotoUi).toBe("selected");
-    state = continueFromFoto(state);
+    state = beginSourceUpload(state);
+    expect(state.fotoBusy).toBe(true);
+    state = completeSourceUpload(state, "/api/files/source/src_live");
     expect(state.step).toBe("experienta");
+    expect(state.sourceUrl).toBe("/api/files/source/src_live");
   });
 
   it("setLocalSourceFailure and clearLocalSource leave no localSource", () => {

@@ -30,13 +30,12 @@ export interface FixtureAsset {
 }
 
 export const HEADER_NAV: { id: FixtureView; label: string }[] = [
-  { id: "atelier", label: "Atelier" },
   { id: "worlds", label: "Lumi" },
   { id: "library", label: "Bibliotecă" }
 ];
 
+/** Primary Atelier/Studio routes live in SiteHeader; this is the bottom dock. */
 export const MOBILE_NAV: { id: FixtureView; label: string }[] = [
-  { id: "atelier", label: "Atelier" },
   { id: "create", label: "Creează" },
   { id: "worlds", label: "Lumi" },
   { id: "library", label: "Bibliotecă" }
