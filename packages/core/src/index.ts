@@ -166,6 +166,50 @@ export type {
 } from "./figure-staging";
 
 export {
+  FIGURE_FLAG_GENERATION,
+  FIGURE_FLAG_AR,
+  FIGURE_FLAG_PUBLISH,
+  FIGURE_GLB_CONTENT_TYPE,
+  FIGURE_USDZ_CONTENT_TYPE,
+  FIGURE_MAX_UPLOAD_BYTES,
+  FIGURE_LIFECYCLE,
+  FIGURE_LIMITS,
+  FIGURE_AUDIT_EVENTS,
+  readFigureFeatureFlags,
+  isFigureLifecycle,
+  canFigureTransition,
+  assertFigureTransition,
+  figureIdempotencyKey,
+  decideFigureGeneration,
+  claimFigureGeneration,
+  classifyFigureUpload,
+  assertFigureImageDimensions,
+  normalizeFigureUpload,
+  stripFailedFigureFields,
+  acceptUploadForProcessing,
+  validateFigureModel,
+  figureDeliveryForStatus,
+  authorizeFigureRequest,
+  redactFigureRecord,
+  evaluateFigureBudget,
+  buildFigureAuditEvent,
+  decideFigurePublish
+} from "./figure-hardening";
+export type {
+  FigureLifecycle,
+  FigureActor,
+  FigureFeatureFlags,
+  FigureJobSnapshot,
+  FigureSubmitDecision,
+  FigureUploadVerdict,
+  FigureModelVerdict,
+  FigureBudgetSnapshot,
+  FigureAuditEventName,
+  FigureAuditEvent,
+  FigurePublishDecision
+} from "./figure-hardening";
+
+export {
   MIND_PIPELINE_VERSION,
   MIND_AR_PACKAGE_VERSION,
   MIND_ARTIFACT_KIND,
