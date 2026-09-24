@@ -33,37 +33,23 @@ async function minHeight(locator: import("@playwright/test").Locator) {
 
 test("editorial homepage is Romanian with auth-aware CTAs for guests", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Desenele prind viață." })).toBeVisible();
-  await expect(page.getByText("kidAR · povești care ies din pagină")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Începe în Atelier" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Deschide Studio" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Începe în Atelier" })).toHaveAttribute(
-    "href",
-    "/intra"
-  );
-  await expect(page.getByRole("link", { name: "Deschide Studio" })).toHaveAttribute(
-    "href",
-    "/login"
-  );
-  const steps = page.getByRole("list", { name: "Cum funcționează" });
-  await expect(steps.getByText("Fotografiază", { exact: true })).toBeVisible();
-  await expect(steps.getByText("Personalizează", { exact: true })).toBeVisible();
-  await expect(steps.getByText("Vezi în AR", { exact: true })).toBeVisible();
-  await expect(
-    page.getByText("Fără aplicație de instalat. Deschizi linkul sau scanezi codul QR.")
-  ).toBeVisible();
-  await minHeight(page.getByRole("link", { name: "Începe în Atelier" }));
+  await expect(page.getByRole("heading", { name: "Desenul tău prinde viață." })).toBeVisible();
+  await expect(page.getByText("kiDAR", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Descoperă kiDAR" })).toHaveAttribute("href", "/intra");
+  await expect(page.getByRole("link", { name: "Intră în Studio" })).toHaveAttribute("href", "/login");
+  await expect(page.getByRole("heading", { name: "Desenează" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Fotografiază" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Descoperă" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Intră în kiDAR" })).toHaveAttribute("href", "/intra");
+  await minHeight(page.getByRole("link", { name: "Descoperă kiDAR" }));
 });
 
 test("editorial homepage sends signed-in users to Atelier and Studio preview", async ({ page }) => {
   await signIn(page);
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Desenele prind viață." })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Începe în Atelier" })).toHaveAttribute(
-    "href",
-    "/creaza"
-  );
-  await expect(page.getByRole("link", { name: "Deschide Studio" })).toHaveAttribute(
+  await expect(page.getByRole("heading", { name: "Desenul tău prinde viață." })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Descoperă kiDAR" })).toHaveAttribute("href", "/creaza");
+  await expect(page.getByRole("link", { name: "Intră în Studio" })).toHaveAttribute(
     "href",
     "/studio-preview/personalizeaza"
   );
