@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Image, { type StaticImageData } from "next/image";
+import type { StaticImageData } from "next/image";
 import heroRedDress from "./art/hero-red-dress.png";
 import childOpenArms from "./art/child-open-arms.png";
 import childGreenShirt from "./art/child-green-shirt.png";
 import rooster from "./art/rooster.png";
+import { CharacterPopout, type PopoutVariant } from "./character-popout";
 
 /**
  * Paper-card illustrations. The source PNGs are opaque RGB, so the white
@@ -25,6 +26,12 @@ export function DrawingScene() {
       root.toggleAttribute("data-paused", document.hidden);
     };
     document.addEventListener("visibilitychange", onVisibility);
+
+    const sceneObserver = new IntersectionObserver(([entry]) => {
+      if (!entry) return;
+      root.toggleAttribute("data-offscreen", !entry.isIntersecting);
+    });
+    sceneObserver.observe(root);
 
     const fine = window.matchMedia("(hover: hover) and (pointer: fine)");
     const onMove = (event: PointerEvent) => {
@@ -47,6 +54,7 @@ export function DrawingScene() {
     }
 
     return () => {
+      sceneObserver.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
       root.removeEventListener("pointermove", onMove);
       root.removeEventListener("pointerleave", onLeave);
@@ -57,22 +65,22 @@ export function DrawingScene() {
   return (
     <div className="kidar-scene" ref={rootRef} aria-hidden="true">
       <div className="kidar-scene__shift">
-        <PaperCard
+        <CharacterPaperCard
           src={heroRedDress}
-          className="kidar-card kidar-card--hero"
-          sizes="(max-width: 899px) 168px, 240px"
+          variant="red-dress"
+          sizes="(max-width: 899px) 200px, 280px"
           priority
         />
-        <PaperCard
+        <CharacterPaperCard
           src={childOpenArms}
-          className="kidar-card kidar-card--arms"
-          sizes="(max-width: 899px) 104px, 140px"
+          variant="open-arms"
+          sizes="(max-width: 899px) 140px, 160px"
           loading="eager"
         />
-        <PaperCard
+        <CharacterPaperCard
           src={childGreenShirt}
-          className="kidar-card kidar-card--green"
-          sizes="(max-width: 899px) 104px, 140px"
+          variant="green-shirt"
+          sizes="(max-width: 899px) 140px, 160px"
           loading="eager"
         />
       </div>
@@ -82,37 +90,32 @@ export function DrawingScene() {
 
 export function LandingRooster() {
   return (
-    <div className="landing-rooster" aria-hidden="true">
-      <PaperCard src={rooster} className="kidar-card kidar-card--rooster" sizes="200px" />
+    <div className="landing-rooster">
+      <CharacterPopout variant="rooster" src={rooster} sizes="200px" />
     </div>
   );
 }
 
-function PaperCard({
+function CharacterPaperCard({
   src,
-  className,
+  variant,
   sizes,
   priority = false,
   loading
 }: {
   src: StaticImageData;
-  className: string;
+  variant: PopoutVariant;
   sizes: string;
   priority?: boolean;
   loading?: "eager" | "lazy";
 }) {
   return (
-    <figure className={className}>
-      <div className="kidar-card__lift">
-        <Image
-          src={src}
-          alt=""
-          sizes={sizes}
-          priority={priority}
-          loading={priority ? undefined : loading}
-          className="kidar-card__img"
-        />
-      </div>
-    </figure>
+    <CharacterPopout
+      variant={variant}
+      src={src}
+      sizes={sizes}
+      priority={priority}
+      loading={loading}
+    />
   );
 }

@@ -18,7 +18,7 @@ function htmlPage(title: string, body: string) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${title}</title>
   <style>
-    body { margin: 0; background: #faf8f5; }
+    body { margin: 0; background: #0b0e14; }
     .auth-shell {
       box-sizing: border-box;
       min-height: 100vh;
@@ -27,8 +27,10 @@ function htmlPage(title: string, body: string) {
       align-items: center;
       justify-content: center;
       padding: 32px 24px;
-      background: #faf8f5;
-      color: #17172a;
+      background:
+        radial-gradient(720px 420px at 88% -4%, rgba(217, 119, 79, 0.14), transparent 58%),
+        linear-gradient(168deg, #11151e 0%, #0b0e14 48%, #080a10 100%);
+      color: #f3efe6;
       font-family: system-ui, "Segoe UI", sans-serif;
       font-size: 1.0625rem;
       line-height: 1.45;
@@ -37,27 +39,65 @@ function htmlPage(title: string, body: string) {
     .auth-card {
       width: min(420px, 100%);
       padding: 28px 24px 24px;
-      background: #fffcf8;
-      border: 1px solid #d9d3c8;
+      background: #10141c;
+      border: 1px solid rgba(243, 239, 230, 0.12);
       border-radius: 18px;
     }
-    .auth-eyebrow {
-      margin: 0 0 12px;
-      color: #5b4fe0;
-      font-size: 0.8125rem;
+    .auth-brand { margin: 0 0 14px; }
+    .kidar-wordmark {
+      --kidar-accent: #8d82ea;
+      --kidar-muted: #a89f93;
+      --kidar-brand: #f3efe6;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.16em;
+      max-width: 100%;
+      color: var(--kidar-brand);
+      line-height: 1;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .kidar-wordmark__eyebrow {
+      display: inline-flex;
+      align-items: baseline;
+      flex-wrap: nowrap;
+      gap: 0.28em;
+      font-size: 0.52rem;
       font-weight: 700;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.22em;
+      line-height: 1;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .kidar-wordmark__play { color: var(--kidar-accent); }
+    .kidar-wordmark__with,
+    .kidar-wordmark__subtitle { color: var(--kidar-muted); }
+    .kidar-wordmark__name {
+      color: var(--kidar-brand);
+      font-size: 1.65rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 0.95;
+      text-transform: none;
+    }
+    .kidar-wordmark__subtitle {
+      font-size: 0.52rem;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      line-height: 1;
+      text-transform: uppercase;
     }
     .auth-shell h1 {
       margin: 0 0 12px;
-      color: #17172a;
+      color: #f3efe6;
       font-family: inherit;
       font-size: 1.75rem;
       font-weight: 700;
       line-height: 1.2;
       letter-spacing: -0.02em;
     }
-    .auth-lead, .auth-note { margin: 0 0 20px; color: #4e4960; }
+    .auth-lead, .auth-note { margin: 0 0 20px; color: #a89f93; }
     .auth-note { margin-bottom: 0; font-size: 0.9375rem; }
     .auth-btn {
       display: flex;
@@ -68,9 +108,9 @@ function htmlPage(title: string, body: string) {
       margin-top: 20px;
       padding: 12px 16px;
       border: 0;
-      border-radius: 16px;
-      background: #5b4fe0;
-      color: #fff;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #e8a05a, #e07a5f);
+      color: #1a120e;
       font: inherit;
       font-weight: 700;
       cursor: pointer;
@@ -80,11 +120,11 @@ function htmlPage(title: string, body: string) {
       display: inline-flex;
       min-height: 48px;
       align-items: center;
-      color: #5b4fe0;
+      color: #e8a05a;
       font-weight: 700;
     }
-    .auth-shell small { color: #4e4960; }
-    .auth-shell :focus-visible { outline: 3px solid #17172a; outline-offset: 3px; }
+    .auth-shell small { color: #a89f93; }
+    .auth-shell :focus-visible { outline: 2px solid #e0d6a8; outline-offset: 3px; }
     @media (max-width: 480px) {
       .auth-shell { padding: 28px 20px; }
       .auth-card { padding: 24px 20px 20px; }
@@ -100,7 +140,16 @@ function htmlPage(title: string, body: string) {
 <body>
 <main class="auth-shell">
   <section class="auth-card">
-    <p class="auth-eyebrow">kiDAR Studio</p>
+    <div class="auth-brand">
+      <span class="kidar-wordmark" role="img" aria-label="kidAR — Play With Studio">
+        <span class="kidar-wordmark__eyebrow">
+          <span class="kidar-wordmark__play">PLAY</span>
+          <span class="kidar-wordmark__with">WITH</span>
+        </span>
+        <span class="kidar-wordmark__name">kidAR</span>
+        <span class="kidar-wordmark__subtitle">STUDIO</span>
+      </span>
+    </div>
     ${body}
   </section>
 </main>

@@ -1,22 +1,15 @@
-/* kidAR Simple Creator tokens.
- *
- * Contrast (WCAG 2.2, relative luminance):
- *   --ink on --paper            15.98:1  (AAA body)
- *   --accent-ink on --accent     5.77:1  (AA normal text; keep #5B4FE0)
- *   --danger on --paper          7.37:1  (AAA)
- * Accent was not darkened: white on #5B4FE0 already meets AA.
- */
+/* kidAR Simple Creator tokens. Same dark field as Studio. */
 
 .creaza-shell {
-  --ink: #1b1726;
-  --paper: #f7f4ee;
-  --paper-raised: #fffcf7;
-  --accent: #5b4fe0;
-  --accent-ink: #ffffff;
-  --line: #d9d3c8;
-  --ok: #1f6b4a;
-  --danger: #9b1c2c;
-  --focus: #1b1726;
+  --ink: #f3efe6;
+  --paper: #0b0e14;
+  --paper-raised: #10141c;
+  --accent: #e8a05a;
+  --accent-ink: #1a120e;
+  --line: rgba(243, 239, 230, 0.16);
+  --ok: #9dceb4;
+  --danger: #ffb4b4;
+  --focus: #e0d6a8;
   --touch: 48px;
   --body-size: 1.125rem;
   --line-height: 1.45;
@@ -25,7 +18,10 @@
   min-height: 100vh;
   margin: 0;
   padding: 1.5rem;
-  background: var(--paper);
+  background:
+    radial-gradient(720px 420px at 88% -4%, rgba(217, 119, 79, 0.14), transparent 58%),
+    radial-gradient(480px 320px at 6% 100%, rgba(224, 122, 95, 0.08), transparent 52%),
+    linear-gradient(168deg, #11151e 0%, var(--paper) 48%, #080a10 100%);
   color: var(--ink);
   font-family: system-ui, "Segoe UI", sans-serif;
   font-size: var(--body-size);
@@ -159,7 +155,7 @@
 .creaza-btn-primary {
   width: 100%;
   border: 0;
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent), #e07a5f);
   color: var(--accent-ink);
 }
 

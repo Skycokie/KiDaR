@@ -1,0 +1,33 @@
+.locale-switcher {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.locale-switcher a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding-inline: 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: inherit;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.locale-switcher a[aria-current="true"] {
+  border-color: currentColor;
+  font-weight: 700;
+}
+
+@media (max-width: 899px) {
+  .locale-switcher a {
+    min-height: 44px;
+  }
+}
