@@ -328,6 +328,9 @@ export function GardenPoster({
       className={`studio-stage studio-stage--${state.stylePreset}${state.gridOn ? " is-grid" : ""}${hasDrawing ? " has-drawing" : ""}`}
       data-mode={transformMode}
       data-animation={state.animation}
+      data-palette={state.palette}
+      data-lighting={state.lighting}
+      data-decor={state.decor[0] ?? "none"}
       data-outline={state.preserveOutline ? "yes" : "no"}
       data-colors={state.originalColors ? "original" : "styled"}
       data-variant={state.variantIndex}
@@ -376,6 +379,7 @@ export function GardenPoster({
       ) : null}
 
       <div className="studio-stage__orbit">
+        <div className="studio-stage__actor">
         {isPopout && !hasDrawing ? <PopoutFixtureFigure volume={state.volume} /> : null}
 
         {isFigurine && hasDrawing ? (
@@ -387,7 +391,9 @@ export function GardenPoster({
         ) : null}
 
         {isFigurine && !hasDrawing ? <FigurineFixtureFigure volume={state.volume} /> : null}
+        </div>
       </div>
+      {hasDrawing ? null : <p className="studio-stage__demo-label">{COPY.demoPreview}</p>}
 
       {isFigurine ? (
         <p className="studio-stage__mode-hint studio-stage__mode-hint--figurine">{COPY.figurineVolumeHint}</p>

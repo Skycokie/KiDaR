@@ -21,6 +21,8 @@ import {
   CAMERA_PRESETS,
   COPY,
   DECOR_ASSETS,
+  LIGHTINGS,
+  PALETTES,
   PERSONALIZE_STUDIO_HREF,
   STAGES,
   STYLE_PRESETS,
@@ -28,12 +30,16 @@ import {
   type AnimationId,
   type CameraPresetId,
   type DecorId,
+  type LightingId,
+  type PaletteId,
   type StudioStageId,
   type StylePresetId,
   type TransformModeId
 } from "./fixtures";
 import {
+  applyIdeaPrompt,
   createInitialPersonalizeState,
+  createWorkspaceState,
   frameFit,
   nudgeOrbit,
   nudgeOrbitFromScreen,
@@ -41,13 +47,19 @@ import {
   ORBIT_PITCH_STEP,
   ORBIT_ROLL_STEP,
   ORBIT_YAW_STEP,
+  regenerateVariant,
+  resetIdeaPrompt,
   setAnimation,
   setArLive,
   setCameraPreset,
+  setDecorSelection,
   setDetails,
+  setIdeaPrompt,
   setLeftOpen,
+  setLighting,
   setLight,
   setOriginalColors,
+  setPalette,
   setPreserveOutline,
   setPublishOpen,
   setRightOpen,
@@ -63,10 +75,10 @@ import {
   summarizePersonalize,
   zoomFromPinch,
   zoomFromWheel,
-  toggleDecor,
   toggleGrid,
   type PersonalizeState
 } from "./form-state";
+import { IdeaPromptCard } from "./idea-prompt-card";
 import { GardenPoster } from "./garden-poster";
 import {
   type PreviewProjectContext,
@@ -91,11 +103,16 @@ type Action =
   | { type: "details"; value: number }
   | { type: "outline"; value: boolean }
   | { type: "style"; id: StylePresetId }
+  | { type: "palette"; id: PaletteId }
+  | { type: "lighting"; id: LightingId }
   | { type: "colors"; value: boolean }
   | { type: "light"; value: number }
   | { type: "shadow"; value: number }
   | { type: "animation"; id: AnimationId }
-  | { type: "decor"; id: DecorId }
+  | { type: "decor"; id: DecorId | "none" }
+  | { type: "idea"; value: string }
+  | { type: "applyIdea" }
+  | { type: "resetIdea" }
   | { type: "camera"; id: CameraPresetId }
   | { type: "grid" }
   | { type: "frame" }
@@ -123,6 +140,10 @@ function reducer(state: PersonalizeState, action: Action): PersonalizeState {
       return setPreserveOutline(state, action.value);
     case "style":
       return setStylePreset(state, action.id);
+    case "palette":
+      return setPalette(state, action.id);
+    case "lighting":
+      return setLighting(state, action.id);
     case "colors":
       return setOriginalColors(state, action.value);
     case "light":
@@ -132,7 +153,13 @@ function reducer(state: PersonalizeState, action: Action): PersonalizeState {
     case "animation":
       return setAnimation(state, action.id);
     case "decor":
-      return toggleDecor(state, action.id);
+      return setDecorSelection(state, action.id);
+    case "idea":
+      return setIdeaPrompt(state, action.value);
+    case "applyIdea":
+      return applyIdeaPrompt(state, state.ideaPrompt);
+    case "resetIdea":
+      return resetIdeaPrompt(state);
     case "camera":
       return setCameraPreset(state, action.id);
     case "grid":
@@ -157,7 +184,7 @@ function reducer(state: PersonalizeState, action: Action): PersonalizeState {
     case "autoRotate":
       return setAutoRotate(state, action.value);
     case "variant":
-      return setVariantIndex(state, action.index);
+      return action.index < 0 ? regenerateVariant(state) : setVariantIndex(state, action.index);
     case "arLive":
       return setArLive(state, action.value);
     case "left":
@@ -193,9 +220,11 @@ function SheetChrome({
 
 function StageNav({
   state,
+  hasDrawing,
   onSelect
 }: {
   state: PersonalizeState;
+  hasDrawing: boolean;
   onSelect: (id: StudioStageId) => void;
 }) {
   return (
@@ -205,6 +234,7 @@ function StageNav({
         {STAGES.map((stage, index) => {
           const active = state.stage === stage.id;
           const done = state.completedStages.includes(stage.id);
+          const locked = !hasDrawing && stage.id !== "desenul";
           return (
             <li key={stage.id} className="studio-ws__path-item">
               {index > 0 ? <span className="studio-ws__path-line" aria-hidden="true" /> : null}
@@ -212,6 +242,8 @@ function StageNav({
                 type="button"
                 className={`studio-ws__stage${active ? " is-active" : ""}${done ? " is-done" : ""}`}
                 aria-current={active ? "step" : undefined}
+                disabled={locked}
+                title={locked ? COPY.stepLocked : undefined}
                 onClick={() => onSelect(stage.id)}
               >
                 <span className="studio-ws__stage-mark" aria-hidden="true">
@@ -232,6 +264,18 @@ function StageNav({
   );
 }
 
+function ideaCard(state: PersonalizeState, dispatch: (action: Action) => void, locked: boolean) {
+  return (
+    <IdeaPromptCard
+      state={state}
+      locked={locked}
+      onChange={(value) => dispatch({ type: "idea", value })}
+      onApply={() => dispatch({ type: "applyIdea" })}
+      onReset={() => dispatch({ type: "resetIdea" })}
+    />
+  );
+}
+
 function Inspector({
   state,
   dispatch,
@@ -243,15 +287,18 @@ function Inspector({
   drawingSrc?: string | null;
   projectId?: string | null;
 }) {
+  const hasDrawing = Boolean(drawingSrc);
+  const showIdea =
+    state.stage === "personajul" ||
+    state.stage === "aspect" ||
+    state.stage === "miscare" ||
+    state.stage === "decor";
   if (state.stage === "desenul") {
     return (
       <div className="studio-ws__inspector-block">
         <h2>Desen</h2>
-        <p className="studio-ws__muted">
-          {drawingSrc
-            ? "Desenul salvat din Atelier e pe scenă. Continuă ca să ridici personajul din hârtie."
-            : "Nu există încă o poză legată. Continuă cu fixture-ul demonstrativ sau revino din Atelier."}
-        </p>
+        <p className="studio-ws__muted">{hasDrawing ? COPY.drawingReady : COPY.emptyDrawing}</p>
+        {hasDrawing ? null : ideaCard(state, dispatch, true)}
         <div className={`studio-ws__drawing-card${drawingSrc ? " has-photo" : ""}`}>
           {drawingSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -263,6 +310,8 @@ function Inspector({
         <button
           type="button"
           className="studio-ws__primary-btn"
+          disabled={!hasDrawing}
+          title={hasDrawing ? undefined : COPY.stepLocked}
           onClick={() => dispatch({ type: "stage", id: "personajul" })}
         >
           Continuă la personaj
@@ -274,6 +323,7 @@ function Inspector({
   if (state.stage === "personajul") {
     return (
       <div className="studio-ws__inspector-block">
+        {showIdea ? ideaCard(state, dispatch, !hasDrawing) : null}
         <h2>Personaj</h2>
         <p className="studio-ws__section-label">{COPY.modeSection}</p>
         <div className="studio-ws__mode-cards" role="group" aria-label={COPY.modeSection}>
@@ -303,6 +353,9 @@ function Inspector({
             );
           })}
         </div>
+        {state.transformMode === "figurine" ? (
+          <p className="studio-ws__muted">{COPY.figurineDemo}</p>
+        ) : null}
 
         <p className="studio-ws__section-label">{COPY.variantSoon}</p>
         <div className="studio-ws__variant-row" role="group" aria-label={COPY.variantSoon}>
@@ -355,7 +408,11 @@ function Inspector({
           <span>{COPY.preserveOutline}</span>
         </label>
 
-        <button type="button" className="studio-ws__ghost-btn" disabled title="În curând">
+        <button
+          type="button"
+          className="studio-ws__ghost-btn"
+          onClick={() => dispatch({ type: "variant", index: -1 })}
+        >
           {COPY.regenerate}
         </button>
       </div>
@@ -365,7 +422,46 @@ function Inspector({
   if (state.stage === "aspect") {
     return (
       <div className="studio-ws__inspector-block">
+        {ideaCard(state, dispatch, !hasDrawing)}
         <h2>{COPY.aspect}</h2>
+        <p className="studio-ws__section-label">{COPY.paletteSection}</p>
+        <div className="studio-ws__choice-row" role="radiogroup" aria-label={COPY.paletteSection}>
+          {PALETTES.map((palette) => {
+            const selected = state.palette === palette.id;
+            return (
+              <button
+                key={palette.id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                className={`studio-ws__choice${selected ? " is-selected" : ""}`}
+                onClick={() => dispatch({ type: "palette", id: palette.id })}
+              >
+                <span className={`studio-ws__choice-mark studio-ws__choice-mark--${palette.id}`} aria-hidden="true" />
+                {palette.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="studio-ws__section-label">{COPY.lightingSection}</p>
+        <div className="studio-ws__choice-row" role="radiogroup" aria-label={COPY.lightingSection}>
+          {LIGHTINGS.map((lighting) => {
+            const selected = state.lighting === lighting.id;
+            return (
+              <button
+                key={lighting.id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                className={`studio-ws__choice${selected ? " is-selected" : ""}`}
+                onClick={() => dispatch({ type: "lighting", id: lighting.id })}
+              >
+                <span className={`studio-ws__choice-mark studio-ws__choice-mark--${lighting.id}`} aria-hidden="true" />
+                {lighting.label}
+              </button>
+            );
+          })}
+        </div>
         <p className="studio-ws__section-label">{COPY.styleSection}</p>
         <div className="studio-ws__style-cards" role="radiogroup" aria-label={COPY.styleSection}>
           {STYLE_PRESETS.map((preset) => {
@@ -430,6 +526,7 @@ function Inspector({
   if (state.stage === "miscare") {
     return (
       <div className="studio-ws__inspector-block">
+        {ideaCard(state, dispatch, !hasDrawing)}
         <h2>{COPY.giveLife}</h2>
         <div className="studio-ws__motion-cards" role="radiogroup" aria-label={COPY.giveLife}>
           {ANIMATIONS.map((anim) => {
@@ -459,17 +556,30 @@ function Inspector({
   }
 
   if (state.stage === "decor") {
+    const noneSelected = state.decor.length === 0;
     return (
       <div className="studio-ws__inspector-block">
+        {ideaCard(state, dispatch, !hasDrawing)}
         <h2>{COPY.placeInWorld}</h2>
-        <div className="studio-ws__assets" role="group" aria-label={COPY.placeInWorld}>
+        <div className="studio-ws__assets" role="radiogroup" aria-label={COPY.placeInWorld}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={noneSelected}
+            className={`studio-ws__asset${noneSelected ? " is-selected" : ""}`}
+            onClick={() => dispatch({ type: "decor", id: "none" })}
+          >
+            <span className="studio-ws__asset-icon studio-ws__asset-icon--none" aria-hidden="true" />
+            <span>{COPY.noDecor}</span>
+          </button>
           {DECOR_ASSETS.map((asset) => {
-            const selected = state.decor.includes(asset.id);
+            const selected = state.decor[0] === asset.id;
             return (
               <button
                 key={asset.id}
                 type="button"
-                aria-pressed={selected}
+                role="radio"
+                aria-checked={selected}
                 className={`studio-ws__asset${selected ? " is-selected" : ""}`}
                 onClick={() => dispatch({ type: "decor", id: asset.id })}
               >
@@ -533,18 +643,11 @@ export function PersonalizePreviewShell({
 }) {
   const projectId = projectContext?.projectId ?? null;
   const orbitSeed = {
+    hasDrawing: Boolean(drawingSrc),
     yaw: projectContext?.startYaw ?? null,
     pitch: projectContext?.startPitch ?? null
   };
-  const [state, dispatch] = useReducer(reducer, orbitSeed, (seed) => {
-    const next = createInitialPersonalizeState();
-    if (seed.yaw == null && seed.pitch == null) return next;
-    return {
-      ...next,
-      orbitYaw: seed.yaw ?? next.orbitYaw,
-      orbitPitch: seed.pitch ?? next.orbitPitch
-    };
-  });
+  const [state, dispatch] = useReducer(reducer, createWorkspaceState(orbitSeed));
   const [save, saveDispatch] = useReducer(startSaveReducer, {
     status: "idle",
     baselineYaw: orbitSeed.yaw ?? createInitialPersonalizeState().orbitYaw,
@@ -919,7 +1022,11 @@ export function PersonalizePreviewShell({
             title={COPY.pathLabel}
             onClose={() => dispatch({ type: "left", open: false })}
           />
-          <StageNav state={state} onSelect={(id) => dispatch({ type: "stage", id })} />
+          <StageNav
+            state={state}
+            hasDrawing={hasDrawing}
+            onSelect={(id) => dispatch({ type: "stage", id })}
+          />
         </aside>
 
         <section className="studio-ws__center" aria-labelledby="studio-ws-title">

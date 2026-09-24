@@ -324,7 +324,8 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(fixtures).toContain(COPY.publishInactive);
     expect(fixtures).toContain(COPY.publishQrLabel);
     expect(shell).toContain("transformMode={state.transformMode}");
-    expect(shell).toMatch(/studio-ws__ghost-btn[^>]*\bdisabled\b/);
+    expect(shell).toContain('dispatch({ type: "variant", index: -1 })');
+    expect(shell).not.toMatch(/studio-ws__ghost-btn[^>]*\bdisabled\b/);
     expect(poster).toContain("transformMode");
     expect(poster).toContain("data-mode={transformMode}");
     expect(poster).toContain("PopoutMeshStage");
@@ -401,6 +402,8 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(shell).toContain("seeInArPreparing");
     expect(fixtures).toContain("AR în pregătire");
     expect(fixtures).toContain("Previzualizare 2D locală");
+    expect(shell).not.toMatch(/\brel=["']ar["']/);
+    expect(shell).not.toMatch(/\bnavigator\.mediaDevices\b|\.getUserMedia\b/);
     expect(shell).not.toContain("studio-ws__ar-live");
     expect(shell).not.toContain("onClick={openAr}");
   });

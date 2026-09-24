@@ -5,6 +5,7 @@
 import {
   ANIMATIONS,
   CAMERA_PRESETS,
+  COPY,
   DECOR_ASSETS,
   STAGES,
   STYLE_PRESETS,
@@ -12,10 +13,13 @@ import {
   type AnimationId,
   type CameraPresetId,
   type DecorId,
+  type LightingId,
+  type PaletteId,
   type StudioStageId,
   type StylePresetId,
   type TransformModeId
 } from "./fixtures";
+import { interpretIdeaPrompt, limitIdeaPrompt, type IdeaPromptResult } from "./idea-prompt";
 
 export type PersonalizeState = {
   stage: StudioStageId;
@@ -25,6 +29,8 @@ export type PersonalizeState = {
   details: number;
   preserveOutline: boolean;
   stylePreset: StylePresetId;
+  palette: PaletteId;
+  lighting: LightingId;
   originalColors: boolean;
   light: number;
   shadow: number;
@@ -46,6 +52,10 @@ export type PersonalizeState = {
   rightOpen: boolean;
   /** Local publish-prep dialog. Never a real publish. */
   publishOpen: boolean;
+  /** Local idea text. Never sent to a provider. */
+  ideaPrompt: string;
+  ideaResult: IdeaPromptResult | null;
+  ideaNotice: string | null;
 };
 
 const STYLE_CYCLE: StylePresetId[] = ["preserve", "clay", "painted"];
@@ -74,6 +84,24 @@ function nearestAngle(current: number, target: number): number {
   return target + cycles * 360;
 }
 
+export function createWorkspaceState(seed: {
+  hasDrawing: boolean;
+  yaw: number | null;
+  pitch: number | null;
+}): PersonalizeState {
+  const next = createInitialPersonalizeState();
+  const placed =
+    seed.yaw == null && seed.pitch == null
+      ? next
+      : {
+          ...next,
+          orbitYaw: seed.yaw ?? next.orbitYaw,
+          orbitPitch: seed.pitch ?? next.orbitPitch
+        };
+  if (seed.hasDrawing) return placed;
+  return { ...placed, stage: "desenul", completedStages: [] };
+}
+
 export function createInitialPersonalizeState(): PersonalizeState {
   return {
     stage: "personajul",
@@ -83,6 +111,8 @@ export function createInitialPersonalizeState(): PersonalizeState {
     details: 48,
     preserveOutline: true,
     stylePreset: "preserve",
+    palette: "original",
+    lighting: "warm",
     originalColors: true,
     light: 58,
     shadow: 36,
@@ -100,7 +130,10 @@ export function createInitialPersonalizeState(): PersonalizeState {
     arLive: false,
     leftOpen: false,
     rightOpen: false,
-    publishOpen: false
+    publishOpen: false,
+    ideaPrompt: "",
+    ideaResult: null,
+    ideaNotice: null
   };
 }
 
@@ -186,6 +219,57 @@ export function setShadow(state: PersonalizeState, shadow: number): PersonalizeS
 
 export function setAnimation(state: PersonalizeState, animation: AnimationId): PersonalizeState {
   return { ...state, animation };
+}
+
+export function setPalette(state: PersonalizeState, palette: PaletteId): PersonalizeState {
+  return {
+    ...state,
+    palette,
+    originalColors: palette === "original"
+  };
+}
+
+export function setLighting(state: PersonalizeState, lighting: LightingId): PersonalizeState {
+  return { ...state, lighting };
+}
+
+export function setDecorSelection(
+  state: PersonalizeState,
+  decor: DecorId | "none"
+): PersonalizeState {
+  return { ...state, decor: decor === "none" ? [] : [decor] };
+}
+
+export function setIdeaPrompt(state: PersonalizeState, value: string): PersonalizeState {
+  return { ...state, ideaPrompt: limitIdeaPrompt(value), ideaNotice: null };
+}
+
+export function applyIdeaPrompt(state: PersonalizeState, raw: string): PersonalizeState {
+  const text = limitIdeaPrompt(raw);
+  if (!text.trim()) {
+    return { ...state, ideaPrompt: text, ideaNotice: COPY.ideaEmpty };
+  }
+  const ideaResult = interpretIdeaPrompt(text);
+  if (!ideaResult.recognized) {
+    return { ...state, ideaPrompt: text, ideaResult, ideaNotice: null };
+  }
+  return {
+    ...state,
+    ideaPrompt: text,
+    ideaResult,
+    ideaNotice: null,
+    animation: ideaResult.motion ?? state.animation,
+    decor: ideaResult.decor ? [ideaResult.decor] : state.decor,
+    palette: ideaResult.palette ?? state.palette,
+    lighting: ideaResult.lighting ?? state.lighting,
+    originalColors:
+      ideaResult.palette === undefined ? state.originalColors : ideaResult.palette === "original"
+  };
+}
+
+/** Clears the idea text and summary. Studio selections stay as they are. */
+export function resetIdeaPrompt(state: PersonalizeState): PersonalizeState {
+  return { ...state, ideaPrompt: "", ideaResult: null, ideaNotice: null };
 }
 
 export function toggleDecor(state: PersonalizeState, decorId: DecorId): PersonalizeState {
