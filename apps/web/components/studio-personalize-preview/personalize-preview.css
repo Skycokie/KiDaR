@@ -2828,7 +2828,173 @@
   .studio-stage[data-animation] .studio-stage__figure,
   .studio-stage[data-animation] .studio-stage__figurine--fixture,
   .studio-ws__motion-preview span,
-  .studio-stage__prop {
+  .studio-stage__prop,
+  .studio-stage.is-interacting .studio-stage__play,
+  .studio-stage__react-pulse {
     animation: none;
+    transition: none;
+  }
+}
+
+.studio-stage__play {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  transform-origin: 50% 62%;
+}
+
+.studio-stage.is-interacting .studio-stage__play {
+  transform: perspective(780px) rotateX(var(--interact-x, 0deg)) rotateY(var(--interact-y, 0deg)) scale(var(--interact-zoom, 1));
+  transition: transform 0.16s var(--ease);
+}
+
+.studio-stage.is-interacting[data-dragging="yes"] .studio-stage__play {
+  transition: none;
+}
+
+.studio-stage__hit {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  z-index: 4;
+  width: min(42%, 11rem);
+  height: min(52%, 15rem);
+  transform: translate(-50%, -42%);
+  border: 0;
+  border-radius: 1.2rem;
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+}
+
+.studio-stage__hit:active {
+  cursor: grabbing;
+}
+
+.studio-stage.is-interacting .studio-stage__decor {
+  z-index: 6;
+}
+
+.studio-stage.is-interacting .studio-stage__prop {
+  pointer-events: auto;
+}
+
+.studio-stage.is-interacting .studio-stage__prop button {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.62rem;
+  cursor: pointer;
+}
+
+.studio-stage__prop.is-highlight {
+  outline: 2px solid var(--focus);
+  box-shadow: 0 0 0 4px rgba(224, 214, 168, 0.35);
+}
+
+.studio-stage__react-pulse {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  z-index: 3;
+  width: 7.5rem;
+  height: 7.5rem;
+  border: 2px solid rgba(232, 160, 90, 0.85);
+  border-radius: 999px;
+  pointer-events: none;
+  animation: studio-interact-ring 0.48s var(--ease);
+}
+
+@keyframes studio-interact-ring {
+  from {
+    transform: translate(-50%, -50%) scale(0.86);
+    opacity: 0.9;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1.18);
+    opacity: 0;
+  }
+}
+
+.studio-ws__interact {
+  margin-top: 0.75rem;
+  padding: 0.85rem 0.9rem 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: rgba(16, 19, 27, 0.72);
+}
+
+.studio-ws__interact h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 1.05rem;
+}
+
+.studio-ws__interact-sub {
+  margin: 0.15rem 0 0.45rem;
+  color: var(--warm);
+  font-size: 0.82rem;
+}
+
+.studio-ws__interact-status {
+  margin: 0 0 0.45rem;
+  color: var(--ink);
+  font-size: 0.84rem;
+}
+
+.studio-ws__interact-actions,
+.studio-ws__interact-zoom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin-bottom: 0.65rem;
+}
+
+.studio-ws__interact-zoom > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.studio-ws__interact-zoom button {
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.studio-ws__interact-zoom button:disabled,
+.studio-ws__interact-actions button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.studio-ws__interact-live {
+  min-height: 1.2rem;
+  margin: 0 0 0.45rem;
+  color: var(--ink);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 480px) {
+  .studio-ws__interact-actions,
+  .studio-ws__interact-zoom {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .studio-ws__interact-actions button,
+  .studio-ws__interact-zoom button {
+    width: 100%;
   }
 }
