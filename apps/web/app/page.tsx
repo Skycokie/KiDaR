@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DM_Sans, Syne } from "next/font/google";
-import { DrawingScene } from "@/components/landing/drawing-scene";
+import { DrawingScene, LandingRooster } from "@/components/landing/drawing-scene";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import "@/components/landing/landing.css";
 
@@ -78,6 +78,7 @@ export default async function HomePage() {
               </li>
             ))}
           </ol>
+          <LandingRooster />
         </section>
 
         <section className="landing-close" aria-labelledby="close-title">

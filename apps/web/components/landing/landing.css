@@ -20,6 +20,7 @@ body:has(.landing) {
     radial-gradient(ellipse 70% 42% at 88% -8%, rgba(91, 79, 224, 0.1), transparent 62%),
     radial-gradient(ellipse 55% 40% at 0% 100%, rgba(232, 176, 112, 0.2), transparent 58%),
     var(--paper);
+  overflow-x: clip;
   font-family: var(--body);
   font-size: 1.0625rem;
   line-height: 1.5;
@@ -134,10 +135,11 @@ body:has(.landing) {
 }
 
 .kidar-scene {
-  --story: 1;
   --px: 0;
   --py: 0;
-  width: min(100%, 420px);
+  position: relative;
+  width: min(100%, 280px);
+  height: 248px;
   margin: 0 auto;
   pointer-events: none;
 }
@@ -146,138 +148,99 @@ body:has(.landing) {
   pointer-events: auto;
 }
 
-.kidar-scene__svg {
+.kidar-scene__shift {
+  position: absolute;
+  inset: 0;
+}
+
+.kidar-card {
+  position: absolute;
+  margin: 0;
+  background: #fffdf8;
+  border: 1px solid #e6dccb;
+  border-radius: 18px;
+  box-shadow: 0 14px 28px rgba(43, 32, 72, 0.12);
+  overflow: hidden;
+}
+
+.kidar-card__lift {
+  display: block;
+}
+
+.kidar-card__img {
   display: block;
   width: 100%;
   height: auto;
-  filter: drop-shadow(0 18px 28px rgba(43, 32, 72, 0.08));
+  aspect-ratio: 1 / 1;
 }
 
-.kidar-scene__sheet {
-  stroke: #e6dccb;
-  stroke-width: 2;
+.kidar-card--hero {
+  z-index: 2;
+  top: 0;
+  left: 18%;
+  width: 62%;
+  transform: rotate(-3deg);
+  box-shadow: 0 18px 34px rgba(43, 32, 72, 0.16);
 }
 
-.kidar-scene__pencil,
-.kidar-scene__ink {
-  fill: none;
-  stroke: #8b849c;
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.kidar-card--arms {
+  z-index: 3;
+  left: 0;
+  bottom: 0;
+  width: 38%;
+  transform: rotate(6deg);
 }
 
-.kidar-scene__ink {
-  stroke: #241f33;
-  stroke-width: 3.2;
+.kidar-card--green {
+  z-index: 1;
+  right: 0;
+  bottom: 8%;
+  width: 36%;
+  transform: rotate(-7deg);
 }
 
-.kidar-scene__pencil {
-  opacity: 0.28;
+.landing-rooster {
+  display: flex;
+  justify-content: center;
+  margin-top: 28px;
 }
 
-.kidar-scene__volume {
-  opacity: 0.92;
-  transform: translate(12px, -4px);
+.kidar-card--rooster {
+  position: relative;
+  width: min(180px, 70%);
+  transform: rotate(3deg);
 }
 
-.kidar-scene__shadow {
-  transform-origin: 180px 318px;
-  transform: scale(1);
-  opacity: 0.85;
-}
-
-.kidar-scene__shift {
-  transform: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  @supports (animation-timeline: view()) {
-    .kidar-scene__pencil {
-      animation: kidar-pencil linear both;
-      animation-timeline: view();
-      animation-range: entry 0% cover 55%;
-    }
-
-    .kidar-scene__fill {
-      animation: kidar-fill linear both;
-      animation-timeline: view();
-      animation-range: entry 5% cover 58%;
-    }
-
-    .kidar-scene__volume {
-      animation: kidar-volume linear both;
-      animation-timeline: view();
-      animation-range: entry 12% cover 70%;
-    }
-
-    .kidar-scene__shadow {
-      animation: kidar-shadow linear both;
-      animation-timeline: view();
-      animation-range: entry 12% cover 70%;
-    }
+@media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
+  .kidar-card--hero .kidar-card__lift {
+    animation: kidar-float 7s ease-in-out infinite;
   }
 
-  .kidar-scene__star {
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: kidar-bob 6.5s ease-in-out infinite;
-  }
-
-  .kidar-scene__spark {
-    animation: kidar-twinkle 5.5s ease-in-out infinite;
-  }
-
-  .kidar-scene[data-paused] .kidar-scene__star,
-  .kidar-scene[data-paused] .kidar-scene__spark {
+  .kidar-scene[data-paused] .kidar-card__lift {
     animation-play-state: paused;
   }
 
+  @supports (animation-timeline: view()) {
+    .kidar-card--hero {
+      animation: kidar-lift linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 62%;
+    }
+  }
+
   .kidar-scene.can-parallax .kidar-scene__shift {
-    transform: translate(calc(var(--px) * 10px), calc(var(--py) * 8px));
+    transform: translate(calc(var(--px) * 6px), calc(var(--py) * 5px));
   }
 }
 
-@keyframes kidar-pencil {
-  from { opacity: 0.9; }
-  to { opacity: 0.22; }
+@keyframes kidar-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
 }
 
-@keyframes kidar-fill {
-  from { opacity: 0.2; }
-  to { opacity: 1; }
-}
-
-@keyframes kidar-volume {
-  from {
-    opacity: 0;
-    transform: translate(0, 8px);
-  }
-  to {
-    opacity: 0.92;
-    transform: translate(12px, -4px);
-  }
-}
-
-@keyframes kidar-shadow {
-  from {
-    opacity: 0.2;
-    transform: scale(0.72);
-  }
-  to {
-    opacity: 0.85;
-    transform: scale(1);
-  }
-}
-
-@keyframes kidar-bob {
-  0%, 100% { transform: translateY(0) rotate(-3deg); }
-  50% { transform: translateY(-5px) rotate(4deg); }
-}
-
-@keyframes kidar-twinkle {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 1; }
+@keyframes kidar-lift {
+  from { transform: rotate(-3deg) scale(0.96); }
+  to { transform: rotate(-3deg) scale(1); }
 }
 
 .landing-process,
@@ -355,18 +318,8 @@ body:has(.landing) {
     width: 100%;
   }
 
-  .kidar-scene {
-    max-width: 300px;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .kidar-scene__star {
-      animation-duration: 8.5s;
-    }
-
-    .kidar-scene.can-parallax .kidar-scene__shift {
-      transform: none;
-    }
+  .kidar-scene.can-parallax .kidar-scene__shift {
+    transform: none;
   }
 }
 
@@ -381,9 +334,35 @@ body:has(.landing) {
     min-height: calc(100dvh - 48px);
   }
 
+  .kidar-scene {
+    width: min(100%, 420px);
+    height: 460px;
+  }
+
+  .landing-process {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 220px;
+    align-items: start;
+  }
+
+  .landing-process h2 {
+    grid-column: 1;
+  }
+
   .landing-steps {
+    grid-column: 1 / -1;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
+  }
+
+  .landing-rooster {
+    grid-column: 2;
+    grid-row: 1;
+    margin-top: 0;
+  }
+
+  .kidar-card--rooster {
+    width: 200px;
   }
 
   .landing-process,
@@ -393,17 +372,27 @@ body:has(.landing) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .kidar-scene__star,
-  .kidar-scene__spark,
   .landing-step,
-  .kidar-scene__pencil,
-  .kidar-scene__fill,
-  .kidar-scene__volume,
-  .kidar-scene__shadow {
+  .kidar-card--hero,
+  .kidar-card__lift,
+  .kidar-scene__shift {
     animation: none;
+    transform: none;
   }
 
-  .kidar-scene__shift {
-    transform: none;
+  .kidar-card--hero {
+    transform: rotate(-3deg);
+  }
+
+  .kidar-card--arms {
+    transform: rotate(6deg);
+  }
+
+  .kidar-card--green {
+    transform: rotate(-7deg);
+  }
+
+  .kidar-card--rooster {
+    transform: rotate(3deg);
   }
 }
