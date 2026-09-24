@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DM_Sans, Syne } from "next/font/google";
+import { DrawingScene } from "@/components/landing/drawing-scene";
 import { getLoggedInUser } from "@/lib/appwrite/client";
-import "./home-page.css";
+import "@/components/landing/landing.css";
 
 const display = Syne({
   subsets: ["latin"],
@@ -17,66 +18,76 @@ const body = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "kidAR — desenele prind viață",
-  description:
-    "Fotografiază un desen sau o pagină. Transformă-l într-o experiență 3D pe care copilul o poate explora pe telefon."
+  title: "kiDAR — Desenul tău prinde viață",
+  description: "Transformă un desen într-o figurină pe care o poți descoperi în lumea ta."
 };
+
+const steps = [
+  {
+    title: "Desenează",
+    body: "Creează un personaj în stilul tău."
+  },
+  {
+    title: "Fotografiază",
+    body: "Păstrează desenul clar, întreg și bine luminat."
+  },
+  {
+    title: "Descoperă",
+    body: "Privește figurina și exploreaz-o în spațiul tău."
+  }
+];
 
 export default async function HomePage() {
   const user = await getLoggedInUser();
-  const atelierHref = user ? "/creaza" : "/intra";
+  const discoverHref = user ? "/creaza" : "/intra";
   const studioHref = user ? "/studio-preview/personalizeaza" : "/login";
 
   return (
-    <div className={`home-page ${display.variable} ${body.variable}`} lang="ro">
-      <a className="home-page__skip" href="#continut">
+    <div className={`landing ${display.variable} ${body.variable}`} lang="ro">
+      <a className="landing-skip" href="#continut">
         Sari la conținut
       </a>
+      <main id="continut" className="landing-wrap">
+        <section className="landing-hero" aria-labelledby="home-title">
+          <div className="landing-copy">
+            <p className="landing-kicker">kiDAR</p>
+            <h1 id="home-title">Desenul tău prinde viață.</h1>
+            <p className="landing-lead">
+              Transformă un desen într-o figurină pe care o poți descoperi în lumea ta.
+            </p>
+            <div className="landing-actions">
+              <Link className="landing-btn landing-btn--primary" href={discoverHref}>
+                Descoperă kiDAR
+              </Link>
+              <Link className="landing-btn landing-btn--secondary" href={studioHref}>
+                Intră în Studio
+              </Link>
+            </div>
+          </div>
+          <DrawingScene />
+        </section>
 
-      <main id="continut" className="home-page__frame">
-        <p className="home-page__brand">kidAR · povești care ies din pagină</p>
+        <section className="landing-process" aria-labelledby="process-title">
+          <h2 id="process-title">Din desen, într-o lume nouă.</h2>
+          <ol className="landing-steps">
+            {steps.map((step, index) => (
+              <li className="landing-step" key={step.title}>
+                <span>{index + 1}</span>
+                <h3>{step.title}</h3>
+                <p>{step.body}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
 
-        <section className="home-page__hero" aria-labelledby="home-title">
-          <h1 id="home-title" className="home-page__title">
-            Desenele prind viață.
-          </h1>
-          <p className="home-page__lead">
-            Fotografiază un desen sau o pagină. Transformă-l într-o experiență 3D pe care copilul o
-            poate explora direct pe telefon.
-          </p>
-          <div className="home-page__actions">
-            <Link className="home-page__btn home-page__btn--primary" href={atelierHref}>
-              Începe în Atelier
-            </Link>
-            <Link className="home-page__btn home-page__btn--secondary" href={studioHref}>
-              Deschide Studio
+        <section className="landing-close" aria-labelledby="close-title">
+          <h2 id="close-title">O idee mică poate deveni o lume mare.</h2>
+          <div className="landing-actions">
+            <Link className="landing-btn landing-btn--primary" href={discoverHref}>
+              Intră în kiDAR
             </Link>
           </div>
         </section>
-
-        <ol className="home-page__steps" aria-label="Cum funcționează">
-          <li>
-            <em>1</em>
-            <span>Fotografiază</span>
-          </li>
-          <li>
-            <em>2</em>
-            <span>Personalizează</span>
-          </li>
-          <li>
-            <em>3</em>
-            <span>Vezi în AR</span>
-          </li>
-        </ol>
-
-        <p className="home-page__note">
-          Fără aplicație de instalat. Deschizi linkul sau scanezi codul QR.
-        </p>
-
-        <div className="home-page__decor" aria-hidden="true">
-          <div className="home-page__glow" />
-          <div className="home-page__paper" />
-        </div>
       </main>
     </div>
   );
