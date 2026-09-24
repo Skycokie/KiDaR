@@ -18,19 +18,93 @@ function htmlPage(title: string, body: string) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${title}</title>
   <style>
-    body { margin: 0; min-height: 100vh; background: #f7f4ee; color: #1b1726;
-      font-family: system-ui, "Segoe UI", sans-serif; font-size: 1.125rem; line-height: 1.45;
-      padding: 1.5rem; }
-    a, button { color: #5b4fe0; }
-    form { margin-top: 1rem; }
-    button {
-      appearance: none; border: 0; background: #5b4fe0; color: #fff;
-      font: inherit; padding: 0.75rem 1.25rem; border-radius: 999px; cursor: pointer;
+    body { margin: 0; background: #faf8f5; }
+    .auth-shell {
+      box-sizing: border-box;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 24px;
+      background: #faf8f5;
+      color: #17172a;
+      font-family: system-ui, "Segoe UI", sans-serif;
+      font-size: 1.0625rem;
+      line-height: 1.45;
     }
-    small { color: #5c5668; }
+    .auth-shell *, .auth-shell *::before, .auth-shell *::after { box-sizing: border-box; }
+    .auth-card {
+      width: min(420px, 100%);
+      padding: 28px 24px 24px;
+      background: #fffcf8;
+      border: 1px solid #d9d3c8;
+      border-radius: 18px;
+    }
+    .auth-eyebrow {
+      margin: 0 0 12px;
+      color: #5b4fe0;
+      font-size: 0.8125rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    .auth-shell h1 {
+      margin: 0 0 12px;
+      color: #17172a;
+      font-family: inherit;
+      font-size: 1.75rem;
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+    .auth-lead, .auth-note { margin: 0 0 20px; color: #4e4960; }
+    .auth-note { margin-bottom: 0; font-size: 0.9375rem; }
+    .auth-btn {
+      display: flex;
+      width: 100%;
+      min-height: 48px;
+      align-items: center;
+      justify-content: center;
+      margin-top: 20px;
+      padding: 12px 16px;
+      border: 0;
+      border-radius: 16px;
+      background: #5b4fe0;
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .auth-secondary { margin: 16px 0 0; }
+    .auth-secondary a {
+      display: inline-flex;
+      min-height: 48px;
+      align-items: center;
+      color: #5b4fe0;
+      font-weight: 700;
+    }
+    .auth-shell small { color: #4e4960; }
+    .auth-shell :focus-visible { outline: 3px solid #17172a; outline-offset: 3px; }
+    @media (max-width: 480px) {
+      .auth-shell { padding: 28px 20px; }
+      .auth-card { padding: 24px 20px 20px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .auth-shell *, .auth-shell *::before, .auth-shell *::after {
+        transition: none;
+        animation: none;
+      }
+    }
   </style>
 </head>
-<body>${body}</body>
+<body>
+<main class="auth-shell">
+  <section class="auth-card">
+    <p class="auth-eyebrow">kiDAR Studio</p>
+    ${body}
+  </section>
+</main>
+</body>
 </html>`;
 }
 
@@ -72,8 +146,9 @@ export async function GET(request: Request) {
     return htmlResponse(
       htmlPage(
         "Intră din nou",
-        `<p>Linkul de intrare lipsește sau e incomplet.</p>
-<p><a href="${intra}">Cere o legătură nouă</a></p>`
+        `<h1>Intră din nou</h1>
+<p class="auth-lead">Linkul de intrare lipsește sau e incomplet.</p>
+<p class="auth-secondary"><a href="${intra}">Cere o legătură nouă</a></p>`
       )
     );
   }
@@ -85,14 +160,16 @@ export async function GET(request: Request) {
   return htmlResponse(
     htmlPage(
       "Confirmă intrarea",
-      `<p>Apasă butonul ca să intri în KIDAR. (Confirmarea oprește scanerele de email să consume linkul înaintea ta.)</p>
+      `<h1>Confirmă intrarea în kiDAR</h1>
+<p class="auth-lead">Apasă butonul pentru a intra în kiDAR.</p>
+<p class="auth-note">Confirmarea oprește scanerele de email să consume legătura înaintea ta.</p>
 <form method="post" action="/auth/callback">
   <input type="hidden" name="userId" value="${safeUserId}">
   <input type="hidden" name="secret" value="${safeSecret}">
   <input type="hidden" name="next" value="${safeNext}">
-  <button type="submit">Intră în KIDAR</button>
+  <button class="auth-btn" type="submit">Intră în kiDAR</button>
 </form>
-<p><a href="${intra}">Cere o legătură nouă</a></p>`
+<p class="auth-secondary"><a href="${intra}">Cere o legătură nouă</a></p>`
     )
   );
 }
@@ -122,8 +199,9 @@ export async function POST(request: Request) {
     return htmlResponse(
       htmlPage(
         "Intră din nou",
-        `<p>Linkul de intrare lipsește sau e incomplet.</p>
-<p><a href="${intra}">Cere o legătură nouă</a></p>`
+        `<h1>Intră din nou</h1>
+<p class="auth-lead">Linkul de intrare lipsește sau e incomplet.</p>
+<p class="auth-secondary"><a href="${intra}">Cere o legătură nouă</a></p>`
       ),
       400
     );
@@ -160,15 +238,16 @@ export async function POST(request: Request) {
         ? String((cause as { type?: string }).type ?? "")
         : "";
     const hint = type.includes("user_invalid_token") || /invalid|expired|used/i.test(message)
-      ? "Linkul a fost deja folosit sau a expirat. Cere unul nou și apasă <strong>Intră în KIDAR</strong> o singură dată, din cel mai recent email."
+      ? "Linkul a fost deja folosit sau a expirat. Cere unul nou și apasă <strong>Intră în kiDAR</strong> o singură dată, din cel mai recent email."
       : "Nu am putut deschide sesiunea. Cere o legătură nouă și încearcă din nou.";
 
     return htmlResponse(
       htmlPage(
         "Link expirat",
-        `<p>${hint}</p>
+        `<h1>Link expirat</h1>
+<p class="auth-lead">${hint}</p>
 <p><small>${escapeHtml(type || message)}</small></p>
-<p><a href="${intra}">Cere o legătură nouă</a></p>`
+<p class="auth-secondary"><a href="${intra}">Cere o legătură nouă</a></p>`
       ),
       401
     );

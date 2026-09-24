@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { FormEvent, useId, useRef, useState } from "react";
+import { AuthShell } from "@/components/auth/auth-shell";
 
-const SENT_COPY =
-  "Uită-te în email, inclusiv în folderul Spam. Apasă legătura ca să continui.";
+const SENT_BODY =
+  "Ți-am trimis o legătură de intrare. Deschide emailul și apasă butonul pentru a continua.";
+const SENT_NOTE = "Dacă nu vezi mesajul, verifică folderul Spam sau cere o legătură nouă.";
 const ERROR_COPY = "Nu am putut trimite emailul. Verifică adresa și încearcă din nou.";
+const INVALID_COPY = "Introdu o adresă de email validă.";
 
 export function IntraForm() {
   const emailId = useId();
@@ -21,7 +24,7 @@ export function IntraForm() {
     event.preventDefault();
     const trimmed = email.trim();
     if (!trimmed || !emailRef.current?.checkValidity()) {
-      setError(ERROR_COPY);
+      setError(INVALID_COPY);
       emailRef.current?.focus();
       return;
     }
@@ -35,7 +38,7 @@ export function IntraForm() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email: trimmed, next: "/creaza" })
       });
-      const payload = (await response.json()) as { error?: string; devLoginUrl?: string };
+      const payload = (await response.json()) as { devLoginUrl?: string };
       if (!response.ok) {
         setError(ERROR_COPY);
         emailRef.current?.focus();
@@ -53,12 +56,32 @@ export function IntraForm() {
     }
   }
 
-  const describedBy = error ? errorId : undefined;
+  if (sent) {
+    return (
+      <AuthShell title="Verifică emailul">
+        <p className="auth-lead">{SENT_BODY}</p>
+        <p className="auth-note" role="status">
+          {SENT_NOTE}
+        </p>
+        <p className="auth-secondary">
+          <button type="button" className="auth-text-btn" onClick={() => setSent(false)}>
+            Cere o legătură nouă
+          </button>
+        </p>
+        {devLoginUrl ? (
+          <p className="auth-dev">
+            Doar pe acest computer: <a href={devLoginUrl}>deschide legătura de intrare</a>
+          </p>
+        ) : null}
+      </AuthShell>
+    );
+  }
 
   return (
-    <>
+    <AuthShell title="Intră în kiDAR">
+      <p className="auth-lead">Folosești doar adresa de email. Fără parolă.</p>
       <form onSubmit={submit} aria-busy={loading} noValidate>
-        <div className="creaza-field">
+        <div className="auth-field">
           <label htmlFor={emailId}>Email</label>
           <input
             ref={emailRef}
@@ -66,35 +89,27 @@ export function IntraForm() {
             name="email"
             type="email"
             autoComplete="email"
+            inputMode="email"
             required
+            placeholder="nume@exemplu.ro"
             value={email}
             aria-invalid={error ? true : undefined}
-            aria-describedby={describedBy}
+            aria-describedby={error ? errorId : undefined}
             onChange={(event) => setEmail(event.target.value)}
           />
           {error ? (
-            <p className="creaza-error" id={errorId} role="alert">
+            <p className="auth-error" id={errorId} role="alert">
               {error}
             </p>
           ) : null}
         </div>
-        <button className="creaza-btn creaza-btn-primary" type="submit" disabled={loading}>
-          {loading ? "Se trimite…" : sent ? "Trimite din nou" : "Trimite legătura de intrare"}
+        <button className="auth-btn" type="submit" disabled={loading}>
+          {loading ? "Se trimite…" : "Trimite legătura de intrare"}
         </button>
       </form>
-      {sent ? (
-        <p className="creaza-status" role="status">
-          {SENT_COPY}
-        </p>
-      ) : null}
-      {devLoginUrl ? (
-        <p className="creaza-note">
-          Doar pe acest computer: <a href={devLoginUrl}>deschide legătura de intrare</a>
-        </p>
-      ) : null}
-      <p className="creaza-note">
+      <p className="auth-secondary">
         <Link href="/login">Am deja un cont Studio (English)</Link>
       </p>
-    </>
+    </AuthShell>
   );
 }
