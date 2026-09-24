@@ -71,7 +71,7 @@ test("editorial homepage sends signed-in users to Atelier and Studio preview", a
 
 test("Romanian entry has a visible email label and status copy", async ({ page }) => {
   await page.goto("/intra");
-  await expect(page.getByRole("heading", { name: "Intră în kidAR" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Intră în kiDAR" })).toBeVisible();
   await expect(page.getByLabel("Email")).toBeVisible();
   await expect(page.getByRole("button", { name: "Trimite legătura de intrare" })).toBeVisible();
   await minHeight(page.getByRole("button", { name: "Trimite legătura de intrare" }));
@@ -165,11 +165,12 @@ test("authenticated /intra continues to /creaza; /login goes to Studio hub", asy
   await expect(page).toHaveURL(/\/studio$/, { timeout: 20_000 });
 });
 
-test("unauthenticated English login remains English", async ({ page }) => {
+test("unauthenticated Studio login is Romanian", async ({ page }) => {
   await page.goto("/login");
   await expect(page).toHaveURL(/\/login$/);
-  await expect(page.getByRole("heading", { name: "Sign in to kidAR Studio" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Send magic link" })).toBeVisible();
+  await expect(page.getByText("kiDAR Studio")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Intră în kiDAR" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Trimite legătura de intrare" })).toBeVisible();
 });
 
 test("preview routes redirect to official paths", async ({ page }) => {

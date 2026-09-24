@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { SimpleCreatorShell } from "@/components/simple-creator/shell";
+import { DocumentLang } from "@/components/simple-creator/document-lang";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import { IntraForm } from "./intra-form";
 
@@ -8,10 +8,9 @@ export default async function IntraPage() {
   if (user) redirect("/creaza");
 
   return (
-    <SimpleCreatorShell>
-      <h1>Intră în kidAR</h1>
-      <p className="creaza-lead">Folosești doar adresa de email. Fără parolă.</p>
+    <>
+      <DocumentLang lang="ro" />
       <IntraForm />
-    </SimpleCreatorShell>
+    </>
   );
 }
