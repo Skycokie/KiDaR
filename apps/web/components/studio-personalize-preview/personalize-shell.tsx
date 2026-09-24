@@ -80,6 +80,7 @@ import {
 } from "./form-state";
 import { IdeaPromptCard } from "./idea-prompt-card";
 import { GardenPoster } from "./garden-poster";
+import { createInteractionState, reduceInteraction } from "./interaction-state";
 import {
   type PreviewProjectContext,
   type StartSaveStatus,
@@ -634,6 +635,72 @@ function startSaveReducer(current: StartSaveState, action: StartSaveAction): Sta
  * Singura scriere aprobată este PATCH-ul pentru poziția de start a modelului.
  * Fără cameră hardware, fără publicare și fără generare GLB.
  */
+function InteractionPanel({
+  hasDrawing,
+  enabled,
+  activeTarget,
+  reactionNonce,
+  onToggle,
+  onZoom,
+  onNudge,
+  onReset
+}: {
+  hasDrawing: boolean;
+  enabled: boolean;
+  activeTarget: "none" | "character" | "decor";
+  reactionNonce: number;
+  onToggle: () => void;
+  onZoom: (direction: -1 | 1) => void;
+  onNudge: (direction: -1 | 1) => void;
+  onReset: () => void;
+}) {
+  const reaction =
+    enabled && activeTarget === "character" && reactionNonce > 0
+      ? COPY.interactCharacter
+      : enabled && activeTarget === "decor"
+        ? COPY.interactDecor
+        : "";
+  const controlsDisabled = !hasDrawing || !enabled;
+  return (
+    <section className="studio-ws__interact" aria-labelledby="studio-interact-title">
+      <h2 id="studio-interact-title">{COPY.interactTitle}</h2>
+      <p className="studio-ws__interact-sub">{COPY.interactSubtitle}</p>
+      <p className="studio-ws__muted">{COPY.interactIntro}</p>
+      {hasDrawing ? null : <p className="studio-ws__muted">{COPY.interactNeedsDrawing}</p>}
+      {enabled ? <p className="studio-ws__interact-status">{COPY.interactActive}</p> : null}
+      {enabled ? <p className="studio-ws__muted">{COPY.interactHint}</p> : null}
+      <div className="studio-ws__interact-actions">
+        <button type="button" className="studio-ws__btn-secondary" disabled={!hasDrawing} onClick={onToggle}>
+          {enabled ? COPY.interactStop : COPY.interactStart}
+        </button>
+        <button type="button" className="studio-ws__btn-secondary" disabled={controlsDisabled} onClick={() => onNudge(-1)}>
+          {COPY.interactLeft}
+        </button>
+        <button type="button" className="studio-ws__btn-secondary" disabled={controlsDisabled} onClick={() => onNudge(1)}>
+          {COPY.interactRight}
+        </button>
+      </div>
+      <div className="studio-ws__interact-zoom" role="group" aria-label={COPY.interactZoom}>
+        <span>{COPY.interactZoom}</span>
+        <button type="button" aria-label={COPY.interactZoomOut} disabled={controlsDisabled} onClick={() => onZoom(-1)}>
+          −
+        </button>
+        <button type="button" aria-label={COPY.interactZoomIn} disabled={controlsDisabled} onClick={() => onZoom(1)}>
+          +
+        </button>
+        <button type="button" aria-label={COPY.interactReset} disabled={controlsDisabled} onClick={onReset}>
+          {COPY.interactReset}
+        </button>
+      </div>
+      <p className="studio-ws__interact-live" role="status" aria-live="polite">
+        {reaction}
+      </p>
+      <p className="studio-ws__muted">{COPY.interactHonest}</p>
+      <p className="studio-ws__muted">{COPY.interactArLater}</p>
+    </section>
+  );
+}
+
 export function PersonalizePreviewShell({
   drawingSrc = null,
   projectContext = null
@@ -648,6 +715,7 @@ export function PersonalizePreviewShell({
     pitch: projectContext?.startPitch ?? null
   };
   const [state, dispatch] = useReducer(reducer, createWorkspaceState(orbitSeed));
+  const [interaction, interactDispatch] = useReducer(reduceInteraction, createInteractionState());
   const [save, saveDispatch] = useReducer(startSaveReducer, {
     status: "idle",
     baselineYaw: orbitSeed.yaw ?? createInitialPersonalizeState().orbitYaw,
@@ -658,7 +726,9 @@ export function PersonalizePreviewShell({
   const pinchRef = useRef<{ distance: number } | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const zoomRef = useRef(state.zoom);
+  const interactDispatchRef = useRef(interactDispatch);
   zoomRef.current = state.zoom;
+  interactDispatchRef.current = interactDispatch;
   const publishDialogRef = useRef<HTMLDivElement | null>(null);
   const summary = summarizePersonalize(state);
   const activeStage = STAGES.find((stage) => stage.id === state.stage);
@@ -695,6 +765,11 @@ export function PersonalizePreviewShell({
     const el = viewportRef.current;
     if (!el) return;
     const onWheel = (event: WheelEvent) => {
+      if (el.querySelector("[data-interacting='yes']")) {
+        event.preventDefault();
+        interactDispatchRef.current({ type: "wheel", deltaY: event.deltaY });
+        return;
+      }
       event.preventDefault();
       const next = zoomFromWheel(zoomRef.current, event.deltaY);
       if (next !== zoomRef.current) dispatch({ type: "zoom", value: next });
@@ -741,6 +816,53 @@ export function PersonalizePreviewShell({
     if (!el) return;
     if (active) el.dataset.dragging = "yes";
     else delete el.dataset.dragging;
+  };
+
+  const playDrag = useRef<{ id: number; x: number; y: number; ox: number; oy: number; moved: boolean } | null>(null);
+  const suppressCharacterClick = useRef(false);
+
+  const onCharacterPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (!interaction.enabled) return;
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const stage = event.currentTarget.closest(".studio-stage");
+    if (stage instanceof HTMLElement) stage.dataset.dragging = "yes";
+    playDrag.current = {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      ox: event.clientX,
+      oy: event.clientY,
+      moved: false
+    };
+  };
+
+  const onCharacterPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = playDrag.current;
+    if (!drag || drag.id !== event.pointerId) return;
+    const dx = event.clientX - drag.x;
+    const dy = event.clientY - drag.y;
+    drag.x = event.clientX;
+    drag.y = event.clientY;
+    if (Math.hypot(event.clientX - drag.ox, event.clientY - drag.oy) > 5) drag.moved = true;
+    interactDispatch({ type: "drag", dx, dy });
+  };
+
+  const onCharacterPointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = playDrag.current;
+    if (!drag || drag.id !== event.pointerId) return;
+    playDrag.current = null;
+    if (drag.moved) suppressCharacterClick.current = true;
+    const stage = event.currentTarget.closest(".studio-stage");
+    if (stage instanceof HTMLElement) delete stage.dataset.dragging;
+  };
+
+  const onCharacterClick = () => {
+    if (suppressCharacterClick.current) {
+      suppressCharacterClick.current = false;
+      return;
+    }
+    interactDispatch({ type: "character" });
   };
 
   const onViewportPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -1054,6 +1176,12 @@ export function PersonalizePreviewShell({
               transformMode={state.transformMode}
               drawingSrc={drawingSrc}
               showOriginalPage={state.showOriginalPage}
+              interaction={interaction}
+              onCharacterPointerDown={onCharacterPointerDown}
+              onCharacterPointerMove={onCharacterPointerMove}
+              onCharacterPointerUp={onCharacterPointerUp}
+              onCharacterClick={onCharacterClick}
+              onDecorActivate={() => interactDispatch({ type: "decor" })}
             />
 
             <div className="studio-ws__overlay-tools">{renderViewControls("overlay")}</div>
@@ -1144,6 +1272,16 @@ export function PersonalizePreviewShell({
           <p className="studio-ws__summary" aria-live="polite">
             {summary}
           </p>
+          <InteractionPanel
+            hasDrawing={hasDrawing}
+            enabled={interaction.enabled}
+            activeTarget={interaction.activeTarget}
+            reactionNonce={interaction.reactionNonce}
+            onToggle={() => interactDispatch({ type: "enable", enabled: !interaction.enabled })}
+            onZoom={(direction) => interactDispatch({ type: "zoom", direction })}
+            onNudge={(direction) => interactDispatch({ type: "nudge", direction })}
+            onReset={() => interactDispatch({ type: "reset" })}
+          />
         </section>
 
         <aside

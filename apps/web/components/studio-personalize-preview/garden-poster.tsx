@@ -1,7 +1,8 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import dynamic from "next/dynamic";
-import { COPY, type TransformModeId } from "./fixtures";
+import { COPY, DECOR_ASSETS, type TransformModeId } from "./fixtures";
 import type { PersonalizeState } from "./form-state";
+import type { InteractionState } from "./interaction-state";
 import {
   FIXTURE_POPOUT_PARTS,
   POPOUT_EDGE_COLORS,
@@ -303,12 +304,24 @@ export function GardenPoster({
   state,
   transformMode,
   drawingSrc,
-  showOriginalPage = false
+  showOriginalPage = false,
+  interaction,
+  onCharacterPointerDown,
+  onCharacterPointerMove,
+  onCharacterPointerUp,
+  onCharacterClick,
+  onDecorActivate
 }: {
   state: PersonalizeState;
   transformMode: TransformModeId;
   drawingSrc?: string | null;
   showOriginalPage?: boolean;
+  interaction?: InteractionState;
+  onCharacterPointerDown?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+  onCharacterPointerMove?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+  onCharacterPointerUp?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+  onCharacterClick?: () => void;
+  onDecorActivate?: () => void;
 }) {
   const scale = state.zoom / 100;
   const isFigurine = transformMode === "figurine";
@@ -318,6 +331,9 @@ export function GardenPoster({
     ? figurineVolumeScale(state.volume)
     : 0.72 + state.volume / 180;
   const hasDrawing = Boolean(drawingSrc);
+  const playing = Boolean(interaction?.enabled);
+  const decorLabel = (id: (typeof state.decor)[number]) =>
+    DECOR_ASSETS.find((item) => item.id === id)?.label ?? id;
   const contrast = 0.85 + state.details / 250;
   const brightness = 0.72 + state.light / 180;
   const saturate = state.originalColors ? 1 : 0.55 + state.variantIndex * 0.2;
@@ -325,12 +341,14 @@ export function GardenPoster({
 
   return (
     <div
-      className={`studio-stage studio-stage--${state.stylePreset}${state.gridOn ? " is-grid" : ""}${hasDrawing ? " has-drawing" : ""}`}
+      className={`studio-stage studio-stage--${state.stylePreset}${state.gridOn ? " is-grid" : ""}${hasDrawing ? " has-drawing" : ""}${playing ? " is-interacting" : ""}`}
       data-mode={transformMode}
       data-animation={state.animation}
       data-palette={state.palette}
       data-lighting={state.lighting}
       data-decor={state.decor[0] ?? "none"}
+      data-interacting={playing ? "yes" : "no"}
+      data-reacting={playing && interaction?.activeTarget === "character" && interaction.reactionNonce > 0 ? "yes" : "no"}
       data-outline={state.preserveOutline ? "yes" : "no"}
       data-colors={state.originalColors ? "original" : "styled"}
       data-variant={state.variantIndex}
@@ -354,7 +372,10 @@ export function GardenPoster({
           "--popout-depth": `${extrusion}px`,
           "--popout-edge": POPOUT_EDGE_COLORS.warm,
           "--figurine-scale": String(figurineVolumeScale(state.volume)),
-          "--figurine-puff": String(figurinePuff(state.volume))
+          "--figurine-puff": String(figurinePuff(state.volume)),
+          "--interact-x": `${interaction?.rotationX ?? 0}deg`,
+          "--interact-y": `${interaction?.rotationY ?? 0}deg`,
+          "--interact-zoom": String(interaction?.zoom ?? 1)
         } as CSSProperties
       }
       aria-label={hasDrawing ? "Previzualizare desen pe scenă" : "Previzualizare personaj pe scenă"}
@@ -366,6 +387,13 @@ export function GardenPoster({
       <div className="studio-stage__ground" aria-hidden="true" />
       <div className="studio-stage__floor" aria-hidden="true" />
 
+      {hasDrawing ? null : <p className="studio-stage__demo-label">{COPY.demoPreview}</p>}
+
+      {isFigurine ? (
+        <p className="studio-stage__mode-hint studio-stage__mode-hint--figurine">{COPY.figurineVolumeHint}</p>
+      ) : null}
+
+      <div className="studio-stage__play">
       {isPopout && hasDrawing ? (
         <PopoutMeshStage
           sourceUrl={drawingSrc!}
@@ -393,21 +421,47 @@ export function GardenPoster({
         {isFigurine && !hasDrawing ? <FigurineFixtureFigure volume={state.volume} /> : null}
         </div>
       </div>
-      {hasDrawing ? null : <p className="studio-stage__demo-label">{COPY.demoPreview}</p>}
-
-      {isFigurine ? (
-        <p className="studio-stage__mode-hint studio-stage__mode-hint--figurine">{COPY.figurineVolumeHint}</p>
-      ) : null}
 
       {state.decor.length > 0 ? (
-        <ul className="studio-stage__decor" aria-hidden="true">
+        <ul className="studio-stage__decor" aria-hidden={playing ? undefined : true}>
           {state.decor.map((id) => (
-            <li key={id} className={`studio-stage__prop studio-stage__prop--${id}`}>
-              <span>{id}</span>
+            <li
+              key={id}
+              className={`studio-stage__prop studio-stage__prop--${id}${playing && interaction?.activeTarget === "decor" ? " is-highlight" : ""}`}
+            >
+              {playing ? (
+                <button type="button" onClick={() => onDecorActivate?.()}>
+                  {decorLabel(id)}
+                </button>
+              ) : (
+                <span>{id}</span>
+              )}
             </li>
           ))}
         </ul>
       ) : null}
+
+      {playing ? (
+        <button
+          type="button"
+          className="studio-stage__hit"
+          aria-label="Personaj în previzualizare"
+          onPointerDown={onCharacterPointerDown}
+          onPointerMove={onCharacterPointerMove}
+          onPointerUp={onCharacterPointerUp}
+          onPointerCancel={onCharacterPointerUp}
+          onClick={onCharacterClick}
+        />
+      ) : null}
+      {playing && interaction && interaction.reactionNonce > 0 ? (
+        <span
+          key={interaction.reactionNonce}
+          className="studio-stage__react-pulse"
+          data-motion={state.animation}
+          aria-hidden="true"
+        />
+      ) : null}
+      </div>
     </div>
   );
 }
