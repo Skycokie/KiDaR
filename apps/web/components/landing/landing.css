@@ -173,6 +173,11 @@ body:has(.landing) {
   width: min(100%, var(--popout-w));
   height: calc(var(--figure-h) + var(--source-w) - var(--overlap));
   max-width: 100%;
+  cursor: pointer;
+}
+
+.character-popout[data-phase="failed"] {
+  cursor: default;
 }
 
 .character-popout--red-dress {
@@ -290,7 +295,8 @@ body:has(.landing) {
   pointer-events: none;
 }
 
-.character-popout[data-phase="ready"] .character-popout__sticker {
+/* PNG stays visible by default. Hide the sticker only while the GLB turn is out. */
+.character-popout[data-reveal="out"] .character-popout__sticker {
   opacity: 0;
 }
 
@@ -301,6 +307,12 @@ body:has(.landing) {
   height: 100%;
   max-height: 100%;
   opacity: 0;
+  pointer-events: none;
+  transform: translateY(78%) scale(0.42);
+  transform-origin: center 80%;
+  transition:
+    transform 0.7s cubic-bezier(0.22, 0.8, 0.28, 1),
+    opacity 0.4s ease;
 }
 
 .character-popout .landing-character__canvas,
@@ -308,29 +320,7 @@ body:has(.landing) {
   width: 100%;
   height: 100%;
   max-height: 100%;
-}
-
-.character-popout .landing-rooster__canvas,
-.character-popout .landing-rooster__canvas:active {
-  cursor: pointer;
-}
-
-.character-popout .landing-character__stage {
   pointer-events: none;
-}
-
-.character-popout[data-phase="ready"] {
-  cursor: pointer;
-}
-
-.character-popout[data-phase="ready"] .landing-character__stage,
-.character-popout[data-phase="ready"] .landing-rooster__stage {
-  opacity: 0;
-  transform: translateY(78%) scale(0.42);
-  transform-origin: center 80%;
-  transition:
-    transform 0.7s cubic-bezier(0.22, 0.8, 0.28, 1),
-    opacity 0.4s ease;
 }
 
 .character-popout--red-dress[data-phase="ready"][data-reveal="out"] .landing-character__stage {
@@ -590,7 +580,7 @@ body:has(.landing) {
     animation: popout-shadow 7.5s ease-in-out 0.85s infinite;
   }
 
-  .character-popout[data-phase="ready"] .character-popout__actor {
+  .character-popout[data-reveal="out"] .character-popout__actor {
     animation: popout-rise 0.85s ease both;
   }
 
@@ -645,7 +635,7 @@ body:has(.landing) {
 }
 
 @media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
-  .kidar-scene.can-parallax .character-popout--red-dress:not([data-phase="ready"]) .character-popout__actor {
+  .kidar-scene.can-parallax .character-popout--red-dress:not([data-reveal="out"]) .character-popout__actor {
     animation: popout-rise 0.85s ease both, popout-float-parallax 7.5s ease-in-out 0.85s infinite;
   }
 }
