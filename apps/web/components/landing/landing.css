@@ -58,21 +58,42 @@ body:has(.landing) {
 .landing-wrap {
   position: relative;
   z-index: 1;
-  width: min(1080px, 100%);
+  width: min(1160px, 100%);
   margin: 0 auto;
-  padding: 28px 20px 64px;
+  padding: 24px 20px 72px;
+}
+
+.landing-masthead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  min-height: 68px;
+  padding-bottom: 12px;
+}
+
+.landing-masthead .locale-switcher {
+  grid-column: 1;
+  justify-self: start;
+}
+
+.landing-masthead .kidar-wordmark {
+  grid-column: 2;
+  justify-self: center;
+  transform: scale(1.08);
+  transform-origin: center;
 }
 
 .landing-hero {
   display: grid;
-  gap: 28px;
+  gap: 36px;
   align-items: center;
+  padding-top: 20px;
 }
 
 .landing-copy {
   display: grid;
-  gap: 14px;
-  max-width: 38rem;
+  gap: 18px;
+  max-width: 39rem;
 }
 
 .landing h1,
@@ -86,7 +107,9 @@ body:has(.landing) {
 }
 
 .landing h1 {
-  font-size: clamp(2.05rem, 8vw, 4.4rem);
+  max-width: 11ch;
+  font-size: clamp(2.7rem, 7vw, 4.75rem);
+  line-height: 0.98;
 }
 
 .landing h2 {
@@ -95,9 +118,10 @@ body:has(.landing) {
 
 .landing-lead {
   margin: 0;
-  max-width: 36rem;
+  max-width: 32rem;
   color: var(--muted);
-  font-size: 1.08rem;
+  font-size: clamp(1rem, 1.6vw, 1.16rem);
+  line-height: 1.6;
 }
 
 .landing-credit {
@@ -109,16 +133,16 @@ body:has(.landing) {
 .landing-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 6px;
+  gap: 14px;
+  margin-top: 4px;
 }
 
 .landing-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
-  padding: 12px 18px;
+  min-height: 52px;
+  padding: 13px 22px;
   border-radius: 999px;
   font: inherit;
   font-weight: 700;
@@ -126,17 +150,36 @@ body:has(.landing) {
   overflow-wrap: anywhere;
   text-align: center;
   text-decoration: none;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
 }
 
 .landing-btn--primary {
   background: linear-gradient(135deg, var(--warm), #e07a5f);
   color: #1a120e;
+  box-shadow: 0 12px 30px rgba(224, 122, 95, 0.2);
 }
 
 .landing-btn--secondary {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.025);
   color: var(--ink);
   box-shadow: inset 0 0 0 1.5px rgba(243, 239, 230, 0.28);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .landing-btn:hover {
+    transform: translateY(-2px);
+  }
+
+  .landing-btn--primary:hover {
+    box-shadow: 0 16px 36px rgba(224, 122, 95, 0.28);
+  }
+
+  .landing-btn--secondary:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
 }
 
 .kidar-scene {
@@ -146,6 +189,19 @@ body:has(.landing) {
   width: min(100%, 340px);
   height: auto;
   margin-inline: auto;
+  pointer-events: none;
+}
+
+.kidar-scene::before {
+  content: "";
+  position: absolute;
+  inset: 10% 4% 6%;
+  z-index: -1;
+  border-radius: 48%;
+  background:
+    radial-gradient(circle at 50% 44%, rgba(141, 130, 234, 0.13), transparent 58%),
+    radial-gradient(circle at 70% 68%, rgba(232, 160, 90, 0.11), transparent 48%);
+  filter: blur(18px);
   pointer-events: none;
 }
 
@@ -235,6 +291,10 @@ body:has(.landing) {
     0 14px 30px rgb(24 25 48 / 0.12),
     0 3px 8px rgb(24 25 48 / 0.08);
   overflow: hidden;
+  transition:
+    transform 0.28s ease,
+    box-shadow 0.28s ease,
+    opacity 0.35s ease;
 }
 
 .character-popout__source img {
@@ -242,6 +302,15 @@ body:has(.landing) {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .character-popout:hover .character-popout__source {
+    transform: rotate(var(--popout-tilt)) perspective(700px) rotateX(2deg) translateY(-4px);
+    box-shadow:
+      0 20px 42px rgb(0 0 0 / 0.24),
+      0 0 0 1px rgba(232, 160, 90, 0.2);
+  }
 }
 
 .character-popout__shadow {
@@ -282,24 +351,7 @@ body:has(.landing) {
   place-items: end center;
 }
 
-.character-popout__sticker {
-  position: absolute;
-  inset-inline: 0;
-  bottom: 0;
-  display: block;
-  width: auto;
-  height: 100%;
-  max-width: 100%;
-  max-height: 100%;
-  margin-inline: auto;
-  pointer-events: none;
-}
-
-/* PNG stays visible by default. Hide the sticker only while the GLB turn is out. */
-.character-popout[data-reveal="out"] .character-popout__sticker {
-  opacity: 0;
-}
-
+/* No suspended PNG sticker. GLB rises from the card only while reveal is out. */
 .character-popout .landing-character__stage,
 .character-popout .landing-rooster__stage {
   position: absolute;
@@ -313,6 +365,11 @@ body:has(.landing) {
   transition:
     transform 0.7s cubic-bezier(0.22, 0.8, 0.28, 1),
     opacity 0.4s ease;
+}
+
+.character-popout[data-reveal="out"] .character-popout__source {
+  opacity: 0.55;
+  transition: opacity 0.35s ease;
 }
 
 .character-popout .landing-character__canvas,
@@ -757,6 +814,31 @@ body:has(.landing) {
 }
 
 @media (max-width: 699px) {
+  .landing-masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 18px;
+  }
+
+  .landing-masthead .kidar-wordmark {
+    order: -1;
+  }
+
+  .landing-masthead .locale-switcher {
+    justify-content: center;
+  }
+
+  .landing-copy {
+    text-align: center;
+  }
+
+  .landing h1,
+  .landing-lead,
+  .landing-credit {
+    margin-inline: auto;
+  }
+
   .landing-actions {
     display: grid;
   }
@@ -772,13 +854,13 @@ body:has(.landing) {
 
 @media (min-width: 900px) {
   .landing-wrap {
-    padding: 48px 32px 96px;
+    padding: 30px 36px 104px;
   }
 
   .landing-hero {
-    grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
-    gap: 40px;
-    min-height: calc(100dvh - 48px);
+    grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
+    gap: clamp(44px, 6vw, 76px);
+    min-height: calc(100dvh - 118px);
   }
 
   .kidar-scene {

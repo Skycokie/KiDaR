@@ -50,12 +50,14 @@ export default async function HomePage() {
         {getMessages(locale).accessibility.skipToContent}
       </a>
       <main id="continut" className="landing-wrap">
+        <header className="landing-masthead">
+          <Suspense fallback={null}>
+            <LocaleSwitcher locale={locale} label={getMessages(locale).accessibility.languageSelector} />
+          </Suspense>
+          <KidarWordmark />
+        </header>
         <section className="landing-hero" aria-labelledby="home-title">
           <div className="landing-copy">
-            <Suspense fallback={null}>
-              <LocaleSwitcher locale={locale} label={getMessages(locale).accessibility.languageSelector} />
-            </Suspense>
-            <KidarWordmark />
             <h1 id="home-title">{copy.title}</h1>
             <p className="landing-lead">{copy.description}</p>
             <div className="landing-actions">

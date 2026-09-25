@@ -48,7 +48,7 @@ function usePopoutInteraction() {
  * Paper-card illustrations. The source PNGs are opaque RGB, so the white
  * field stays as the card surface. Motion is CSS only; this effect adds
  * desktop pointer parallax and pauses idle motion while the tab is hidden.
- * Approved demo GLBs load only after hover/click; PNG remains the default.
+ * Approved demo GLBs load only after hover/click; the card stays as the resting view.
  */
 export function DrawingScene() {
   const rootRef = useRef<HTMLDivElement>(null);
