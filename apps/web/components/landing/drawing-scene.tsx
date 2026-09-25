@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import dynamic from "next/dynamic";
-import type { StaticImageData } from "next/image";
-import heroRedDress from "./art/hero-red-dress.png";
-import childOpenArms from "./art/child-open-arms.png";
-import childGreenShirt from "./art/child-green-shirt.png";
+import Image, { type StaticImageData } from "next/image";
+import detectiveStory from "./art/detective-story.jpg";
+import detectiveYellowCoat from "./art/detective-yellow-coat.webp";
+import detectiveRedHairedBoy from "./art/detective-red-haired-boy.png";
+import detectivePurpleGirl from "./art/detective-purple-girl.png";
+import detectiveCurlyBoy from "./art/detective-curly-boy.png";
 import rooster from "./art/rooster.png";
 import { CharacterPopout, type PopoutVariant } from "./character-popout";
 import { HOMEPAGE_DEMO_CHARACTERS, type HomepageCharacterDemo } from "./homepage-character-assets";
@@ -44,86 +46,114 @@ function usePopoutInteraction() {
   };
 }
 
-/**
- * Paper-card illustrations. The source PNGs are opaque RGB, so the white
- * field stays as the card surface. Motion is CSS only; this effect adds
- * desktop pointer parallax and pauses idle motion while the tab is hidden.
- * Approved demo GLBs load only after hover/click; the card stays as the resting view.
- */
 export function DrawingScene() {
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (reduce.matches) return;
-
     const onVisibility = () => {
       root.toggleAttribute("data-paused", document.hidden);
     };
     document.addEventListener("visibilitychange", onVisibility);
-
-    const sceneObserver = new IntersectionObserver(([entry]) => {
-      if (!entry) return;
-      root.toggleAttribute("data-offscreen", !entry.isIntersecting);
-    });
-    sceneObserver.observe(root);
-
-    const fine = window.matchMedia("(hover: hover) and (pointer: fine)");
-    const onMove = (event: PointerEvent) => {
-      const rect = root.getBoundingClientRect();
-      if (rect.width < 1 || rect.height < 1) return;
-      const px = (event.clientX - rect.left) / rect.width - 0.5;
-      const py = (event.clientY - rect.top) / rect.height - 0.5;
-      root.style.setProperty("--px", px.toFixed(3));
-      root.style.setProperty("--py", py.toFixed(3));
-    };
-    const onLeave = () => {
-      root.style.setProperty("--px", "0");
-      root.style.setProperty("--py", "0");
-    };
-
-    if (fine.matches) {
-      root.classList.add("can-parallax");
-      root.addEventListener("pointermove", onMove);
-      root.addEventListener("pointerleave", onLeave);
-    }
-
     return () => {
-      sceneObserver.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
-      root.removeEventListener("pointermove", onMove);
-      root.removeEventListener("pointerleave", onLeave);
-      root.classList.remove("can-parallax");
     };
   }, []);
 
+  const onMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const px = (event.clientX - rect.left) / rect.width - 0.5;
+    const py = (event.clientY - rect.top) / rect.height - 0.5;
+    event.currentTarget.style.setProperty("--detective-px", px.toFixed(3));
+    event.currentTarget.style.setProperty("--detective-py", py.toFixed(3));
+  };
+
+  const onLeave = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.currentTarget.style.setProperty("--detective-px", "0");
+    event.currentTarget.style.setProperty("--detective-py", "0");
+  };
+
   return (
-    <div className="kidar-scene" ref={rootRef} aria-hidden="true">
-      <div className="kidar-scene__shift">
-        <CharacterPaperCard
-          src={heroRedDress}
-          variant="red-dress"
-          sizes="(max-width: 899px) 200px, 280px"
+    <div
+      className="detective-hero"
+      ref={rootRef}
+      onPointerMove={onMove}
+      onPointerLeave={onLeave}
+      aria-hidden="true"
+    >
+      <div className="detective-hero__glow" />
+      <div className="detective-hero__frame">
+        <Image
+          className="detective-hero__image"
+          src={detectiveStory}
+          alt=""
+          fill
           priority
-          demo={HOMEPAGE_DEMO_CHARACTERS.redDress}
+          sizes="(max-width: 899px) 92vw, 500px"
         />
-        <CharacterPaperCard
-          src={childOpenArms}
-          variant="open-arms"
-          sizes="(max-width: 899px) 140px, 160px"
-          loading="eager"
-          demo={HOMEPAGE_DEMO_CHARACTERS.openArms}
+        <div className="detective-hero__shine" />
+      </div>
+
+      <div className="detective-cast">
+        <DetectiveCharacter
+          src={detectiveRedHairedBoy}
+          demo={HOMEPAGE_DEMO_CHARACTERS.detectiveRedHairedBoy}
         />
-        <CharacterPaperCard
-          src={childGreenShirt}
-          variant="green-shirt"
-          sizes="(max-width: 899px) 140px, 160px"
-          loading="eager"
-          demo={HOMEPAGE_DEMO_CHARACTERS.greenShirt}
+        <DetectiveCharacter
+          src={detectivePurpleGirl}
+          demo={HOMEPAGE_DEMO_CHARACTERS.detectivePurpleGirl}
+        />
+        <DetectiveCharacter
+          src={detectiveCurlyBoy}
+          demo={HOMEPAGE_DEMO_CHARACTERS.detectiveCurlyBoy}
+        />
+        <DetectiveCharacter
+          src={detectiveYellowCoat}
+          demo={HOMEPAGE_DEMO_CHARACTERS.detectiveYellowCoat}
         />
       </div>
+    </div>
+  );
+}
+
+function DetectiveCharacter({
+  src,
+  demo
+}: {
+  src: StaticImageData;
+  demo: HomepageCharacterDemo;
+}) {
+  const { state, activate, onReady, onFallback, onSpinDone } = usePopoutInteraction();
+  const active = state.phase === "playing" || state.phase === "loading";
+
+  return (
+    <div
+      className="detective-character"
+      data-phase={popoutDisplayPhase(state)}
+      data-reveal={state.reveal}
+      data-character={demo.id}
+      onPointerEnter={activate}
+      onClick={activate}
+    >
+      <div className="detective-character__portrait">
+        <Image src={src} alt="" fill sizes="(max-width: 699px) 21vw, 112px" />
+      </div>
+      {state.mountGlb ? (
+        <CharacterGlbStage
+          modelUrl={demo.glbSrc}
+          active={active}
+          restYawRad={demo.restYawRad}
+          spinId={state.spinId}
+          stageClassName="detective-character__stage"
+          canvasClassName="detective-character__canvas"
+          onReady={onReady}
+          onFallback={onFallback}
+          onSpinDone={onSpinDone}
+        />
+      ) : null}
     </div>
   );
 }
