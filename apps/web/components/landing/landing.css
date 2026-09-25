@@ -685,6 +685,96 @@ body:has(.landing) {
   transform: rotate(7deg);
 }
 
+.landing-rooster[data-celebrating="true"] .detective-character--red .detective-character__portrait {
+  animation: detective-celebrate 0.72s ease-in-out 0s 3;
+}
+
+.landing-rooster[data-celebrating="true"] .detective-character--purple .detective-character__portrait {
+  animation: detective-celebrate 0.72s ease-in-out 0.1s 3;
+}
+
+.landing-rooster[data-celebrating="true"] .detective-character--curly .detective-character__portrait {
+  animation: detective-celebrate 0.72s ease-in-out 0.2s 3;
+}
+
+.celebration-fireworks {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.celebration-firework {
+  position: absolute;
+  left: var(--firework-left);
+  top: var(--firework-top);
+  width: 1px;
+  height: 1px;
+}
+
+.celebration-firework::before {
+  content: "";
+  position: absolute;
+  inset: -34px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 246, 194, 0.75), transparent 66%);
+  opacity: 0;
+  animation: firework-flash 1.25s ease-out var(--firework-delay) both;
+}
+
+.celebration-firework i {
+  --particle-angle: 0deg;
+  --particle-distance: 100px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 9px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--particle-color);
+  box-shadow: 0 0 14px var(--particle-color);
+  transform-origin: center;
+  opacity: 0;
+  animation: firework-particle 1.55s cubic-bezier(0.15, 0.7, 0.25, 1) var(--firework-delay) both;
+}
+
+@keyframes detective-celebrate {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  35% { transform: translateY(-18px) rotate(-4deg) scale(1.06); }
+  65% { transform: translateY(-7px) rotate(4deg) scale(1.03); }
+}
+
+@keyframes firework-flash {
+  0%, 12% { opacity: 0; transform: scale(0.2); }
+  22% { opacity: 1; transform: scale(1); }
+  75%, 100% { opacity: 0; transform: scale(1.8); }
+}
+
+@keyframes firework-particle {
+  0%, 12% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--particle-angle)) translateY(0) scaleY(0.25);
+  }
+  22% { opacity: 1; }
+  72% {
+    opacity: 0.95;
+    transform:
+      translate(-50%, -50%)
+      rotate(var(--particle-angle))
+      translateY(calc(var(--particle-distance) * -1))
+      scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    transform:
+      translate(-50%, -50%)
+      rotate(var(--particle-angle))
+      translateY(calc((var(--particle-distance) + 38px) * -1))
+      scaleY(0.2);
+  }
+}
+
 .kidar-card--rooster {
   position: relative;
   width: min(180px, 70%);
@@ -1202,6 +1292,14 @@ body:has(.landing) {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .celebration-fireworks {
+    display: none;
+  }
+
+  .landing-rooster[data-celebrating="true"] .detective-character__portrait {
+    animation: none;
+  }
+
   .detective-hero__image,
   .detective-character__portrait,
   .detective-character__stage,

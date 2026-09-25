@@ -1,13 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent
+} from "react";
 import dynamic from "next/dynamic";
 import Image, { type StaticImageData } from "next/image";
 import detectiveStory from "./art/detective-story.jpg";
 import detectiveYellowCoat from "./art/detective-yellow-coat.webp";
-import detectiveRedHairedBoy from "./art/detective-red-haired-boy-cutout.png";
-import detectivePurpleGirl from "./art/detective-purple-girl-cutout.png";
-import detectiveCurlyBoy from "./art/detective-curly-boy-cutout.png";
+import detectiveRedHairedBoy from "./art/detective-red-haired-boy-happy-cutout.png";
+import detectivePurpleGirl from "./art/detective-purple-girl-happy-cutout.png";
+import detectiveCurlyBoy from "./art/detective-curly-boy-happy-cutout.png";
 import rooster from "./art/rooster.png";
 import { CharacterPopout, type PopoutVariant } from "./character-popout";
 import { HOMEPAGE_DEMO_CHARACTERS, type HomepageCharacterDemo } from "./homepage-character-assets";
@@ -29,13 +36,13 @@ const CharacterGlbStage = dynamic(
 function usePopoutInteraction() {
   const [state, setState] = useState<PopoutInteractionState>(createPopoutInteractionState);
 
-  const activate = () => {
+  const activate = useCallback(() => {
     setState((current) =>
       activatePopout(current, {
         reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches
       })
     );
-  };
+  }, []);
 
   return {
     state,
@@ -108,14 +115,20 @@ export function DrawingScene() {
 function DetectiveCharacter({
   src,
   demo,
-  className = ""
+  className = "",
+  celebrationId = 0
 }: {
   src: StaticImageData;
   demo: HomepageCharacterDemo;
   className?: string;
+  celebrationId?: number;
 }) {
   const { state, activate, onReady, onFallback, onSpinDone } = usePopoutInteraction();
   const active = state.phase === "playing" || state.phase === "loading";
+
+  useEffect(() => {
+    if (celebrationId > 0) activate();
+  }, [activate, celebrationId]);
 
   return (
     <div
@@ -147,23 +160,48 @@ function DetectiveCharacter({
 }
 
 export function LandingRooster() {
+  const [celebrationId, setCelebrationId] = useState(0);
+  const [celebrating, setCelebrating] = useState(false);
+  const timerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  const celebrate = () => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    setCelebrationId((current) => current + 1);
+    setCelebrating(true);
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    timerRef.current = window.setTimeout(() => {
+      setCelebrating(false);
+      timerRef.current = null;
+    }, 3600);
+  };
+
   return (
-    <div className="landing-rooster">
+    <div className="landing-rooster" data-celebrating={celebrating ? "true" : "false"}>
+      <CelebrationFireworks celebrationId={celebrationId} />
       <div className="detective-companions">
         <DetectiveCharacter
           src={detectiveRedHairedBoy}
           demo={HOMEPAGE_DEMO_CHARACTERS.detectiveRedHairedBoy}
           className="detective-character--red"
+          celebrationId={celebrationId}
         />
         <DetectiveCharacter
           src={detectivePurpleGirl}
           demo={HOMEPAGE_DEMO_CHARACTERS.detectivePurpleGirl}
           className="detective-character--purple"
+          celebrationId={celebrationId}
         />
         <DetectiveCharacter
           src={detectiveCurlyBoy}
           demo={HOMEPAGE_DEMO_CHARACTERS.detectiveCurlyBoy}
           className="detective-character--curly"
+          celebrationId={celebrationId}
         />
       </div>
       <CharacterPaperCard
@@ -173,6 +211,7 @@ export function LandingRooster() {
         demo={HOMEPAGE_DEMO_CHARACTERS.rooster}
         stageClassName="landing-rooster__stage"
         canvasClassName="landing-rooster__canvas"
+        onClickExtra={celebrate}
       />
     </div>
   );
@@ -186,7 +225,8 @@ function CharacterPaperCard({
   loading,
   demo,
   stageClassName,
-  canvasClassName
+  canvasClassName,
+  onClickExtra
 }: {
   src: StaticImageData;
   variant: PopoutVariant;
@@ -196,6 +236,7 @@ function CharacterPaperCard({
   demo: HomepageCharacterDemo;
   stageClassName?: string;
   canvasClassName?: string;
+  onClickExtra?: () => void;
 }) {
   const { state, activate, onReady, onFallback, onSpinDone } = usePopoutInteraction();
   const displayPhase = popoutDisplayPhase(state);
@@ -211,6 +252,10 @@ function CharacterPaperCard({
       phase={displayPhase}
       reveal={state.reveal}
       onActivate={activate}
+      onClickActivate={() => {
+        activate();
+        onClickExtra?.();
+      }}
     >
       {state.mountGlb ? (
         <CharacterGlbStage
@@ -226,5 +271,47 @@ function CharacterPaperCard({
         />
       ) : null}
     </CharacterPopout>
+  );
+}
+
+const FIREWORK_BURSTS = [
+  { left: "12%", top: "18%", delay: "0s" },
+  { left: "32%", top: "30%", delay: "0.18s" },
+  { left: "52%", top: "14%", delay: "0.08s" },
+  { left: "72%", top: "28%", delay: "0.28s" },
+  { left: "90%", top: "16%", delay: "0.14s" }
+] as const;
+
+function CelebrationFireworks({ celebrationId }: { celebrationId: number }) {
+  if (celebrationId <= 0) return null;
+  return (
+    <div className="celebration-fireworks" key={celebrationId} aria-hidden="true">
+      {FIREWORK_BURSTS.map((burst, burstIndex) => (
+        <div
+          className="celebration-firework"
+          key={`${burst.left}-${burst.top}`}
+          style={
+            {
+              "--firework-left": burst.left,
+              "--firework-top": burst.top,
+              "--firework-delay": burst.delay
+            } as CSSProperties
+          }
+        >
+          {Array.from({ length: 16 }, (_, particleIndex) => (
+            <i
+              key={particleIndex}
+              style={
+                {
+                  "--particle-angle": `${particleIndex * 22.5}deg`,
+                  "--particle-distance": `${82 + (particleIndex % 4) * 18}px`,
+                  "--particle-color": `hsl(${(burstIndex * 72 + particleIndex * 17) % 360} 92% 66%)`
+                } as CSSProperties
+              }
+            />
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }

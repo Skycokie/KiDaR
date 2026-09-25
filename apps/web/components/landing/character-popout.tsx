@@ -1,5 +1,3 @@
-"use client";
-
 import { forwardRef, type CSSProperties, type ReactNode } from "react";
 import Image, { type StaticImageData } from "next/image";
 
@@ -23,6 +21,7 @@ type CharacterPopoutProps = {
   reveal?: "in" | "out";
   children?: ReactNode;
   onActivate?: () => void;
+  onClickActivate?: () => void;
 };
 
 /**
@@ -30,7 +29,18 @@ type CharacterPopoutProps = {
  * Children render the optional GLB viewer on hover/click.
  */
 export const CharacterPopout = forwardRef<HTMLDivElement, CharacterPopoutProps>(function CharacterPopout(
-  { variant, src, sizes, priority = false, loading, phase = "png", reveal = "in", children, onActivate },
+  {
+    variant,
+    src,
+    sizes,
+    priority = false,
+    loading,
+    phase = "png",
+    reveal = "in",
+    children,
+    onActivate,
+    onClickActivate
+  },
   ref
 ) {
   return (
@@ -43,7 +53,7 @@ export const CharacterPopout = forwardRef<HTMLDivElement, CharacterPopoutProps>(
       style={{ "--popout-tilt": POPOUT_TILT[variant] } as CSSProperties}
       aria-hidden="true"
       onPointerEnter={onActivate}
-      onClick={onActivate}
+      onClick={onClickActivate ?? onActivate}
     >
       <div className="character-popout__source" aria-hidden="true">
         <Image

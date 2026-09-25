@@ -55,19 +55,19 @@ export const HOMEPAGE_DEMO_CHARACTERS = {
   detectiveRedHairedBoy: {
     id: "detective-red-haired-boy",
     kind: "demo-glb",
-    glbSrc: "/demo/characters/detective-red-haired-boy.glb",
+    glbSrc: "/demo/characters/detective-red-haired-boy-happy.glb",
     restYawRad: (3 * Math.PI) / 2
   },
   detectivePurpleGirl: {
     id: "detective-purple-girl",
     kind: "demo-glb",
-    glbSrc: "/demo/characters/detective-purple-girl.glb",
+    glbSrc: "/demo/characters/detective-purple-girl-happy.glb",
     restYawRad: (3 * Math.PI) / 2
   },
   detectiveCurlyBoy: {
     id: "detective-curly-boy",
     kind: "demo-glb",
-    glbSrc: "/demo/characters/detective-curly-boy.glb",
+    glbSrc: "/demo/characters/detective-curly-boy-happy.glb",
     restYawRad: (3 * Math.PI) / 2
   }
 } as const satisfies Record<string, HomepageCharacterDemo>;
