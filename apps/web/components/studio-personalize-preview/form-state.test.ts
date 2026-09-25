@@ -324,7 +324,8 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(fixtures).toContain(COPY.publishInactive);
     expect(fixtures).toContain(COPY.publishQrLabel);
     expect(shell).toContain("transformMode={state.transformMode}");
-    expect(shell).toMatch(/studio-ws__ghost-btn[^>]*\bdisabled\b/);
+    expect(shell).toContain('dispatch({ type: "variant", index: -1 })');
+    expect(shell).not.toMatch(/studio-ws__ghost-btn[^>]*\bdisabled\b/);
     expect(poster).toContain("transformMode");
     expect(poster).toContain("data-mode={transformMode}");
     expect(poster).toContain("PopoutMeshStage");
@@ -380,9 +381,9 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(shell).toContain("studio-ws__overlay-tools");
     expect(shell).toContain('dispatch({ type: "orbit", yaw: 0, pitch: ORBIT_PITCH_STEP, user: true })');
     expect(css).toContain("touch-action: none");
-    expect(css).toMatch(/@media \(max-width: 959px\)[\s\S]*\.studio-ws__overlay-tools\s*\{\s*display:\s*none/);
-    expect(css).toMatch(/@media \(max-width: 959px\)[\s\S]*\.studio-ws__view-controls--sheet\s*\{\s*display:\s*grid/);
-    expect(css).toMatch(/@media \(min-width: 960px\)[\s\S]*\.studio-ws__view-controls--sheet\s*\{\s*display:\s*none/);
+    expect(css).toMatch(/@media \(max-width: 899px\)[\s\S]*\.studio-ws__overlay-tools\s*\{\s*display:\s*none/);
+    expect(css).toMatch(/@media \(max-width: 899px\)[\s\S]*\.studio-ws__view-controls--sheet\s*\{\s*display:\s*grid/);
+    expect(css).toMatch(/@media \(min-width: 900px\)[\s\S]*\.studio-ws__view-controls--sheet\s*\{\s*display:\s*none/);
     expect(stage).toContain("}, [sourceUrl, retryToken]);");
     expect(stage).toContain("}, [phase, sourceUrl, retryToken]);");
     expect(stage).toContain("sessionExtracts");
@@ -401,6 +402,8 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(shell).toContain("seeInArPreparing");
     expect(fixtures).toContain("AR în pregătire");
     expect(fixtures).toContain("Previzualizare 2D locală");
+    expect(shell).not.toMatch(/\brel=["']ar["']/);
+    expect(shell).not.toMatch(/\bnavigator\.mediaDevices\b|\.getUserMedia\b/);
     expect(shell).not.toContain("studio-ws__ar-live");
     expect(shell).not.toContain("onClick={openAr}");
   });

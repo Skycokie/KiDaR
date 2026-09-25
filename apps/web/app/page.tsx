@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { DM_Sans, Syne } from "next/font/google";
+import { KidarWordmark } from "@/components/brand/kidar-wordmark";
+import { LocaleSwitcher } from "@/components/i18n/locale-switcher";
+import "@/components/brand/kidar-wordmark.css";
 import { DrawingScene, LandingRooster } from "@/components/landing/drawing-scene";
+import { getMessages } from "@/i18n/get-messages";
+import { getRequestLocale } from "@/i18n/get-request-locale";
+import { hrefForLocale } from "@/i18n/locale";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import "@/components/landing/landing.css";
 
@@ -17,59 +24,55 @@ const body = DM_Sans({
   display: "swap"
 });
 
-export const metadata: Metadata = {
-  title: "kiDAR — Desenul tău prinde viață",
-  description: "Transformă un desen într-o figurină pe care o poți descoperi în lumea ta."
-};
-
-const steps = [
-  {
-    title: "Desenează",
-    body: "Creează un personaj în stilul tău."
-  },
-  {
-    title: "Fotografiază",
-    body: "Păstrează desenul clar, întreg și bine luminat."
-  },
-  {
-    title: "Descoperă",
-    body: "Privește figurina și exploreaz-o în spațiul tău."
-  }
-];
+export async function generateMetadata(): Promise<Metadata> {
+  const copy = getMessages(getRequestLocale()).landing;
+  return {
+    title: `kiDAR — ${copy.title.replace(/\.$/, "")}`,
+    description: copy.description
+  };
+}
 
 export default async function HomePage() {
+  const locale = getRequestLocale();
+  const copy = getMessages(locale).landing;
   const user = await getLoggedInUser();
-  const discoverHref = user ? "/creaza" : "/intra";
-  const studioHref = user ? "/studio-preview/personalizeaza" : "/login";
+  const discoverHref = hrefForLocale(user ? "/creaza" : "/intra", locale);
+  const studioHref = hrefForLocale(user ? "/studio-preview/personalizeaza" : "/login", locale);
+  const steps = [
+    { title: copy.draw, body: copy.drawBody },
+    { title: copy.photograph, body: copy.photographBody },
+    { title: copy.discover, body: copy.discoverBody }
+  ];
 
   return (
-    <div className={`landing ${display.variable} ${body.variable}`} lang="ro">
+    <div className={`landing ${display.variable} ${body.variable}`} lang={locale}>
       <a className="landing-skip" href="#continut">
-        Sari la conținut
+        {getMessages(locale).accessibility.skipToContent}
       </a>
       <main id="continut" className="landing-wrap">
         <section className="landing-hero" aria-labelledby="home-title">
           <div className="landing-copy">
-            <p className="landing-kicker">kiDAR</p>
-            <h1 id="home-title">Desenul tău prinde viață.</h1>
-            <p className="landing-lead">
-              Transformă un desen într-o figurină pe care o poți descoperi în lumea ta.
-            </p>
+            <Suspense fallback={null}>
+              <LocaleSwitcher locale={locale} label={getMessages(locale).accessibility.languageSelector} />
+            </Suspense>
+            <KidarWordmark />
+            <h1 id="home-title">{copy.title}</h1>
+            <p className="landing-lead">{copy.description}</p>
             <div className="landing-actions">
               <Link className="landing-btn landing-btn--primary" href={discoverHref}>
-                Descoperă kiDAR
+                {copy.discoverCta}
               </Link>
               <Link className="landing-btn landing-btn--secondary" href={studioHref}>
-                Intră în Studio
+                {copy.studioCta}
               </Link>
             </div>
-            <p className="landing-credit">Ilustrații originale create pentru kiDAR.</p>
+            <p className="landing-credit">{copy.originalArtNote}</p>
           </div>
           <DrawingScene />
         </section>
 
         <section className="landing-process" aria-labelledby="process-title">
-          <h2 id="process-title">Din desen, într-o lume nouă.</h2>
+          <h2 id="process-title">{copy.processTitle}</h2>
           <ol className="landing-steps">
             {steps.map((step, index) => (
               <li className="landing-step" key={step.title}>
@@ -83,10 +86,10 @@ export default async function HomePage() {
         </section>
 
         <section className="landing-close" aria-labelledby="close-title">
-          <h2 id="close-title">O idee mică poate deveni o lume mare.</h2>
+          <h2 id="close-title">{copy.closeTitle}</h2>
           <div className="landing-actions">
             <Link className="landing-btn landing-btn--primary" href={discoverHref}>
-              Intră în kiDAR
+              {copy.enterCta}
             </Link>
           </div>
         </section>

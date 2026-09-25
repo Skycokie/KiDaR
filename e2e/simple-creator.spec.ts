@@ -154,7 +154,7 @@ test("authenticated /intra continues to /creaza; /login goes to Studio hub", asy
 test("unauthenticated Studio login is Romanian", async ({ page }) => {
   await page.goto("/login");
   await expect(page).toHaveURL(/\/login$/);
-  await expect(page.getByText("kiDAR Studio")).toBeVisible();
+  await expect(page.getByRole("img", { name: "kidAR — Play With Studio" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Intră în kiDAR" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Trimite legătura de intrare" })).toBeVisible();
 });

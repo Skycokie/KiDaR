@@ -21,7 +21,7 @@ export const COPY = {
   previewNote: "Schimbările rămân doar pe acest ecran.",
   sidebarLabel: "Lumea mea",
   pathLabel: "Traseu",
-  savedLocal: "Salvat local",
+  savedLocal: "Salvat în această sesiune",
   publish: "Publică",
   publishPrepareTitle: "Pregătește lumea pentru publicare",
   publishLinkNote: "Lumea ta va primi un link și un cod QR.",
@@ -37,6 +37,44 @@ export const COPY = {
     "Previzualizare 2D locală pe acest ecran — fără cameră, fără tracking și fără publicare.",
   arCardCaption: "Previzualizare 2D locală",
   arCardEmpty: "Cadru demonstrativ",
+  emptyDrawing: "Ca să personalizezi previzualizarea, adaugă o poză sau un desen din Atelier.",
+  drawingReady: "Desenul salvat din Atelier e pe scenă. Continuă ca să ridici personajul din hârtie.",
+  demoPreview: "Previzualizare demonstrativă",
+  figurineDemo: "Previzualizare locală. Nu s-a generat o figurină 3D.",
+  noDecor: "Fără decor",
+  paletteSection: "Culori",
+  lightingSection: "Lumină",
+  ideaLabel: "Ideea ta pentru figurină",
+  ideaHeading: "Spune-i AI-ului ce îți imaginezi",
+  ideaSupport: "Scrie o idee, iar previzualizarea se schimbă aici, în Studio.",
+  ideaPlaceholder: "De exemplu: Vreau ca personajul meu să plutească printre stele.",
+  ideaApply: "Aplică în previzualizare",
+  ideaSuggestions: "Încearcă o idee",
+  ideaResult: "Am ales pentru previzualizare",
+  ideaFallback: "Poți alege apoi mișcarea, decorul și culorile din Studio.",
+  ideaHonest: "Aceasta schimbă doar previzualizarea. Figurina 3D se pregătește separat.",
+  ideaReset: "Resetează ideea",
+  ideaEmpty: "Scrie întâi o idee pentru previzualizare.",
+  ideaNeedsDrawing: "Adaugă o poză sau un desen ca să aplici o idee în previzualizare.",
+  interactTitle: "Interacțiuni",
+  interactSubtitle: "Joacă-te cu scena",
+  interactIntro: "Poți explora previzualizarea fără să schimbi alegerile scenei.",
+  interactStart: "Activează interacțiunile",
+  interactActive: "Interacțiuni active",
+  interactStop: "Oprește interacțiunile",
+  interactHint: "Trage personajul, folosește zoomul sau apasă pe scenă.",
+  interactZoom: "Apropie",
+  interactZoomIn: "Apropie scena",
+  interactZoomOut: "Depărtează scena",
+  interactReset: "Resetează scena",
+  interactLeft: "Stânga",
+  interactRight: "Dreapta",
+  interactCharacter: "Personajul reacționează în previzualizare.",
+  interactDecor: "Decorul reacționează în previzualizare.",
+  interactHonest: "Aceasta este o interacțiune locală. Nu pornește generarea și nu deschide AR.",
+  interactArLater: "Interacțiunile AR vor fi disponibile separat, după pregătirea și aprobarea scenei 3D.",
+  interactNeedsDrawing: "Adaugă mai întâi un desen pentru a explora scena.",
+  stepLocked: "Adaugă un desen ca să deschizi acest pas.",
   stageHint: "Trage pentru a roti · scroll pentru zoom.",
   showOriginalPage: "Arată pagina originală",
   pageReference: "Referință",
@@ -55,7 +93,7 @@ export const COPY = {
   popoutPreparing: "Pregătim Pop-out-ul…",
   popoutSeparateFailed: "Nu am putut separa elementele desenului în acest preview.",
   popoutRetry: "Încearcă din nou",
-  figurineVolumeHint: "O interpretare cu volum a desenului tău.",
+  figurineVolumeHint: "Previzualizare demonstrativă. Nu s-a generat o figurină 3D.",
   volume: "Volum",
   details: "Detalii",
   aspect: "Aspect",
@@ -63,7 +101,7 @@ export const COPY = {
   placeInWorld: "Așază în lume",
   preserveOutline: "Păstrează conturul desenului",
   originalColors: "Culori originale",
-  regenerate: "Generează variantă",
+  regenerate: "Aplică varianta în previzualizare",
   modeSection: "Cum apare",
   styleSection: "Stil",
   variantSoon: "Variante",
@@ -89,6 +127,8 @@ export type StylePresetId = "preserve" | "clay" | "painted";
 export type AnimationId = "wave" | "float" | "dance" | "jump" | "still";
 export type DecorId = "cloud" | "stars" | "grass" | "tree" | "house" | "planet" | "balloons";
 export type CameraPresetId = "front" | "threequarter" | "side" | "top" | "reset";
+export type PaletteId = "original" | "bright" | "soft";
+export type LightingId = "warm" | "studio";
 
 export type ChoiceOption<T extends string> = {
   id: T;
@@ -103,12 +143,12 @@ export const STAGES: ChoiceOption<StudioStageId>[] = [
   { id: "aspect", label: "Aspect", hint: "Lumină și culoare" },
   { id: "miscare", label: "Mișcare", hint: "Dă viață" },
   { id: "decor", label: "Decor", hint: "Așază în lume" },
-  { id: "testeaza", label: "AR", hint: "Privește prin cameră" }
+  { id: "testeaza", label: "AR", hint: "Previzualizare locală" }
 ];
 
 export const TRANSFORM_MODES: ChoiceOption<TransformModeId>[] = [
   { id: "popout", label: "Pop-out din desen", hint: "Ridicat din hârtie, ușor plat" },
-  { id: "figurine", label: "Figurină 3D", hint: "Rotund, de ținut în mână" }
+  { id: "figurine", label: "Figurină 3D", hint: "Previzualizare demonstrativă" }
 ];
 
 export const STYLE_PRESETS: ChoiceOption<StylePresetId>[] = [
@@ -133,6 +173,17 @@ export const DECOR_ASSETS: ChoiceOption<DecorId>[] = [
   { id: "house", label: "Casă" },
   { id: "planet", label: "Planetă" },
   { id: "balloons", label: "Baloane" }
+];
+
+export const PALETTES: ChoiceOption<PaletteId>[] = [
+  { id: "original", label: "Original" },
+  { id: "bright", label: "Culori vii" },
+  { id: "soft", label: "Culori moi" }
+];
+
+export const LIGHTINGS: ChoiceOption<LightingId>[] = [
+  { id: "warm", label: "Lumină caldă" },
+  { id: "studio", label: "Lumină de studio" }
 ];
 
 export const CAMERA_PRESETS: ChoiceOption<CameraPresetId>[] = [

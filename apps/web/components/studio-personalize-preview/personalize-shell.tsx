@@ -21,6 +21,8 @@ import {
   CAMERA_PRESETS,
   COPY,
   DECOR_ASSETS,
+  LIGHTINGS,
+  PALETTES,
   PERSONALIZE_STUDIO_HREF,
   STAGES,
   STYLE_PRESETS,
@@ -28,12 +30,16 @@ import {
   type AnimationId,
   type CameraPresetId,
   type DecorId,
+  type LightingId,
+  type PaletteId,
   type StudioStageId,
   type StylePresetId,
   type TransformModeId
 } from "./fixtures";
 import {
+  applyIdeaPrompt,
   createInitialPersonalizeState,
+  createWorkspaceState,
   frameFit,
   nudgeOrbit,
   nudgeOrbitFromScreen,
@@ -41,13 +47,19 @@ import {
   ORBIT_PITCH_STEP,
   ORBIT_ROLL_STEP,
   ORBIT_YAW_STEP,
+  regenerateVariant,
+  resetIdeaPrompt,
   setAnimation,
   setArLive,
   setCameraPreset,
+  setDecorSelection,
   setDetails,
+  setIdeaPrompt,
   setLeftOpen,
+  setLighting,
   setLight,
   setOriginalColors,
+  setPalette,
   setPreserveOutline,
   setPublishOpen,
   setRightOpen,
@@ -63,11 +75,12 @@ import {
   summarizePersonalize,
   zoomFromPinch,
   zoomFromWheel,
-  toggleDecor,
   toggleGrid,
   type PersonalizeState
 } from "./form-state";
+import { IdeaPromptCard } from "./idea-prompt-card";
 import { GardenPoster } from "./garden-poster";
+import { createInteractionState, reduceInteraction } from "./interaction-state";
 import {
   type PreviewProjectContext,
   type StartSaveStatus,
@@ -91,11 +104,16 @@ type Action =
   | { type: "details"; value: number }
   | { type: "outline"; value: boolean }
   | { type: "style"; id: StylePresetId }
+  | { type: "palette"; id: PaletteId }
+  | { type: "lighting"; id: LightingId }
   | { type: "colors"; value: boolean }
   | { type: "light"; value: number }
   | { type: "shadow"; value: number }
   | { type: "animation"; id: AnimationId }
-  | { type: "decor"; id: DecorId }
+  | { type: "decor"; id: DecorId | "none" }
+  | { type: "idea"; value: string }
+  | { type: "applyIdea" }
+  | { type: "resetIdea" }
   | { type: "camera"; id: CameraPresetId }
   | { type: "grid" }
   | { type: "frame" }
@@ -123,6 +141,10 @@ function reducer(state: PersonalizeState, action: Action): PersonalizeState {
       return setPreserveOutline(state, action.value);
     case "style":
       return setStylePreset(state, action.id);
+    case "palette":
+      return setPalette(state, action.id);
+    case "lighting":
+      return setLighting(state, action.id);
     case "colors":
       return setOriginalColors(state, action.value);
     case "light":
@@ -132,7 +154,13 @@ function reducer(state: PersonalizeState, action: Action): PersonalizeState {
     case "animation":
       return setAnimation(state, action.id);
     case "decor":
-      return toggleDecor(state, action.id);
+      return setDecorSelection(state, action.id);
+    case "idea":
+      return setIdeaPrompt(state, action.value);
+    case "applyIdea":
+      return applyIdeaPrompt(state, state.ideaPrompt);
+    case "resetIdea":
+      return resetIdeaPrompt(state);
     case "camera":
       return setCameraPreset(state, action.id);
     case "grid":
@@ -157,7 +185,7 @@ function reducer(state: PersonalizeState, action: Action): PersonalizeState {
     case "autoRotate":
       return setAutoRotate(state, action.value);
     case "variant":
-      return setVariantIndex(state, action.index);
+      return action.index < 0 ? regenerateVariant(state) : setVariantIndex(state, action.index);
     case "arLive":
       return setArLive(state, action.value);
     case "left":
@@ -193,9 +221,11 @@ function SheetChrome({
 
 function StageNav({
   state,
+  hasDrawing,
   onSelect
 }: {
   state: PersonalizeState;
+  hasDrawing: boolean;
   onSelect: (id: StudioStageId) => void;
 }) {
   return (
@@ -205,6 +235,7 @@ function StageNav({
         {STAGES.map((stage, index) => {
           const active = state.stage === stage.id;
           const done = state.completedStages.includes(stage.id);
+          const locked = !hasDrawing && stage.id !== "desenul";
           return (
             <li key={stage.id} className="studio-ws__path-item">
               {index > 0 ? <span className="studio-ws__path-line" aria-hidden="true" /> : null}
@@ -212,6 +243,8 @@ function StageNav({
                 type="button"
                 className={`studio-ws__stage${active ? " is-active" : ""}${done ? " is-done" : ""}`}
                 aria-current={active ? "step" : undefined}
+                disabled={locked}
+                title={locked ? COPY.stepLocked : undefined}
                 onClick={() => onSelect(stage.id)}
               >
                 <span className="studio-ws__stage-mark" aria-hidden="true">
@@ -232,6 +265,18 @@ function StageNav({
   );
 }
 
+function ideaCard(state: PersonalizeState, dispatch: (action: Action) => void, locked: boolean) {
+  return (
+    <IdeaPromptCard
+      state={state}
+      locked={locked}
+      onChange={(value) => dispatch({ type: "idea", value })}
+      onApply={() => dispatch({ type: "applyIdea" })}
+      onReset={() => dispatch({ type: "resetIdea" })}
+    />
+  );
+}
+
 function Inspector({
   state,
   dispatch,
@@ -243,15 +288,18 @@ function Inspector({
   drawingSrc?: string | null;
   projectId?: string | null;
 }) {
+  const hasDrawing = Boolean(drawingSrc);
+  const showIdea =
+    state.stage === "personajul" ||
+    state.stage === "aspect" ||
+    state.stage === "miscare" ||
+    state.stage === "decor";
   if (state.stage === "desenul") {
     return (
       <div className="studio-ws__inspector-block">
         <h2>Desen</h2>
-        <p className="studio-ws__muted">
-          {drawingSrc
-            ? "Desenul salvat din Atelier e pe scenă. Continuă ca să ridici personajul din hârtie."
-            : "Nu există încă o poză legată. Continuă cu fixture-ul demonstrativ sau revino din Atelier."}
-        </p>
+        <p className="studio-ws__muted">{hasDrawing ? COPY.drawingReady : COPY.emptyDrawing}</p>
+        {hasDrawing ? null : ideaCard(state, dispatch, true)}
         <div className={`studio-ws__drawing-card${drawingSrc ? " has-photo" : ""}`}>
           {drawingSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -263,6 +311,8 @@ function Inspector({
         <button
           type="button"
           className="studio-ws__primary-btn"
+          disabled={!hasDrawing}
+          title={hasDrawing ? undefined : COPY.stepLocked}
           onClick={() => dispatch({ type: "stage", id: "personajul" })}
         >
           Continuă la personaj
@@ -274,6 +324,7 @@ function Inspector({
   if (state.stage === "personajul") {
     return (
       <div className="studio-ws__inspector-block">
+        {showIdea ? ideaCard(state, dispatch, !hasDrawing) : null}
         <h2>Personaj</h2>
         <p className="studio-ws__section-label">{COPY.modeSection}</p>
         <div className="studio-ws__mode-cards" role="group" aria-label={COPY.modeSection}>
@@ -303,6 +354,9 @@ function Inspector({
             );
           })}
         </div>
+        {state.transformMode === "figurine" ? (
+          <p className="studio-ws__muted">{COPY.figurineDemo}</p>
+        ) : null}
 
         <p className="studio-ws__section-label">{COPY.variantSoon}</p>
         <div className="studio-ws__variant-row" role="group" aria-label={COPY.variantSoon}>
@@ -355,7 +409,11 @@ function Inspector({
           <span>{COPY.preserveOutline}</span>
         </label>
 
-        <button type="button" className="studio-ws__ghost-btn" disabled title="În curând">
+        <button
+          type="button"
+          className="studio-ws__ghost-btn"
+          onClick={() => dispatch({ type: "variant", index: -1 })}
+        >
           {COPY.regenerate}
         </button>
       </div>
@@ -365,7 +423,46 @@ function Inspector({
   if (state.stage === "aspect") {
     return (
       <div className="studio-ws__inspector-block">
+        {ideaCard(state, dispatch, !hasDrawing)}
         <h2>{COPY.aspect}</h2>
+        <p className="studio-ws__section-label">{COPY.paletteSection}</p>
+        <div className="studio-ws__choice-row" role="radiogroup" aria-label={COPY.paletteSection}>
+          {PALETTES.map((palette) => {
+            const selected = state.palette === palette.id;
+            return (
+              <button
+                key={palette.id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                className={`studio-ws__choice${selected ? " is-selected" : ""}`}
+                onClick={() => dispatch({ type: "palette", id: palette.id })}
+              >
+                <span className={`studio-ws__choice-mark studio-ws__choice-mark--${palette.id}`} aria-hidden="true" />
+                {palette.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="studio-ws__section-label">{COPY.lightingSection}</p>
+        <div className="studio-ws__choice-row" role="radiogroup" aria-label={COPY.lightingSection}>
+          {LIGHTINGS.map((lighting) => {
+            const selected = state.lighting === lighting.id;
+            return (
+              <button
+                key={lighting.id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                className={`studio-ws__choice${selected ? " is-selected" : ""}`}
+                onClick={() => dispatch({ type: "lighting", id: lighting.id })}
+              >
+                <span className={`studio-ws__choice-mark studio-ws__choice-mark--${lighting.id}`} aria-hidden="true" />
+                {lighting.label}
+              </button>
+            );
+          })}
+        </div>
         <p className="studio-ws__section-label">{COPY.styleSection}</p>
         <div className="studio-ws__style-cards" role="radiogroup" aria-label={COPY.styleSection}>
           {STYLE_PRESETS.map((preset) => {
@@ -430,6 +527,7 @@ function Inspector({
   if (state.stage === "miscare") {
     return (
       <div className="studio-ws__inspector-block">
+        {ideaCard(state, dispatch, !hasDrawing)}
         <h2>{COPY.giveLife}</h2>
         <div className="studio-ws__motion-cards" role="radiogroup" aria-label={COPY.giveLife}>
           {ANIMATIONS.map((anim) => {
@@ -459,17 +557,30 @@ function Inspector({
   }
 
   if (state.stage === "decor") {
+    const noneSelected = state.decor.length === 0;
     return (
       <div className="studio-ws__inspector-block">
+        {ideaCard(state, dispatch, !hasDrawing)}
         <h2>{COPY.placeInWorld}</h2>
-        <div className="studio-ws__assets" role="group" aria-label={COPY.placeInWorld}>
+        <div className="studio-ws__assets" role="radiogroup" aria-label={COPY.placeInWorld}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={noneSelected}
+            className={`studio-ws__asset${noneSelected ? " is-selected" : ""}`}
+            onClick={() => dispatch({ type: "decor", id: "none" })}
+          >
+            <span className="studio-ws__asset-icon studio-ws__asset-icon--none" aria-hidden="true" />
+            <span>{COPY.noDecor}</span>
+          </button>
           {DECOR_ASSETS.map((asset) => {
-            const selected = state.decor.includes(asset.id);
+            const selected = state.decor[0] === asset.id;
             return (
               <button
                 key={asset.id}
                 type="button"
-                aria-pressed={selected}
+                role="radio"
+                aria-checked={selected}
                 className={`studio-ws__asset${selected ? " is-selected" : ""}`}
                 onClick={() => dispatch({ type: "decor", id: asset.id })}
               >
@@ -524,6 +635,72 @@ function startSaveReducer(current: StartSaveState, action: StartSaveAction): Sta
  * Singura scriere aprobată este PATCH-ul pentru poziția de start a modelului.
  * Fără cameră hardware, fără publicare și fără generare GLB.
  */
+function InteractionPanel({
+  hasDrawing,
+  enabled,
+  activeTarget,
+  reactionNonce,
+  onToggle,
+  onZoom,
+  onNudge,
+  onReset
+}: {
+  hasDrawing: boolean;
+  enabled: boolean;
+  activeTarget: "none" | "character" | "decor";
+  reactionNonce: number;
+  onToggle: () => void;
+  onZoom: (direction: -1 | 1) => void;
+  onNudge: (direction: -1 | 1) => void;
+  onReset: () => void;
+}) {
+  const reaction =
+    enabled && activeTarget === "character" && reactionNonce > 0
+      ? COPY.interactCharacter
+      : enabled && activeTarget === "decor"
+        ? COPY.interactDecor
+        : "";
+  const controlsDisabled = !hasDrawing || !enabled;
+  return (
+    <section className="studio-ws__interact" aria-labelledby="studio-interact-title">
+      <h2 id="studio-interact-title">{COPY.interactTitle}</h2>
+      <p className="studio-ws__interact-sub">{COPY.interactSubtitle}</p>
+      <p className="studio-ws__muted">{COPY.interactIntro}</p>
+      {hasDrawing ? null : <p className="studio-ws__muted">{COPY.interactNeedsDrawing}</p>}
+      {enabled ? <p className="studio-ws__interact-status">{COPY.interactActive}</p> : null}
+      {enabled ? <p className="studio-ws__muted">{COPY.interactHint}</p> : null}
+      <div className="studio-ws__interact-actions">
+        <button type="button" className="studio-ws__btn-secondary" disabled={!hasDrawing} onClick={onToggle}>
+          {enabled ? COPY.interactStop : COPY.interactStart}
+        </button>
+        <button type="button" className="studio-ws__btn-secondary" disabled={controlsDisabled} onClick={() => onNudge(-1)}>
+          {COPY.interactLeft}
+        </button>
+        <button type="button" className="studio-ws__btn-secondary" disabled={controlsDisabled} onClick={() => onNudge(1)}>
+          {COPY.interactRight}
+        </button>
+      </div>
+      <div className="studio-ws__interact-zoom" role="group" aria-label={COPY.interactZoom}>
+        <span>{COPY.interactZoom}</span>
+        <button type="button" aria-label={COPY.interactZoomOut} disabled={controlsDisabled} onClick={() => onZoom(-1)}>
+          −
+        </button>
+        <button type="button" aria-label={COPY.interactZoomIn} disabled={controlsDisabled} onClick={() => onZoom(1)}>
+          +
+        </button>
+        <button type="button" aria-label={COPY.interactReset} disabled={controlsDisabled} onClick={onReset}>
+          {COPY.interactReset}
+        </button>
+      </div>
+      <p className="studio-ws__interact-live" role="status" aria-live="polite">
+        {reaction}
+      </p>
+      <p className="studio-ws__muted">{COPY.interactHonest}</p>
+      <p className="studio-ws__muted">{COPY.interactArLater}</p>
+    </section>
+  );
+}
+
 export function PersonalizePreviewShell({
   drawingSrc = null,
   projectContext = null
@@ -533,18 +710,12 @@ export function PersonalizePreviewShell({
 }) {
   const projectId = projectContext?.projectId ?? null;
   const orbitSeed = {
+    hasDrawing: Boolean(drawingSrc),
     yaw: projectContext?.startYaw ?? null,
     pitch: projectContext?.startPitch ?? null
   };
-  const [state, dispatch] = useReducer(reducer, orbitSeed, (seed) => {
-    const next = createInitialPersonalizeState();
-    if (seed.yaw == null && seed.pitch == null) return next;
-    return {
-      ...next,
-      orbitYaw: seed.yaw ?? next.orbitYaw,
-      orbitPitch: seed.pitch ?? next.orbitPitch
-    };
-  });
+  const [state, dispatch] = useReducer(reducer, createWorkspaceState(orbitSeed));
+  const [interaction, interactDispatch] = useReducer(reduceInteraction, createInteractionState());
   const [save, saveDispatch] = useReducer(startSaveReducer, {
     status: "idle",
     baselineYaw: orbitSeed.yaw ?? createInitialPersonalizeState().orbitYaw,
@@ -555,7 +726,9 @@ export function PersonalizePreviewShell({
   const pinchRef = useRef<{ distance: number } | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const zoomRef = useRef(state.zoom);
+  const interactDispatchRef = useRef(interactDispatch);
   zoomRef.current = state.zoom;
+  interactDispatchRef.current = interactDispatch;
   const publishDialogRef = useRef<HTMLDivElement | null>(null);
   const summary = summarizePersonalize(state);
   const activeStage = STAGES.find((stage) => stage.id === state.stage);
@@ -592,6 +765,11 @@ export function PersonalizePreviewShell({
     const el = viewportRef.current;
     if (!el) return;
     const onWheel = (event: WheelEvent) => {
+      if (el.querySelector("[data-interacting='yes']")) {
+        event.preventDefault();
+        interactDispatchRef.current({ type: "wheel", deltaY: event.deltaY });
+        return;
+      }
       event.preventDefault();
       const next = zoomFromWheel(zoomRef.current, event.deltaY);
       if (next !== zoomRef.current) dispatch({ type: "zoom", value: next });
@@ -638,6 +816,53 @@ export function PersonalizePreviewShell({
     if (!el) return;
     if (active) el.dataset.dragging = "yes";
     else delete el.dataset.dragging;
+  };
+
+  const playDrag = useRef<{ id: number; x: number; y: number; ox: number; oy: number; moved: boolean } | null>(null);
+  const suppressCharacterClick = useRef(false);
+
+  const onCharacterPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (!interaction.enabled) return;
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const stage = event.currentTarget.closest(".studio-stage");
+    if (stage instanceof HTMLElement) stage.dataset.dragging = "yes";
+    playDrag.current = {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      ox: event.clientX,
+      oy: event.clientY,
+      moved: false
+    };
+  };
+
+  const onCharacterPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = playDrag.current;
+    if (!drag || drag.id !== event.pointerId) return;
+    const dx = event.clientX - drag.x;
+    const dy = event.clientY - drag.y;
+    drag.x = event.clientX;
+    drag.y = event.clientY;
+    if (Math.hypot(event.clientX - drag.ox, event.clientY - drag.oy) > 5) drag.moved = true;
+    interactDispatch({ type: "drag", dx, dy });
+  };
+
+  const onCharacterPointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = playDrag.current;
+    if (!drag || drag.id !== event.pointerId) return;
+    playDrag.current = null;
+    if (drag.moved) suppressCharacterClick.current = true;
+    const stage = event.currentTarget.closest(".studio-stage");
+    if (stage instanceof HTMLElement) delete stage.dataset.dragging;
+  };
+
+  const onCharacterClick = () => {
+    if (suppressCharacterClick.current) {
+      suppressCharacterClick.current = false;
+      return;
+    }
+    interactDispatch({ type: "character" });
   };
 
   const onViewportPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -919,7 +1144,11 @@ export function PersonalizePreviewShell({
             title={COPY.pathLabel}
             onClose={() => dispatch({ type: "left", open: false })}
           />
-          <StageNav state={state} onSelect={(id) => dispatch({ type: "stage", id })} />
+          <StageNav
+            state={state}
+            hasDrawing={hasDrawing}
+            onSelect={(id) => dispatch({ type: "stage", id })}
+          />
         </aside>
 
         <section className="studio-ws__center" aria-labelledby="studio-ws-title">
@@ -947,6 +1176,12 @@ export function PersonalizePreviewShell({
               transformMode={state.transformMode}
               drawingSrc={drawingSrc}
               showOriginalPage={state.showOriginalPage}
+              interaction={interaction}
+              onCharacterPointerDown={onCharacterPointerDown}
+              onCharacterPointerMove={onCharacterPointerMove}
+              onCharacterPointerUp={onCharacterPointerUp}
+              onCharacterClick={onCharacterClick}
+              onDecorActivate={() => interactDispatch({ type: "decor" })}
             />
 
             <div className="studio-ws__overlay-tools">{renderViewControls("overlay")}</div>
@@ -1037,6 +1272,16 @@ export function PersonalizePreviewShell({
           <p className="studio-ws__summary" aria-live="polite">
             {summary}
           </p>
+          <InteractionPanel
+            hasDrawing={hasDrawing}
+            enabled={interaction.enabled}
+            activeTarget={interaction.activeTarget}
+            reactionNonce={interaction.reactionNonce}
+            onToggle={() => interactDispatch({ type: "enable", enabled: !interaction.enabled })}
+            onZoom={(direction) => interactDispatch({ type: "zoom", direction })}
+            onNudge={(direction) => interactDispatch({ type: "nudge", direction })}
+            onReset={() => interactDispatch({ type: "reset" })}
+          />
         </section>
 
         <aside

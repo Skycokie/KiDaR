@@ -1,0 +1,107 @@
+/*
+ * Shared PLAY WITH / kidAR / STUDIO lockup.
+ * Light accent is the existing kiDAR primary #5b4fe0 (about 5.4:1 on #faf8f5).
+ * Dark surfaces use a lightened step of that same purple, #8d82ea
+ * (about 6.1:1 on #090b10). WITH and STUDIO stay on the existing muted ink.
+ */
+
+.kidar-wordmark {
+  --kidar-accent: #5b4fe0;
+  --kidar-muted: #4e4960;
+  --kidar-brand: #17172a;
+
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.16em;
+  max-width: 100%;
+  color: var(--kidar-brand);
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.landing .kidar-wordmark {
+  --kidar-accent: var(--accent, #5b4fe0);
+  --kidar-muted: var(--muted, #3e3954);
+  --kidar-brand: var(--ink, #17172a);
+}
+
+.auth-shell .kidar-wordmark {
+  --kidar-accent: var(--auth-accent, #5b4fe0);
+  --kidar-muted: var(--auth-muted, #4e4960);
+  --kidar-brand: var(--auth-ink, #17172a);
+}
+
+.studio-preview .kidar-wordmark,
+.studio-ws .kidar-wordmark,
+.creaza-preview .kidar-wordmark {
+  --kidar-accent: #8d82ea;
+  --kidar-muted: var(--muted, #c2bbb0);
+  --kidar-brand: var(--ink, #f2efe8);
+}
+
+.kidar-wordmark__eyebrow {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: nowrap;
+  gap: 0.28em;
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.kidar-wordmark__play {
+  color: var(--kidar-accent);
+}
+
+.kidar-wordmark__with,
+.kidar-wordmark__subtitle {
+  color: var(--kidar-muted);
+}
+
+.kidar-wordmark__name {
+  color: var(--kidar-brand);
+  font-size: 1.65rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+  text-transform: none;
+}
+
+.kidar-wordmark__subtitle {
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.kidar-wordmark--compact {
+  gap: 0.06em;
+}
+
+.kidar-wordmark--compact .kidar-wordmark__eyebrow {
+  gap: 0.22em;
+  font-size: 0.42rem;
+  letter-spacing: 0.16em;
+}
+
+.kidar-wordmark--compact .kidar-wordmark__name {
+  font-size: 0.95rem;
+}
+
+.kidar-wordmark--compact .kidar-wordmark__subtitle {
+  font-size: 0.42rem;
+  letter-spacing: 0.16em;
+}
+
+@media (max-width: 360px) {
+  .kidar-wordmark__eyebrow,
+  .kidar-wordmark__subtitle {
+    letter-spacing: 0.14em;
+  }
+}
