@@ -228,7 +228,7 @@ body:has(.landing) {
 
 .detective-hero__frame {
   position: absolute;
-  inset: 0 18px 68px 0;
+  inset: 0;
   overflow: hidden;
   border: 1px solid rgba(243, 239, 230, 0.16);
   border-radius: 30px;
@@ -259,22 +259,11 @@ body:has(.landing) {
   pointer-events: none;
 }
 
-.detective-cast {
-  position: absolute;
-  z-index: 3;
-  right: -2px;
-  bottom: 0;
-  left: 14px;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  align-items: end;
-  gap: 7px;
-}
-
 .detective-character {
   position: relative;
+  width: 140px;
+  height: 210px;
   min-width: 0;
-  height: 158px;
   cursor: pointer;
   filter: drop-shadow(0 16px 18px rgba(0, 0, 0, 0.32));
 }
@@ -303,18 +292,10 @@ body:has(.landing) {
 
 .detective-character__portrait {
   overflow: hidden;
-  border: 1px solid rgba(243, 239, 230, 0.2);
-  border-radius: 16px;
-  background: #fbf8f1;
-  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.24);
   transform: translateY(0) scale(1);
 }
 
 .detective-character__portrait img {
-  object-fit: cover;
-}
-
-.detective-character[data-character="detective-yellow-coat"] .detective-character__portrait img {
   object-fit: contain;
 }
 
@@ -343,7 +324,21 @@ body:has(.landing) {
 
 .detective-character[data-phase="ready"][data-reveal="out"] .detective-character__stage {
   opacity: 1;
-  transform: translateY(-20%) scale(1.82);
+  transform: translateY(-10%) scale(1.35);
+}
+
+.detective-character--hero {
+  position: absolute;
+  left: 52%;
+  bottom: 5%;
+  z-index: 4;
+  width: 112px;
+  height: 168px;
+  transform: translateX(-50%);
+}
+
+.detective-character--hero[data-phase="ready"][data-reveal="out"] .detective-character__stage {
+  transform: translateY(-8%) scale(1.45);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -645,10 +640,49 @@ body:has(.landing) {
 }
 
 .landing-rooster {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  position: relative;
+  width: min(100%, 760px);
+  min-height: 430px;
+  margin-inline: auto;
   margin-top: 28px;
+}
+
+.landing-rooster > .character-popout {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  z-index: 2;
+  translate: -50% 0;
+}
+
+.detective-companions {
+  position: absolute;
+  inset: 0;
+}
+
+.detective-character--red,
+.detective-character--purple,
+.detective-character--curly {
+  position: absolute;
+  z-index: 3;
+}
+
+.detective-character--red {
+  left: 2%;
+  bottom: 28px;
+  transform: rotate(-6deg);
+}
+
+.detective-character--purple {
+  left: 25%;
+  top: 4px;
+  transform: rotate(3deg);
+}
+
+.detective-character--curly {
+  right: 4%;
+  bottom: 42px;
+  transform: rotate(7deg);
 }
 
 .kidar-card--rooster {
@@ -986,27 +1020,52 @@ body:has(.landing) {
   }
 
   .detective-hero__frame {
-    right: 0;
-    bottom: 62px;
+    inset: 0;
     border-radius: 24px;
   }
 
-  .detective-cast {
-    right: 0;
+  .detective-character--hero {
+    left: 53%;
+    bottom: 7%;
+    width: 82px;
+    height: 126px;
+  }
+
+  .detective-character--hero[data-phase="ready"][data-reveal="out"] .detective-character__stage {
+    transform: translateY(-6%) scale(1.55);
+  }
+
+  .landing-rooster {
+    min-height: 470px;
+  }
+
+  .detective-character--red,
+  .detective-character--purple,
+  .detective-character--curly {
+    width: 108px;
+    height: 168px;
+  }
+
+  .detective-character--red {
     left: 0;
-    gap: 5px;
+    top: 118px;
+    bottom: auto;
   }
 
-  .detective-character {
-    height: 118px;
+  .detective-character--purple {
+    left: 50%;
+    top: 8px;
+    transform: translateX(-50%) rotate(3deg);
   }
 
-  .detective-character__portrait {
-    border-radius: 12px;
+  .detective-character--curly {
+    right: 0;
+    top: 126px;
+    bottom: auto;
   }
 
-  .detective-character[data-phase="ready"][data-reveal="out"] .detective-character__stage {
-    transform: translateY(-22%) scale(1.95);
+  .detective-companions .detective-character[data-phase="ready"][data-reveal="out"] .detective-character__stage {
+    transform: translateY(-12%) scale(1.5);
   }
 
   .landing h1,
@@ -1089,7 +1148,7 @@ body:has(.landing) {
 
   .landing-process {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 240px;
+    grid-template-columns: minmax(0, 1fr);
     align-items: start;
   }
 
@@ -1104,9 +1163,9 @@ body:has(.landing) {
   }
 
   .landing-rooster {
-    grid-column: 2;
-    grid-row: 1;
-    margin-top: 0;
+    grid-column: 1 / -1;
+    grid-row: auto;
+    margin-top: 42px;
   }
 
   .kidar-card--rooster {

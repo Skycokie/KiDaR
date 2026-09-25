@@ -5,9 +5,9 @@ import dynamic from "next/dynamic";
 import Image, { type StaticImageData } from "next/image";
 import detectiveStory from "./art/detective-story.jpg";
 import detectiveYellowCoat from "./art/detective-yellow-coat.webp";
-import detectiveRedHairedBoy from "./art/detective-red-haired-boy.png";
-import detectivePurpleGirl from "./art/detective-purple-girl.png";
-import detectiveCurlyBoy from "./art/detective-curly-boy.png";
+import detectiveRedHairedBoy from "./art/detective-red-haired-boy-cutout.png";
+import detectivePurpleGirl from "./art/detective-purple-girl-cutout.png";
+import detectiveCurlyBoy from "./art/detective-curly-boy-cutout.png";
 import rooster from "./art/rooster.png";
 import { CharacterPopout, type PopoutVariant } from "./character-popout";
 import { HOMEPAGE_DEMO_CHARACTERS, type HomepageCharacterDemo } from "./homepage-character-assets";
@@ -95,24 +95,10 @@ export function DrawingScene() {
           sizes="(max-width: 899px) 92vw, 500px"
         />
         <div className="detective-hero__shine" />
-      </div>
-
-      <div className="detective-cast">
-        <DetectiveCharacter
-          src={detectiveRedHairedBoy}
-          demo={HOMEPAGE_DEMO_CHARACTERS.detectiveRedHairedBoy}
-        />
-        <DetectiveCharacter
-          src={detectivePurpleGirl}
-          demo={HOMEPAGE_DEMO_CHARACTERS.detectivePurpleGirl}
-        />
-        <DetectiveCharacter
-          src={detectiveCurlyBoy}
-          demo={HOMEPAGE_DEMO_CHARACTERS.detectiveCurlyBoy}
-        />
         <DetectiveCharacter
           src={detectiveYellowCoat}
           demo={HOMEPAGE_DEMO_CHARACTERS.detectiveYellowCoat}
+          className="detective-character--hero"
         />
       </div>
     </div>
@@ -121,17 +107,19 @@ export function DrawingScene() {
 
 function DetectiveCharacter({
   src,
-  demo
+  demo,
+  className = ""
 }: {
   src: StaticImageData;
   demo: HomepageCharacterDemo;
+  className?: string;
 }) {
   const { state, activate, onReady, onFallback, onSpinDone } = usePopoutInteraction();
   const active = state.phase === "playing" || state.phase === "loading";
 
   return (
     <div
-      className="detective-character"
+      className={`detective-character ${className}`}
       data-phase={popoutDisplayPhase(state)}
       data-reveal={state.reveal}
       data-character={demo.id}
@@ -161,6 +149,23 @@ function DetectiveCharacter({
 export function LandingRooster() {
   return (
     <div className="landing-rooster">
+      <div className="detective-companions">
+        <DetectiveCharacter
+          src={detectiveRedHairedBoy}
+          demo={HOMEPAGE_DEMO_CHARACTERS.detectiveRedHairedBoy}
+          className="detective-character--red"
+        />
+        <DetectiveCharacter
+          src={detectivePurpleGirl}
+          demo={HOMEPAGE_DEMO_CHARACTERS.detectivePurpleGirl}
+          className="detective-character--purple"
+        />
+        <DetectiveCharacter
+          src={detectiveCurlyBoy}
+          demo={HOMEPAGE_DEMO_CHARACTERS.detectiveCurlyBoy}
+          className="detective-character--curly"
+        />
+      </div>
       <CharacterPaperCard
         src={rooster}
         variant="rooster"
