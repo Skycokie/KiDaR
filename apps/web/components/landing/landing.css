@@ -58,21 +58,44 @@ body:has(.landing) {
 .landing-wrap {
   position: relative;
   z-index: 1;
-  width: min(1080px, 100%);
+  width: min(1160px, 100%);
   margin: 0 auto;
-  padding: 28px 20px 64px;
+  padding: 24px 20px 72px;
+}
+
+.landing-masthead {
+  position: relative;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  min-height: 68px;
+  padding-bottom: 12px;
+}
+
+.landing-masthead .locale-switcher {
+  grid-column: 1;
+  justify-self: start;
+}
+
+.landing-masthead .kidar-wordmark {
+  grid-column: 2;
+  justify-self: center;
+  transform: scale(1.08);
+  transform-origin: center;
 }
 
 .landing-hero {
   display: grid;
-  gap: 28px;
+  gap: 36px;
   align-items: center;
+  padding-top: 20px;
 }
 
 .landing-copy {
   display: grid;
-  gap: 14px;
-  max-width: 38rem;
+  gap: 18px;
+  max-width: 39rem;
 }
 
 .landing h1,
@@ -86,7 +109,9 @@ body:has(.landing) {
 }
 
 .landing h1 {
-  font-size: clamp(2.05rem, 8vw, 4.4rem);
+  max-width: 11ch;
+  font-size: clamp(2.7rem, 7vw, 4.75rem);
+  line-height: 0.98;
 }
 
 .landing h2 {
@@ -95,9 +120,10 @@ body:has(.landing) {
 
 .landing-lead {
   margin: 0;
-  max-width: 36rem;
+  max-width: 32rem;
   color: var(--muted);
-  font-size: 1.08rem;
+  font-size: clamp(1rem, 1.6vw, 1.16rem);
+  line-height: 1.6;
 }
 
 .landing-credit {
@@ -109,16 +135,16 @@ body:has(.landing) {
 .landing-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 6px;
+  gap: 14px;
+  margin-top: 4px;
 }
 
 .landing-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
-  padding: 12px 18px;
+  min-height: 52px;
+  padding: 13px 22px;
   border-radius: 999px;
   font: inherit;
   font-weight: 700;
@@ -126,17 +152,36 @@ body:has(.landing) {
   overflow-wrap: anywhere;
   text-align: center;
   text-decoration: none;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
 }
 
 .landing-btn--primary {
   background: linear-gradient(135deg, var(--warm), #e07a5f);
   color: #1a120e;
+  box-shadow: 0 12px 30px rgba(224, 122, 95, 0.2);
 }
 
 .landing-btn--secondary {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.025);
   color: var(--ink);
   box-shadow: inset 0 0 0 1.5px rgba(243, 239, 230, 0.28);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .landing-btn:hover {
+    transform: translateY(-2px);
+  }
+
+  .landing-btn--primary:hover {
+    box-shadow: 0 16px 36px rgba(224, 122, 95, 0.28);
+  }
+
+  .landing-btn--secondary:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
 }
 
 .kidar-scene {
@@ -147,6 +192,291 @@ body:has(.landing) {
   height: auto;
   margin-inline: auto;
   pointer-events: none;
+}
+
+.kidar-scene::before {
+  content: "";
+  position: absolute;
+  inset: 10% 4% 6%;
+  z-index: -1;
+  border-radius: 48%;
+  background:
+    radial-gradient(circle at 50% 44%, rgba(141, 130, 234, 0.13), transparent 58%),
+    radial-gradient(circle at 70% 68%, rgba(232, 160, 90, 0.11), transparent 48%);
+  filter: blur(18px);
+  pointer-events: none;
+}
+
+.detective-hero {
+  --detective-px: 0;
+  --detective-py: 0;
+  position: relative;
+  width: min(100%, 510px);
+  height: 570px;
+  margin-inline: auto;
+  isolation: isolate;
+}
+
+.detective-hero__glow {
+  position: absolute;
+  inset: 8% -5% 4% 4%;
+  z-index: -1;
+  border-radius: 45%;
+  background:
+    radial-gradient(circle at 54% 46%, rgba(232, 160, 90, 0.2), transparent 58%),
+    radial-gradient(circle at 78% 70%, rgba(141, 130, 234, 0.18), transparent 50%);
+  filter: blur(28px);
+}
+
+.detective-hero__frame {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border: 1px solid rgba(243, 239, 230, 0.16);
+  border-radius: 30px;
+  background: #19151c;
+  box-shadow:
+    0 34px 80px rgba(0, 0, 0, 0.42),
+    0 0 0 8px rgba(255, 255, 255, 0.025);
+}
+
+.detective-hero__image {
+  object-fit: cover;
+  object-position: center 42%;
+  transform:
+    scale(1.045)
+    translate(
+      calc(var(--detective-px) * -10px),
+      calc(var(--detective-py) * -8px)
+    );
+  transition: transform 0.22s ease-out;
+}
+
+.detective-hero__shine {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.09), transparent 30%),
+    linear-gradient(to top, rgba(9, 11, 16, 0.18), transparent 34%);
+  pointer-events: none;
+}
+
+.starlit-emerge {
+  position: absolute;
+  z-index: 3;
+  inset: 1% -2% -16% -2%;
+  opacity: 0;
+  transform: translateY(10%) scale(0.94);
+  filter: saturate(0.86) brightness(0.92);
+  transition:
+    opacity 1.6s ease,
+    transform 3.6s cubic-bezier(0.16, 0.84, 0.28, 1),
+    filter 3.6s ease;
+}
+
+.detective-hero[data-starlit="emerging"] .starlit-emerge,
+.detective-hero[data-starlit="out"] .starlit-emerge {
+  opacity: 1;
+  transform: translateY(-9%) scale(1.14);
+  filter:
+    drop-shadow(0 26px 18px rgba(12, 8, 16, 0.48))
+    saturate(1.06)
+    brightness(1.03);
+}
+
+.detective-hero[data-starlit="out"] .starlit-emerge {
+  cursor: default;
+}
+
+.detective-hero[data-starlit="returning"] .starlit-emerge {
+  opacity: 0;
+  transform: translateY(10%) scale(0.94);
+  transition:
+    opacity 0.6s ease,
+    transform 0.7s ease-in,
+    filter 0.7s ease;
+}
+
+.starlit-emerge__stage,
+.starlit-emerge__canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.starlit-emerge__canvas {
+  display: block;
+}
+
+.starlit-emerge__glow {
+  position: absolute;
+  inset: 14% 12% 10%;
+  z-index: -1;
+  border-radius: 46%;
+  background: radial-gradient(circle at 50% 58%, rgba(255, 188, 96, 0.55), transparent 68%);
+  opacity: 0;
+  filter: blur(22px);
+  transition: opacity 2.4s ease 0.35s;
+}
+
+.detective-hero[data-starlit="emerging"] .starlit-emerge__glow,
+.detective-hero[data-starlit="out"] .starlit-emerge__glow {
+  opacity: 1;
+}
+
+.detective-hero[data-starlit="emerging"] .detective-character--hero,
+.detective-hero[data-starlit="out"] .detective-character--hero,
+.detective-hero[data-starlit="returning"] .detective-character--hero {
+  opacity: 0;
+  transition: opacity 0.9s ease 0.45s;
+}
+
+.detective-hero__reveal {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.detective-hero__hero-hit {
+  position: absolute;
+  z-index: 7;
+  left: 50%;
+  bottom: 4%;
+  width: 148px;
+  height: 190px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  transform: translateX(-50%);
+  cursor: pointer;
+}
+
+.detective-hero__return {
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.detective-hero__reveal:focus-visible,
+.detective-hero__hero-hit:focus-visible,
+.detective-hero__return:focus-visible {
+  outline: 2px solid #ffd9a0;
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .starlit-emerge,
+  .detective-hero[data-starlit="emerging"] .starlit-emerge,
+  .detective-hero[data-starlit="out"] .starlit-emerge,
+  .detective-hero[data-starlit="returning"] .starlit-emerge,
+  .starlit-emerge__glow,
+  .detective-hero[data-starlit="emerging"] .detective-character--hero,
+  .detective-hero[data-starlit="out"] .detective-character--hero,
+  .detective-hero[data-starlit="returning"] .detective-character--hero {
+    transition: none;
+  }
+
+  .detective-hero[data-starlit="emerging"] .starlit-emerge,
+  .detective-hero[data-starlit="out"] .starlit-emerge {
+    transform: translateY(-4%) scale(1.04);
+    filter: none;
+  }
+}
+
+.detective-character {
+  position: relative;
+  width: 140px;
+  height: 210px;
+  min-width: 0;
+  cursor: pointer;
+  filter: drop-shadow(0 16px 18px rgba(0, 0, 0, 0.32));
+}
+
+.detective-character::after {
+  content: "";
+  position: absolute;
+  left: 17%;
+  right: 12%;
+  bottom: 0;
+  height: 14px;
+  z-index: -1;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.4);
+  filter: blur(9px);
+}
+
+.detective-character__portrait,
+.detective-character__stage {
+  position: absolute;
+  inset: 0;
+  transition:
+    opacity 0.35s ease,
+    transform 0.6s cubic-bezier(0.22, 0.8, 0.28, 1);
+}
+
+.detective-character__portrait {
+  overflow: hidden;
+  transform: translateY(0) scale(1);
+}
+
+.detective-character__portrait img {
+  object-fit: contain;
+}
+
+.detective-character__stage {
+  z-index: 2;
+  opacity: 0;
+  transform: translateY(32%) scale(0.48);
+  transform-origin: center 82%;
+  pointer-events: none;
+}
+
+.detective-character__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.detective-character[data-reveal="out"] {
+  z-index: 5;
+}
+
+.detective-character[data-reveal="out"] .detective-character__portrait {
+  opacity: 0;
+  transform: translateY(12%) scale(0.78);
+}
+
+.detective-character[data-phase="ready"][data-reveal="out"] .detective-character__stage {
+  opacity: 1;
+  transform: translateY(-10%) scale(1.35);
+}
+
+.detective-character--hero {
+  position: absolute;
+  left: 52%;
+  bottom: 5%;
+  z-index: 4;
+  width: 112px;
+  height: 168px;
+  transform: translateX(-50%);
+}
+
+.detective-character--hero[data-phase="ready"][data-reveal="out"] .detective-character__stage {
+  transform: translateY(-8%) scale(1.45);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .detective-character:hover .detective-character__portrait {
+    transform: translateY(-6px) scale(1.035);
+  }
 }
 
 .kidar-scene.can-parallax {
@@ -173,6 +503,11 @@ body:has(.landing) {
   width: min(100%, var(--popout-w));
   height: calc(var(--figure-h) + var(--source-w) - var(--overlap));
   max-width: 100%;
+  cursor: pointer;
+}
+
+.character-popout[data-phase="failed"] {
+  cursor: default;
 }
 
 .character-popout--red-dress {
@@ -230,6 +565,10 @@ body:has(.landing) {
     0 14px 30px rgb(24 25 48 / 0.12),
     0 3px 8px rgb(24 25 48 / 0.08);
   overflow: hidden;
+  transition:
+    transform 0.28s ease,
+    box-shadow 0.28s ease,
+    opacity 0.35s ease;
 }
 
 .character-popout__source img {
@@ -237,6 +576,15 @@ body:has(.landing) {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .character-popout:hover .character-popout__source {
+    transform: rotate(var(--popout-tilt)) perspective(700px) rotateX(2deg) translateY(-4px);
+    box-shadow:
+      0 20px 42px rgb(0 0 0 / 0.24),
+      0 0 0 1px rgba(232, 160, 90, 0.2);
+  }
 }
 
 .character-popout__shadow {
@@ -277,23 +625,7 @@ body:has(.landing) {
   place-items: end center;
 }
 
-.character-popout__sticker {
-  position: absolute;
-  inset-inline: 0;
-  bottom: 0;
-  display: block;
-  width: auto;
-  height: 100%;
-  max-width: 100%;
-  max-height: 100%;
-  margin-inline: auto;
-  pointer-events: none;
-}
-
-.character-popout[data-phase="ready"] .character-popout__sticker {
-  opacity: 0;
-}
-
+/* No suspended PNG sticker. GLB rises from the card only while reveal is out. */
 .character-popout .landing-character__stage,
 .character-popout .landing-rooster__stage {
   position: absolute;
@@ -301,6 +633,17 @@ body:has(.landing) {
   height: 100%;
   max-height: 100%;
   opacity: 0;
+  pointer-events: none;
+  transform: translateY(78%) scale(0.42);
+  transform-origin: center 80%;
+  transition:
+    transform 0.7s cubic-bezier(0.22, 0.8, 0.28, 1),
+    opacity 0.4s ease;
+}
+
+.character-popout[data-reveal="out"] .character-popout__source {
+  opacity: 0.55;
+  transition: opacity 0.35s ease;
 }
 
 .character-popout .landing-character__canvas,
@@ -308,29 +651,7 @@ body:has(.landing) {
   width: 100%;
   height: 100%;
   max-height: 100%;
-}
-
-.character-popout .landing-rooster__canvas,
-.character-popout .landing-rooster__canvas:active {
-  cursor: pointer;
-}
-
-.character-popout .landing-character__stage {
   pointer-events: none;
-}
-
-.character-popout[data-phase="ready"] {
-  cursor: pointer;
-}
-
-.character-popout[data-phase="ready"] .landing-character__stage,
-.character-popout[data-phase="ready"] .landing-rooster__stage {
-  opacity: 0;
-  transform: translateY(78%) scale(0.42);
-  transform-origin: center 80%;
-  transition:
-    transform 0.7s cubic-bezier(0.22, 0.8, 0.28, 1),
-    opacity 0.4s ease;
 }
 
 .character-popout--red-dress[data-phase="ready"][data-reveal="out"] .landing-character__stage {
@@ -451,10 +772,139 @@ body:has(.landing) {
 }
 
 .landing-rooster {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  position: relative;
+  width: min(100%, 760px);
+  min-height: 430px;
+  margin-inline: auto;
   margin-top: 28px;
+}
+
+.landing-rooster > .character-popout {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  z-index: 2;
+  translate: -50% 0;
+}
+
+.detective-companions {
+  position: absolute;
+  inset: 0;
+}
+
+.detective-character--red,
+.detective-character--purple,
+.detective-character--curly {
+  position: absolute;
+  z-index: 3;
+}
+
+.detective-character--red {
+  left: 2%;
+  bottom: 28px;
+  transform: rotate(-6deg);
+}
+
+.detective-character--purple {
+  left: 25%;
+  top: 4px;
+  transform: rotate(3deg);
+}
+
+.detective-character--curly {
+  right: 4%;
+  bottom: 42px;
+  transform: rotate(7deg);
+}
+
+.landing-rooster[data-celebrating="true"] .detective-character--red .detective-character__portrait {
+  animation: detective-celebrate 0.72s ease-in-out 0s 3;
+}
+
+.landing-rooster[data-celebrating="true"] .detective-character--purple .detective-character__portrait {
+  animation: detective-celebrate 0.72s ease-in-out 0.1s 3;
+}
+
+.landing-rooster[data-celebrating="true"] .detective-character--curly .detective-character__portrait {
+  animation: detective-celebrate 0.72s ease-in-out 0.2s 3;
+}
+
+.celebration-fireworks {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.celebration-firework {
+  position: absolute;
+  left: var(--firework-left);
+  top: var(--firework-top);
+  width: 1px;
+  height: 1px;
+}
+
+.celebration-firework::before {
+  content: "";
+  position: absolute;
+  inset: -34px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 246, 194, 0.75), transparent 66%);
+  opacity: 0;
+  animation: firework-flash 1.25s ease-out var(--firework-delay) both;
+}
+
+.celebration-firework i {
+  --particle-angle: 0deg;
+  --particle-distance: 100px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 9px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--particle-color);
+  box-shadow: 0 0 14px var(--particle-color);
+  transform-origin: center;
+  opacity: 0;
+  animation: firework-particle 1.55s cubic-bezier(0.15, 0.7, 0.25, 1) var(--firework-delay) both;
+}
+
+@keyframes detective-celebrate {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  35% { transform: translateY(-18px) rotate(-4deg) scale(1.06); }
+  65% { transform: translateY(-7px) rotate(4deg) scale(1.03); }
+}
+
+@keyframes firework-flash {
+  0%, 12% { opacity: 0; transform: scale(0.2); }
+  22% { opacity: 1; transform: scale(1); }
+  75%, 100% { opacity: 0; transform: scale(1.8); }
+}
+
+@keyframes firework-particle {
+  0%, 12% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--particle-angle)) translateY(0) scaleY(0.25);
+  }
+  22% { opacity: 1; }
+  72% {
+    opacity: 0.95;
+    transform:
+      translate(-50%, -50%)
+      rotate(var(--particle-angle))
+      translateY(calc(var(--particle-distance) * -1))
+      scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    transform:
+      translate(-50%, -50%)
+      rotate(var(--particle-angle))
+      translateY(calc((var(--particle-distance) + 38px) * -1))
+      scaleY(0.2);
+  }
 }
 
 .kidar-card--rooster {
@@ -590,7 +1040,7 @@ body:has(.landing) {
     animation: popout-shadow 7.5s ease-in-out 0.85s infinite;
   }
 
-  .character-popout[data-phase="ready"] .character-popout__actor {
+  .character-popout[data-reveal="out"] .character-popout__actor {
     animation: popout-rise 0.85s ease both;
   }
 
@@ -645,7 +1095,7 @@ body:has(.landing) {
 }
 
 @media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
-  .kidar-scene.can-parallax .character-popout--red-dress:not([data-phase="ready"]) .character-popout__actor {
+  .kidar-scene.can-parallax .character-popout--red-dress:not([data-reveal="out"]) .character-popout__actor {
     animation: popout-rise 0.85s ease both, popout-float-parallax 7.5s ease-in-out 0.85s infinite;
   }
 }
@@ -767,6 +1217,123 @@ body:has(.landing) {
 }
 
 @media (max-width: 699px) {
+  .landing-masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 18px;
+  }
+
+  .landing-masthead .kidar-wordmark {
+    order: -1;
+  }
+
+  .landing-masthead .locale-switcher {
+    justify-content: center;
+  }
+
+  .landing-copy {
+    text-align: center;
+  }
+
+  .detective-hero {
+    height: 500px;
+    margin-top: 8px;
+  }
+
+  .detective-hero__frame {
+    inset: 0;
+    border-radius: 24px;
+  }
+
+  .detective-character--hero {
+    left: 53%;
+    bottom: 7%;
+    width: 82px;
+    height: 126px;
+  }
+
+  .detective-character--hero[data-phase="ready"][data-reveal="out"] .detective-character__stage {
+    transform: translateY(-6%) scale(1.55);
+  }
+
+.landing-discovery {
+  position: relative;
+  width: min(100%, 620px);
+  margin: 26px auto 0;
+  isolation: isolate;
+}
+
+.landing-discovery__glow {
+  position: absolute;
+  inset: 6% -4% -2%;
+  z-index: -1;
+  border-radius: 45%;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(255, 188, 96, 0.22), transparent 58%),
+    radial-gradient(circle at 74% 68%, rgba(141, 130, 234, 0.16), transparent 52%);
+  filter: blur(26px);
+}
+
+.landing-discovery__frame {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(243, 239, 230, 0.16);
+  border-radius: 28px;
+  background: #19151c;
+  box-shadow:
+    0 30px 70px rgba(0, 0, 0, 0.4),
+    0 0 0 8px rgba(255, 255, 255, 0.025);
+}
+
+.landing-discovery__shine {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent 32%),
+    linear-gradient(to top, rgba(9, 11, 16, 0.16), transparent 32%);
+  pointer-events: none;
+}
+
+.landing-rooster {
+  min-height: 470px;
+  }
+
+  .detective-character--red,
+  .detective-character--purple,
+  .detective-character--curly {
+    width: 108px;
+    height: 168px;
+  }
+
+  .detective-character--red {
+    left: 0;
+    top: 118px;
+    bottom: auto;
+  }
+
+  .detective-character--purple {
+    left: 50%;
+    top: 8px;
+    transform: translateX(-50%) rotate(3deg);
+  }
+
+  .detective-character--curly {
+    right: 0;
+    top: 126px;
+    bottom: auto;
+  }
+
+  .detective-companions .detective-character[data-phase="ready"][data-reveal="out"] .detective-character__stage {
+    transform: translateY(-12%) scale(1.5);
+  }
+
+  .landing h1,
+  .landing-lead,
+  .landing-credit {
+    margin-inline: auto;
+  }
+
   .landing-actions {
     display: grid;
   }
@@ -782,13 +1349,13 @@ body:has(.landing) {
 
 @media (min-width: 900px) {
   .landing-wrap {
-    padding: 48px 32px 96px;
+    padding: 30px 36px 104px;
   }
 
   .landing-hero {
-    grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
-    gap: 40px;
-    min-height: calc(100dvh - 48px);
+    grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
+    gap: clamp(44px, 6vw, 76px);
+    min-height: calc(100dvh - 118px);
   }
 
   .kidar-scene {
@@ -841,7 +1408,7 @@ body:has(.landing) {
 
   .landing-process {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 240px;
+    grid-template-columns: minmax(0, 1fr);
     align-items: start;
   }
 
@@ -856,9 +1423,9 @@ body:has(.landing) {
   }
 
   .landing-rooster {
-    grid-column: 2;
-    grid-row: 1;
-    margin-top: 0;
+    grid-column: 1 / -1;
+    grid-row: auto;
+    margin-top: 42px;
   }
 
   .kidar-card--rooster {
@@ -895,6 +1462,17 @@ body:has(.landing) {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .celebration-fireworks {
+    display: none;
+  }
+
+  .landing-rooster[data-celebrating="true"] .detective-character__portrait {
+    animation: none;
+  }
+
+  .detective-hero__image,
+  .detective-character__portrait,
+  .detective-character__stage,
   .landing-step,
   .kidar-card--hero,
   .kidar-card--arms,
