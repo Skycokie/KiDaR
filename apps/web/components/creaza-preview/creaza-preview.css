@@ -233,16 +233,18 @@
 }
 
 .creaza-door__art {
-  min-height: 10rem;
+  min-height: 12rem;
   overflow: hidden;
+  background: #efe6d4;
 }
 
 .creaza-door__art .creaza-art {
   display: block;
   width: 100%;
   height: 100%;
-  min-height: 10rem;
+  min-height: 12rem;
   object-fit: cover;
+  object-position: center;
 }
 
 .creaza-door__copy {
