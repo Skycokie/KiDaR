@@ -33,15 +33,20 @@ export const COPY = {
   publishBack: "Înapoi în Studio",
   seeInAr: "Vezi în AR",
   seeInArPreparing: "AR în pregătire",
-  arPreviewNote:
-    "Previzualizare 2D locală pe acest ecran — fără cameră, fără tracking și fără publicare.",
-  arCardCaption: "Previzualizare 2D locală",
+  seeSceneInAr: "Vezi scena în AR",
+  sceneHeading: "Vezi scena în lumea ta",
+  sceneBody: "Aici vei putea vedea personajul, decorul și lumina alese direct în spațiul tău.",
+  sceneExplanation: "Scena 3D va deveni disponibilă după generare și review-ul de calitate.",
+  sceneHelper: "Momentan este disponibilă doar previzualizarea locală.",
+  sceneLocalLabel: "Previzualizare locală — scena nu este încă disponibilă în AR.",
+  arCardCaption: "Previzualizare locală",
   arCardEmpty: "Cadru demonstrativ",
   emptyDrawing: "Ca să personalizezi previzualizarea, adaugă o poză sau un desen din Atelier.",
   drawingReady: "Desenul salvat din Atelier e pe scenă. Continuă ca să ridici personajul din hârtie.",
   demoPreview: "Previzualizare demonstrativă",
   figurineDemo: "Previzualizare locală. Nu s-a generat o figurină 3D.",
   noDecor: "Fără decor",
+  decorHint: "Apasă din nou pentru încă unul. Trage pe scenă ca să-l muți.",
   paletteSection: "Culori",
   lightingSection: "Lumină",
   ideaLabel: "Ideea ta pentru figurină",
@@ -56,6 +61,18 @@ export const COPY = {
   ideaReset: "Resetează ideea",
   ideaEmpty: "Scrie întâi o idee pentru previzualizare.",
   ideaNeedsDrawing: "Adaugă o poză sau un desen ca să aplici o idee în previzualizare.",
+  contextHeading: "Construiește povestea scenei",
+  contextSupport: "Spune unde este personajul, ce face și cum vrei să se simtă scena.",
+  contextFieldLabel: "Scrie povestea ta",
+  contextPlaceholder: "Personajul meu plutește printre stele, salută și spune «Bună!».",
+  contextApply: "Aplică povestea în previzualizare",
+  contextReset: "Șterge povestea",
+  contextSuggestions: "Încearcă un context",
+  contextHonest: "Contextul schimbă doar previzualizarea locală. Nu generează încă o scenă 3D.",
+  contextEmpty: "Scrie întâi o poveste pentru previzualizare.",
+  contextPreserve: "Am păstrat setările existente. Poți ajusta povestea sau alegerile din Studio.",
+  contextNeedsDrawing: "Adaugă un desen ca să construiești povestea scenei.",
+  contextPreviewTitle: "Previzualizare locală a poveștii",
   interactTitle: "Interacțiuni",
   interactSubtitle: "Joacă-te cu scena",
   interactIntro: "Poți explora previzualizarea fără să schimbi alegerile scenei.",
@@ -120,6 +137,7 @@ export type StudioStageId =
   | "aspect"
   | "miscare"
   | "decor"
+  | "context"
   | "testeaza";
 
 export type TransformModeId = "popout" | "figurine";
@@ -143,6 +161,7 @@ export const STAGES: ChoiceOption<StudioStageId>[] = [
   { id: "aspect", label: "Aspect", hint: "Lumină și culoare" },
   { id: "miscare", label: "Mișcare", hint: "Dă viață" },
   { id: "decor", label: "Decor", hint: "Așază în lume" },
+  { id: "context", label: "Context", hint: "Construiește povestea" },
   { id: "testeaza", label: "AR", hint: "Previzualizare locală" }
 ];
 

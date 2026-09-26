@@ -19,7 +19,24 @@ import {
   type StylePresetId,
   type TransformModeId
 } from "./fixtures";
-import { interpretIdeaPrompt, limitIdeaPrompt, type IdeaPromptResult } from "./idea-prompt";
+import { getMessages } from "@/i18n/get-messages";
+import { interpretIdeaPrompt, limitIdeaPrompt, type IdeaPromptResult, type PromptLanguage } from "./idea-prompt";
+import {
+  emptySceneContext,
+  limitContextStory,
+  parseSceneContext,
+  trimContextStory,
+  type SceneContext
+} from "./scene-context";
+
+export type DecorInstance = {
+  key: string;
+  id: DecorId;
+  /** Horizontal position on the stage, 0–100. */
+  x: number;
+  /** Vertical position on the stage, 0–100. */
+  y: number;
+};
 
 export type PersonalizeState = {
   stage: StudioStageId;
@@ -35,7 +52,7 @@ export type PersonalizeState = {
   light: number;
   shadow: number;
   animation: AnimationId;
-  decor: DecorId[];
+  decor: DecorInstance[];
   cameraPreset: CameraPresetId;
   gridOn: boolean;
   zoom: number;
@@ -56,6 +73,11 @@ export type PersonalizeState = {
   ideaPrompt: string;
   ideaResult: IdeaPromptResult | null;
   ideaNotice: string | null;
+  /** Draft story in the Context step textarea. */
+  contextStory: string;
+  /** Applied local SceneContext. Never sent to a provider. */
+  context: SceneContext;
+  contextNotice: string | null;
 };
 
 const STYLE_CYCLE: StylePresetId[] = ["preserve", "clay", "painted"];
@@ -133,12 +155,65 @@ export function createInitialPersonalizeState(): PersonalizeState {
     publishOpen: false,
     ideaPrompt: "",
     ideaResult: null,
-    ideaNotice: null
+    ideaNotice: null,
+    contextStory: "",
+    context: emptySceneContext(),
+    contextNotice: null
   };
 }
 
 function clamp(value: number, min = 0, max = 100): number {
   return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+const DECOR_MAX = 16;
+
+const DECOR_HOME: Record<DecorId, { x: number; y: number }> = {
+  cloud: { x: 20, y: 16 },
+  stars: { x: 74, y: 14 },
+  grass: { x: 28, y: 82 },
+  tree: { x: 78, y: 68 },
+  house: { x: 18, y: 64 },
+  planet: { x: 50, y: 20 },
+  balloons: { x: 82, y: 30 }
+};
+
+let decorKeyCounter = 0;
+
+export function createDecorInstance(id: DecorId, index = 0): DecorInstance {
+  decorKeyCounter += 1;
+  const home = DECOR_HOME[id];
+  const drift = index % 5;
+  return {
+    key: `decor-${decorKeyCounter}`,
+    id,
+    x: clamp(home.x + drift * 7 + (index > 4 ? 4 : 0), 8, 92),
+    y: clamp(home.y + (drift % 3) * 6 - (index > 4 ? 4 : 0), 8, 90)
+  };
+}
+
+export function addDecorInstance(state: PersonalizeState, id: DecorId): PersonalizeState {
+  if (state.decor.length >= DECOR_MAX) return state;
+  const index = state.decor.filter((item) => item.id === id).length;
+  return { ...state, decor: [...state.decor, createDecorInstance(id, index)] };
+}
+
+export function moveDecorInstance(
+  state: PersonalizeState,
+  key: string,
+  x: number,
+  y: number
+): PersonalizeState {
+  return {
+    ...state,
+    decor: state.decor.map((item) =>
+      item.key === key ? { ...item, x: clamp(x, 4, 96), y: clamp(y, 4, 96) } : item
+    )
+  };
+}
+
+export function clearDecor(state: PersonalizeState): PersonalizeState {
+  return { ...state, decor: [] };
 }
 
 function withCompleted(state: PersonalizeState, stage: StudioStageId): StudioStageId[] {
@@ -237,19 +312,24 @@ export function setDecorSelection(
   state: PersonalizeState,
   decor: DecorId | "none"
 ): PersonalizeState {
-  return { ...state, decor: decor === "none" ? [] : [decor] };
+  if (decor === "none") return clearDecor(state);
+  return addDecorInstance(state, decor);
 }
 
 export function setIdeaPrompt(state: PersonalizeState, value: string): PersonalizeState {
   return { ...state, ideaPrompt: limitIdeaPrompt(value), ideaNotice: null };
 }
 
-export function applyIdeaPrompt(state: PersonalizeState, raw: string): PersonalizeState {
+export function applyIdeaPrompt(
+  state: PersonalizeState,
+  raw: string,
+  locale: PromptLanguage = "ro"
+): PersonalizeState {
   const text = limitIdeaPrompt(raw);
   if (!text.trim()) {
-    return { ...state, ideaPrompt: text, ideaNotice: COPY.ideaEmpty };
+    return { ...state, ideaPrompt: text, ideaNotice: getMessages(locale).prompt.empty };
   }
-  const ideaResult = interpretIdeaPrompt(text);
+  const ideaResult = interpretIdeaPrompt(text, locale);
   if (!ideaResult.recognized) {
     return { ...state, ideaPrompt: text, ideaResult, ideaNotice: null };
   }
@@ -259,7 +339,7 @@ export function applyIdeaPrompt(state: PersonalizeState, raw: string): Personali
     ideaResult,
     ideaNotice: null,
     animation: ideaResult.motion ?? state.animation,
-    decor: ideaResult.decor ? [ideaResult.decor] : state.decor,
+    decor: ideaResult.decor ? [createDecorInstance(ideaResult.decor)] : state.decor,
     palette: ideaResult.palette ?? state.palette,
     lighting: ideaResult.lighting ?? state.lighting,
     originalColors:
@@ -272,12 +352,54 @@ export function resetIdeaPrompt(state: PersonalizeState): PersonalizeState {
   return { ...state, ideaPrompt: "", ideaResult: null, ideaNotice: null };
 }
 
-export function toggleDecor(state: PersonalizeState, decorId: DecorId): PersonalizeState {
-  const has = state.decor.includes(decorId);
+export function setContextStory(state: PersonalizeState, value: string): PersonalizeState {
+  return { ...state, contextStory: limitContextStory(value), contextNotice: null };
+}
+
+/**
+ * Apply Context story locally. Updates only recognized Studio categories.
+ * Unrecognized text preserves existing selections.
+ */
+export function applyContextStory(state: PersonalizeState, raw: string): PersonalizeState {
+  const text = trimContextStory(raw);
+  if (!text) {
+    return { ...state, contextStory: limitContextStory(raw), contextNotice: COPY.contextEmpty };
+  }
+  const parsed = parseSceneContext(text);
+  if (!parsed.recognizedStudio) {
+    return {
+      ...state,
+      contextStory: text,
+      context: parsed.context,
+      contextNotice: COPY.contextPreserve
+    };
+  }
   return {
     ...state,
-    decor: has ? state.decor.filter((id) => id !== decorId) : [...state.decor, decorId]
+    contextStory: text,
+    context: parsed.context,
+    contextNotice: null,
+    animation: parsed.motion ?? state.animation,
+    decor: parsed.decor ? [createDecorInstance(parsed.decor)] : state.decor,
+    palette: parsed.palette ?? state.palette,
+    lighting: parsed.lighting ?? state.lighting,
+    originalColors:
+      parsed.palette === undefined ? state.originalColors : parsed.palette === "original"
   };
+}
+
+/** Clears only context story + summary. Motion, decor, palette, lighting stay. */
+export function resetContextStory(state: PersonalizeState): PersonalizeState {
+  return {
+    ...state,
+    contextStory: "",
+    context: emptySceneContext(),
+    contextNotice: null
+  };
+}
+
+export function toggleDecor(state: PersonalizeState, decorId: DecorId): PersonalizeState {
+  return addDecorInstance(state, decorId);
 }
 
 export function setCameraPreset(
@@ -542,7 +664,9 @@ export function summarizePersonalize(state: PersonalizeState): string {
     `variantă ${state.variantIndex + 1}`
   ];
   if (state.decor.length > 0) {
-    parts.push(state.decor.map((id) => labelOf(DECOR_ASSETS, id)).join(", "));
+    parts.push(
+      state.decor.map((item) => labelOf(DECOR_ASSETS, item.id)).join(", ")
+    );
   }
   return parts.join(" · ");
 }

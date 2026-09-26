@@ -1,6 +1,11 @@
+"use client";
+
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
+import { useRef } from "react";
 import dynamic from "next/dynamic";
-import { COPY, DECOR_ASSETS, type TransformModeId } from "./fixtures";
+import { useStudioI18n } from "@/components/i18n/studio-i18n";
+import { DECOR_ASSET_SRC } from "./decor-assets";
+import { COPY, DECOR_ASSETS, type DecorId, type TransformModeId } from "./fixtures";
 import type { PersonalizeState } from "./form-state";
 import type { InteractionState } from "./interaction-state";
 import {
@@ -304,24 +309,21 @@ export function GardenPoster({
   state,
   transformMode,
   drawingSrc,
-  showOriginalPage = false,
+  mirror = false,
   interaction,
-  onCharacterPointerDown,
-  onCharacterPointerMove,
-  onCharacterPointerUp,
   onCharacterClick,
-  onDecorActivate
+  onDecorActivate,
+  onDecorMove
 }: {
   state: PersonalizeState;
   transformMode: TransformModeId;
   drawingSrc?: string | null;
-  showOriginalPage?: boolean;
+  /** Compact copy for the AR step. Skips a second WebGL cutout. */
+  mirror?: boolean;
   interaction?: InteractionState;
-  onCharacterPointerDown?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
-  onCharacterPointerMove?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
-  onCharacterPointerUp?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onCharacterClick?: () => void;
   onDecorActivate?: () => void;
+  onDecorMove?: (key: string, x: number, y: number) => void;
 }) {
   const scale = state.zoom / 100;
   const isFigurine = transformMode === "figurine";
@@ -331,22 +333,27 @@ export function GardenPoster({
     ? figurineVolumeScale(state.volume)
     : 0.72 + state.volume / 180;
   const hasDrawing = Boolean(drawingSrc);
-  const playing = Boolean(interaction?.enabled);
-  const decorLabel = (id: (typeof state.decor)[number]) =>
+  const playing = Boolean(interaction?.enabled) && !mirror;
+  const decorRootRef = useRef<HTMLUListElement>(null);
+  const dragRef = useRef<{ key: string; pointerId: number } | null>(null);
+  const decorLabel = (id: DecorId) =>
     DECOR_ASSETS.find((item) => item.id === id)?.label ?? id;
   const contrast = 0.85 + state.details / 250;
   const brightness = 0.72 + state.light / 180;
   const saturate = state.originalColors ? 1 : 0.55 + state.variantIndex * 0.2;
   const extrusion = popoutExtrusionPx(state.volume);
+  const { messages } = useStudioI18n();
 
   return (
     <div
-      className={`studio-stage studio-stage--${state.stylePreset}${state.gridOn ? " is-grid" : ""}${hasDrawing ? " has-drawing" : ""}${playing ? " is-interacting" : ""}`}
+      className={`studio-stage studio-stage--${state.stylePreset}${state.gridOn ? " is-grid" : ""}${hasDrawing ? " has-drawing" : ""}${mirror ? " studio-stage--mirror" : ""}${playing ? " is-interacting" : ""}`}
       data-mode={transformMode}
       data-animation={state.animation}
       data-palette={state.palette}
       data-lighting={state.lighting}
-      data-decor={state.decor[0] ?? "none"}
+      data-decor={state.decor[0]?.id ?? "none"}
+      data-mood={state.context.mood || "none"}
+      data-preview-only="true"
       data-interacting={playing ? "yes" : "no"}
       data-reacting={playing && interaction?.activeTarget === "character" && interaction.reactionNonce > 0 ? "yes" : "no"}
       data-outline={state.preserveOutline ? "yes" : "no"}
@@ -387,14 +394,17 @@ export function GardenPoster({
       <div className="studio-stage__ground" aria-hidden="true" />
       <div className="studio-stage__floor" aria-hidden="true" />
 
-      {hasDrawing ? null : <p className="studio-stage__demo-label">{COPY.demoPreview}</p>}
+      {hasDrawing ? null : <p className="studio-stage__demo-label">{messages.studio.demoPreview}</p>}
+      {state.context.dialogue ? (
+        <p className="studio-stage__dialogue">{state.context.dialogue}</p>
+      ) : null}
 
       {isFigurine ? (
         <p className="studio-stage__mode-hint studio-stage__mode-hint--figurine">{COPY.figurineVolumeHint}</p>
       ) : null}
 
       <div className="studio-stage__play">
-      {isPopout && hasDrawing ? (
+      {isPopout && hasDrawing && !mirror ? (
         <PopoutMeshStage
           sourceUrl={drawingSrc!}
           volume={state.volume}
@@ -402,13 +412,20 @@ export function GardenPoster({
           pitch={state.orbitPitch}
           roll={state.orbitRoll}
           zoom={state.zoom}
-          showOriginalPage={showOriginalPage}
         />
       ) : null}
 
       <div className="studio-stage__orbit">
         <div className="studio-stage__actor">
         {isPopout && !hasDrawing ? <PopoutFixtureFigure volume={state.volume} /> : null}
+
+        {isPopout && hasDrawing && mirror ? (
+          <FigurineDrawingShell
+            drawingSrc={drawingSrc!}
+            volume={state.volume}
+            preserveOutline={state.preserveOutline}
+          />
+        ) : null}
 
         {isFigurine && hasDrawing ? (
           <FigurineDrawingShell
@@ -423,19 +440,51 @@ export function GardenPoster({
       </div>
 
       {state.decor.length > 0 ? (
-        <ul className="studio-stage__decor" aria-hidden={playing ? undefined : true}>
-          {state.decor.map((id) => (
+        <ul className="studio-stage__decor" ref={decorRootRef} aria-hidden={playing ? undefined : true}>
+          {state.decor.map((item) => (
             <li
-              key={id}
-              className={`studio-stage__prop studio-stage__prop--${id}${playing && interaction?.activeTarget === "decor" ? " is-highlight" : ""}`}
+              key={item.key}
+              className={`studio-stage__prop studio-stage__prop--${item.id}${playing && interaction?.activeTarget === "decor" ? " is-highlight" : ""}`}
+              style={
+                {
+                  "--prop-x": `${item.x}%`,
+                  "--prop-y": `${item.y}%`
+                } as CSSProperties
+              }
             >
-              {playing ? (
-                <button type="button" onClick={() => onDecorActivate?.()}>
-                  {decorLabel(id)}
-                </button>
-              ) : (
-                <span>{id}</span>
-              )}
+              <button
+                type="button"
+                aria-label={decorLabel(item.id)}
+                onPointerDown={(event) => {
+                  if (event.button !== 0) return;
+                  event.stopPropagation();
+                  dragRef.current = { key: item.key, pointerId: event.pointerId };
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  onDecorActivate?.();
+                }}
+                onPointerMove={(event) => {
+                  const drag = dragRef.current;
+                  const root = decorRootRef.current;
+                  if (!drag || drag.pointerId !== event.pointerId || !root || !onDecorMove) return;
+                  const rect = root.getBoundingClientRect();
+                  if (rect.width < 1 || rect.height < 1) return;
+                  const x = ((event.clientX - rect.left) / rect.width) * 100;
+                  const y = ((event.clientY - rect.top) / rect.height) * 100;
+                  onDecorMove(drag.key, x, y);
+                }}
+                onPointerUp={(event) => {
+                  if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
+                }}
+                onPointerCancel={(event) => {
+                  if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
+                }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDecorActivate?.();
+                }}
+              >
+                <img src={DECOR_ASSET_SRC[item.id]} alt="" width={128} height={128} draggable={false} />
+              </button>
             </li>
           ))}
         </ul>
@@ -446,10 +495,6 @@ export function GardenPoster({
           type="button"
           className="studio-stage__hit"
           aria-label="Personaj în previzualizare"
-          onPointerDown={onCharacterPointerDown}
-          onPointerMove={onCharacterPointerMove}
-          onPointerUp={onCharacterPointerUp}
-          onPointerCancel={onCharacterPointerUp}
           onClick={onCharacterClick}
         />
       ) : null}

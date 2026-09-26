@@ -1144,6 +1144,7 @@
 }
 
 .studio-ws__asset {
+  position: relative;
   display: grid;
   gap: 0.4rem;
   justify-items: center;
@@ -1158,50 +1159,60 @@
   transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
 }
 
+.studio-ws__asset-count {
+  position: absolute;
+  top: 0.35rem;
+  inset-inline-end: 0.35rem;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  padding: 0 0.28rem;
+  border-radius: 999px;
+  background: var(--warm);
+  color: #1a120e;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2rem;
+  text-align: center;
+}
+
 .studio-ws__asset.is-selected {
   border-color: rgba(217, 119, 79, 0.38);
   background: rgba(217, 119, 79, 0.1);
 }
 
 .studio-ws__asset-icon {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.5rem;
-  background: rgba(232, 160, 90, 0.22);
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.55rem;
+  background: rgba(243, 239, 230, 0.06);
+  overflow: hidden;
 }
 
-.studio-ws__asset-icon--cloud {
-  border-radius: 999px;
-  background: rgba(243, 239, 230, 0.28);
-  box-shadow: 0.45rem 0.2rem 0 -0.15rem rgba(243, 239, 230, 0.2);
+.studio-ws__asset-icon img {
+  display: block;
+  width: 1.85rem;
+  height: 1.85rem;
+  object-fit: contain;
 }
-.studio-ws__asset-icon--stars {
-  background: transparent;
-  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-  background-color: rgba(224, 214, 168, 0.55);
+
+.studio-ws__asset-icon--none {
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px var(--line);
 }
-.studio-ws__asset-icon--grass {
-  background: linear-gradient(180deg, transparent 35%, rgba(90, 150, 100, 0.7) 35%);
-  border-radius: 0.2rem 0.2rem 0.45rem 0.45rem;
-}
-.studio-ws__asset-icon--tree {
-  background:
-    radial-gradient(circle at 50% 38%, rgba(70, 120, 80, 0.85) 0 42%, transparent 43%),
-    linear-gradient(180deg, transparent 55%, rgba(90, 70, 40, 0.7) 55%);
-}
-.studio-ws__asset-icon--house {
-  background: linear-gradient(135deg, transparent 42%, rgba(200, 140, 100, 0.75) 42%);
-  clip-path: polygon(50% 8%, 92% 42%, 92% 92%, 8% 92%, 8% 42%);
-}
-.studio-ws__asset-icon--planet {
-  border-radius: 999px;
-  background:
-    radial-gradient(circle at 35% 30%, rgba(220, 180, 210, 0.55), rgba(140, 90, 130, 0.55));
-  box-shadow: inset -0.35rem 0 0 rgba(0, 0, 0, 0.12);
-}
+
+.studio-ws__asset-icon--cloud,
+.studio-ws__asset-icon--stars,
+.studio-ws__asset-icon--grass,
+.studio-ws__asset-icon--tree,
+.studio-ws__asset-icon--house,
+.studio-ws__asset-icon--planet,
 .studio-ws__asset-icon--balloons {
-  border-radius: 999px 999px 40% 40%;
-  background: rgba(224, 122, 95, 0.5);
+  background: rgba(243, 239, 230, 0.06);
+  border-radius: 0.55rem;
+  clip-path: none;
+  box-shadow: none;
 }
 
 .studio-ws__ar-card {
@@ -2173,61 +2184,89 @@
 .studio-stage__decor {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: 6;
   margin: 0;
   padding: 0;
   list-style: none;
   pointer-events: none;
+  touch-action: none;
 }
 
 .studio-stage__prop {
   position: absolute;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 0.4rem;
-  background: rgba(243, 239, 230, 0.16);
+  left: var(--prop-x, 50%);
+  top: var(--prop-y, 50%);
+  width: 6.5rem;
+  height: 6.5rem;
+  border-radius: 0;
+  background: transparent;
   color: transparent;
-  overflow: hidden;
+  overflow: visible;
+  transform: translate(-50%, -50%);
   animation: studio-prop-in 0.4s var(--ease);
+  filter: drop-shadow(0 10px 16px rgb(0 0 0 / 0.32));
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.studio-stage__prop img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.studio-stage__prop button {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+}
+
+.studio-stage__prop button:active {
+  cursor: grabbing;
 }
 
 .studio-stage__prop--cloud {
-  top: 14%;
-  left: 14%;
-  width: 2.3rem;
-  border-radius: 999px;
+  width: 8.2rem;
+  height: 5.2rem;
 }
+
 .studio-stage__prop--stars {
-  top: 12%;
-  right: 16%;
-  background: rgba(224, 214, 168, 0.5);
+  width: 7.4rem;
+  height: 7.4rem;
 }
+
 .studio-stage__prop--grass {
-  bottom: 16%;
-  left: 20%;
-  background: rgba(90, 150, 100, 0.5);
+  width: 9.2rem;
+  height: 4.4rem;
 }
+
 .studio-stage__prop--tree {
-  bottom: 18%;
-  right: 18%;
-  height: 2.3rem;
-  background: rgba(70, 120, 80, 0.5);
+  width: 6.2rem;
+  height: 8.4rem;
 }
+
 .studio-stage__prop--house {
-  bottom: 20%;
-  left: 11%;
-  background: rgba(200, 140, 100, 0.45);
+  width: 6.8rem;
+  height: 6.8rem;
 }
+
 .studio-stage__prop--planet {
-  top: 18%;
-  left: 48%;
-  border-radius: 999px;
-  background: rgba(180, 120, 160, 0.42);
+  width: 6.4rem;
+  height: 6.4rem;
 }
+
 .studio-stage__prop--balloons {
-  top: 26%;
-  right: 11%;
-  background: rgba(224, 122, 95, 0.48);
+  width: 5.6rem;
+  height: 7.8rem;
 }
 
 @keyframes studio-scrim-in {
@@ -3026,6 +3065,103 @@
   padding-left: 1.1rem;
 }
 
+.studio-context {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.studio-context__title {
+  margin: 0;
+  font-size: 1.08rem;
+  line-height: 1.25;
+}
+
+.studio-context__support,
+.studio-context__honest,
+.studio-context__result {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.studio-context__label {
+  margin: 0.1rem 0 0;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.studio-context__field {
+  width: 100%;
+  min-height: 4.2rem;
+  max-height: 9rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: rgba(8, 10, 14, 0.45);
+  color: var(--ink);
+  font: inherit;
+  resize: vertical;
+}
+
+.studio-context__field:disabled {
+  opacity: 0.6;
+}
+
+.studio-context__suggestions-label {
+  margin: 0.1rem 0 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.studio-context__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.studio-context__chip {
+  min-height: 40px;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.studio-context__chip.is-selected {
+  border-color: rgba(217, 119, 79, 0.55);
+  box-shadow: inset 3px 0 0 var(--warm, #d9774f);
+}
+
+.studio-context__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.studio-context__actions .studio-ws__primary-btn,
+.studio-context__actions .studio-ws__ghost-btn {
+  width: auto;
+  min-height: 44px;
+}
+
+.studio-context__result-title {
+  margin: 0.2rem 0 0;
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.studio-context__result ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}
+
 .studio-stage__actor {
   transform-origin: 50% 70%;
 }
@@ -3041,6 +3177,100 @@
   background: rgba(12, 14, 18, 0.72);
   color: #f3efe6;
   font-size: 0.75rem;
+}
+
+.studio-ws__scene-label,
+.studio-ws__scene-status {
+  margin: 0 0 0.65rem;
+  color: var(--ink);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.studio-ws__scene-mirror {
+  margin-bottom: 0.75rem;
+  border-radius: 0.9rem;
+  overflow: hidden;
+}
+
+.studio-stage--mirror {
+  min-height: 0;
+  aspect-ratio: 4 / 3;
+  max-height: 14rem;
+}
+
+.studio-stage__dialogue {
+  position: absolute;
+  z-index: 6;
+  top: 11%;
+  left: 54%;
+  max-width: min(16rem, 68%);
+  margin: 0;
+  padding: 0.4rem 0.75rem;
+  border-radius: 1rem 1rem 1rem 0.3rem;
+  background: #fff8ee;
+  color: #2a2118;
+  font-size: 0.84rem;
+  line-height: 1.35;
+  box-shadow: 0 8px 18px rgba(40, 24, 12, 0.14);
+  pointer-events: none;
+}
+
+.studio-stage[data-mood="magică"] .studio-stage__vignette {
+  background:
+    radial-gradient(ellipse 46% 36% at 72% 18%, rgba(186, 140, 255, 0.28), transparent 70%),
+    radial-gradient(ellipse at center, transparent 42%, rgba(0, 0, 0, 0.38) 100%);
+}
+
+.studio-stage[data-mood="liniștită"] .studio-stage__vignette {
+  background:
+    radial-gradient(ellipse 50% 40% at 30% 78%, rgba(120, 168, 132, 0.22), transparent 72%),
+    radial-gradient(ellipse at center, transparent 48%, rgba(0, 0, 0, 0.28) 100%);
+}
+
+.studio-stage[data-mood="colorată"] .studio-stage__vignette {
+  background:
+    radial-gradient(ellipse 40% 32% at 18% 22%, rgba(255, 176, 92, 0.28), transparent 70%),
+    radial-gradient(ellipse 36% 30% at 82% 24%, rgba(120, 176, 255, 0.22), transparent 72%),
+    radial-gradient(ellipse at center, transparent 42%, rgba(0, 0, 0, 0.32) 100%);
+}
+
+.studio-ws__scene-story {
+  margin: 0 0 0.75rem;
+}
+
+.studio-ws__scene-story ul {
+  margin: 0.2rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--ink);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.studio-ws__scene-summary {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0 0 0.75rem;
+}
+
+.studio-ws__scene-summary div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.studio-ws__scene-summary dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.studio-ws__scene-summary dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.84rem;
+  text-align: right;
 }
 
 .studio-stage[data-palette="bright"] {
@@ -3189,6 +3419,10 @@
   border-radius: 999px;
   pointer-events: none;
   animation: studio-interact-ring 0.48s var(--ease);
+}
+
+.studio-stage__react-pulse[data-motion="still"] {
+  animation-name: studio-interact-ring;
 }
 
 @keyframes studio-interact-ring {

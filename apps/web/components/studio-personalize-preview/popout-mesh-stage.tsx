@@ -148,8 +148,7 @@ export function PopoutMeshStage({
   yaw,
   pitch,
   roll,
-  zoom,
-  showOriginalPage
+  zoom
 }: {
   sourceUrl: string;
   volume: number;
@@ -157,7 +156,6 @@ export function PopoutMeshStage({
   pitch: number;
   roll: number;
   zoom: number;
-  showOriginalPage: boolean;
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const extractRef = useRef<ReadyExtract | null>(null);
@@ -167,10 +165,8 @@ export function PopoutMeshStage({
     null
   );
   const volumeRef = useRef(volume);
-  const pageRef = useRef(showOriginalPage);
   const viewRef = useRef({ yaw, pitch, roll, zoom });
   volumeRef.current = volume;
-  pageRef.current = showOriginalPage;
   viewRef.current = { yaw, pitch, roll, zoom };
 
   useEffect(() => {
@@ -275,48 +271,10 @@ export function PopoutMeshStage({
     faceTexture.flipY = true;
     const shared = new Set<THREE.Texture>([faceTexture]);
 
-    const photoTexture = new THREE.CanvasTexture(extract.sourceCanvas);
-    photoTexture.colorSpace = THREE.SRGBColorSpace;
-    photoTexture.flipY = true;
-    shared.add(photoTexture);
-    const aspect = extract.height / Math.max(1, extract.width);
-    const plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(POPOUT_SHAPE_SCALE, POPOUT_SHAPE_SCALE * aspect),
-      new THREE.MeshBasicMaterial({
-        map: photoTexture,
-        transparent: true,
-        opacity: 0.28,
-        depthWrite: false
-      })
-    );
-    plane.visible = false;
-    plane.receiveShadow = false;
-    root.add(plane);
-
-    const ground = lite
-      ? new THREE.Mesh(
-          new THREE.CircleGeometry(2.1, 32),
-          new THREE.MeshBasicMaterial({
-            color: 0x1a120c,
-            transparent: true,
-            opacity: 0.38,
-            depthWrite: false
-          })
-        )
-      : new THREE.Mesh(
-          new THREE.CircleGeometry(3.4, 48),
-          new THREE.ShadowMaterial({ opacity: 0.42 })
-        );
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = 0;
-    ground.receiveShadow = !lite;
-    scene.add(ground);
-
-    const focus = new THREE.Vector3(0, 0.8, 0);
+    const focus = new THREE.Vector3();
 
     const rebuild = () => {
       for (const child of [...root.children]) {
-        if (child === plane) continue;
         root.remove(child);
         disposeObject(child, shared);
       }
@@ -340,24 +298,15 @@ export function PopoutMeshStage({
       }
       root.updateMatrixWorld(true);
       const box = new THREE.Box3();
-      for (const child of root.children) {
-        if (child === plane) continue;
-        box.expandByObject(child);
-      }
+      for (const child of root.children) box.expandByObject(child);
       if (!box.isEmpty()) {
         const center = box.getCenter(new THREE.Vector3());
-        const minY = box.min.y;
         for (const child of root.children) {
-          if (child === plane) continue;
           child.position.x -= center.x;
-          child.position.y -= minY;
+          child.position.y -= center.y;
           child.position.z -= center.z;
         }
-        const height = box.max.y - box.min.y;
-        focus.set(0, Math.max(0.35, height * 0.42), 0);
-        plane.position.set(0, height * 0.5, -0.62);
       }
-      plane.visible = pageRef.current;
     };
 
     const frameCamera = () => {
@@ -373,7 +322,6 @@ export function PopoutMeshStage({
         THREE.MathUtils.degToRad(yawDeg),
         THREE.MathUtils.degToRad(rollDeg)
       );
-      plane.visible = pageRef.current;
     };
 
     const resize = () => {
@@ -410,8 +358,6 @@ export function PopoutMeshStage({
       window.cancelAnimationFrame(frame);
       observer.disconnect();
       disposeObject(root, shared);
-      ground.geometry.dispose();
-      (ground.material as THREE.Material).dispose();
       for (const texture of shared) texture.dispose();
       renderer.dispose();
       renderer.domElement.remove();
@@ -430,9 +376,6 @@ export function PopoutMeshStage({
       {phase === "fallback" ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={sourceUrl} alt="" className="studio-stage__popout-flat" draggable={false} />
-      ) : null}
-      {phase === "ready" && showOriginalPage ? (
-        <p className="studio-stage__popout-reference">{COPY.pageReference}</p>
       ) : null}
       {phase === "preparing" ? (
         <p className="studio-stage__popout-status" role="status">

@@ -43,6 +43,8 @@ const LIGHTING_LINE: Record<LightingId, string> = {
   studio: "Studio"
 };
 
+export type PromptLanguage = "ro" | "en";
+
 type Category = "motion" | "decor" | "palette" | "lighting";
 
 type Rule = {
@@ -83,6 +85,73 @@ const RULES: Rule[] = [
   { category: "lighting", value: "warm", phrases: ["insorit", "soare", "cald", "apus"] },
   { category: "lighting", value: "studio", phrases: ["studio", "clar", "curat"] }
 ];
+
+const ENGLISH_RULES: Rule[] = [
+  { category: "motion", value: "float", phrases: ["in the air", "float", "fly"] },
+  { category: "motion", value: "dance", phrases: ["dance"] },
+  { category: "motion", value: "jump", phrases: ["jump"] },
+  { category: "motion", value: "wave", phrases: ["wave"] },
+  { category: "motion", value: "still", phrases: ["still", "calm"] },
+  { category: "decor", value: "stars", phrases: ["stars", "space"] },
+  { category: "decor", value: "cloud", phrases: ["cloud"] },
+  { category: "decor", value: "grass", phrases: ["garden", "grass"] },
+  { category: "decor", value: "tree", phrases: ["tree"] },
+  { category: "decor", value: "house", phrases: ["house"] },
+  { category: "decor", value: "planet", phrases: ["planet"] },
+  { category: "decor", value: "balloons", phrases: ["balloons", "balloon"] },
+  { category: "palette", value: "bright", phrases: ["colorful", "bright"] },
+  { category: "palette", value: "soft", phrases: ["soft", "pastel"] },
+  { category: "palette", value: "original", phrases: ["original"] },
+  { category: "lighting", value: "warm", phrases: ["warm", "sunny"] },
+  { category: "lighting", value: "studio", phrases: ["studio"] }
+];
+
+export type PromptMapping = {
+  locale: PromptLanguage;
+  terms: {
+    motion: Record<string, AnimationId>;
+    decor: Record<string, DecorId>;
+    palette: Record<string, PaletteId>;
+    lighting: Record<string, LightingId>;
+  };
+};
+
+function toMapping(locale: PromptLanguage, rules: Rule[]): PromptMapping {
+  const terms: PromptMapping["terms"] = { motion: {}, decor: {}, palette: {}, lighting: {} };
+  for (const rule of rules) {
+    for (const phrase of rule.phrases) {
+      if (rule.category === "motion") terms.motion[phrase] = rule.value as AnimationId;
+      if (rule.category === "decor") terms.decor[phrase] = rule.value as DecorId;
+      if (rule.category === "palette") terms.palette[phrase] = rule.value as PaletteId;
+      if (rule.category === "lighting") terms.lighting[phrase] = rule.value as LightingId;
+    }
+  }
+  return { locale, terms };
+}
+
+export const PROMPT_MAPPINGS: Record<PromptLanguage, PromptMapping> = {
+  ro: toMapping("ro", RULES),
+  en: toMapping("en", ENGLISH_RULES)
+};
+
+function rulesFor(locale: PromptLanguage): Rule[] {
+  return locale === "en" ? ENGLISH_RULES : RULES;
+}
+
+const EN_LINES = {
+  motion: { wave: "Wave", float: "Float", dance: "Dance", jump: "Jump", still: "Still" },
+  decor: {
+    cloud: "Cloud",
+    stars: "Stars",
+    grass: "Grass",
+    tree: "Tree",
+    house: "House",
+    planet: "Planet",
+    balloons: "Balloons"
+  },
+  palette: { original: "Original", bright: "Bright", soft: "Soft" },
+  lighting: { warm: "Warm", studio: "Studio" }
+} as const;
 
 const DIACRITICS: Record<string, string> = {
   ă: "a",
@@ -126,13 +195,14 @@ function labelOf(options: { id: string; label: string }[], id: string): string {
   return options.find((item) => item.id === id)?.label ?? id;
 }
 
-export function interpretIdeaPrompt(input: string): IdeaPromptResult {
+export function interpretIdeaPrompt(input: string, locale: PromptLanguage = "ro"): IdeaPromptResult {
   const text = limitIdeaPrompt(input);
   const normalized = normalizeIdeaPrompt(text);
   const best = new Map<Category, { end: number; value: string }>();
+  const rules = rulesFor(locale === "en" ? "en" : "ro");
 
   if (normalized.length > 0) {
-    for (const rule of RULES) {
+    for (const rule of rules) {
       for (const phrase of rule.phrases) {
         const end = lastPhraseEnd(normalized, phrase);
         if (end < 0) continue;
@@ -150,10 +220,17 @@ export function interpretIdeaPrompt(input: string): IdeaPromptResult {
   const lighting = best.get("lighting")?.value as LightingId | undefined;
   const recognized = Boolean(motion || decor || palette || lighting);
   const lines: string[] = [];
-  if (motion) lines.push(`Mișcare: ${labelOf(ANIMATIONS, motion)}`);
-  if (decor) lines.push(`Decor: ${labelOf(DECOR_ASSETS, decor)}`);
-  if (palette) lines.push(`Culori: ${PALETTE_LINE[palette]}`);
-  if (lighting) lines.push(`Lumină: ${LIGHTING_LINE[lighting]}`);
+  if (locale === "en") {
+    if (motion) lines.push(`Motion: ${EN_LINES.motion[motion]}`);
+    if (decor) lines.push(`Decor: ${EN_LINES.decor[decor]}`);
+    if (palette) lines.push(`Colors: ${EN_LINES.palette[palette]}`);
+    if (lighting) lines.push(`Light: ${EN_LINES.lighting[lighting]}`);
+  } else {
+    if (motion) lines.push(`Mișcare: ${labelOf(ANIMATIONS, motion)}`);
+    if (decor) lines.push(`Decor: ${labelOf(DECOR_ASSETS, decor)}`);
+    if (palette) lines.push(`Culori: ${PALETTE_LINE[palette]}`);
+    if (lighting) lines.push(`Lumină: ${LIGHTING_LINE[lighting]}`);
+  }
 
   return { recognized, text, motion, decor, palette, lighting, lines };
 }

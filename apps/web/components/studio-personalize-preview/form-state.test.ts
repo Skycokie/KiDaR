@@ -35,6 +35,9 @@ import {
   setTransformMode,
   setVolume,
   setArLive,
+  addDecorInstance,
+  moveDecorInstance,
+  setDecorSelection,
   summarizePersonalize,
   toggleDecor,
   toggleGrid,
@@ -67,6 +70,7 @@ describe("Studio personalize workspace — fixture + local state", () => {
       "Aspect",
       "Mișcare",
       "Decor",
+      "Context",
       "AR"
     ]);
   });
@@ -101,9 +105,22 @@ describe("Studio personalize workspace — fixture + local state", () => {
       volume: 80,
       gridOn: false
     });
-    expect(state.decor).toEqual(["stars"]);
+    expect(state.decor.map((item) => item.id)).toEqual(["stars"]);
+    expect(state.decor[0]).toMatchObject({ x: expect.any(Number), y: expect.any(Number) });
     expect(state.completedStages).toContain("personajul");
     expect(summarizePersonalize(state)).toContain("Lut colorat");
+  });
+
+  it("stacks decor on each click and moves instances on the stage", () => {
+    let state = setDecorSelection(createInitialPersonalizeState(), "cloud");
+    state = addDecorInstance(state, "cloud");
+    state = addDecorInstance(state, "grass");
+    expect(state.decor.map((item) => item.id)).toEqual(["cloud", "cloud", "grass"]);
+    const key = state.decor[0]!.key;
+    state = moveDecorInstance(state, key, 40, 55);
+    expect(state.decor[0]).toMatchObject({ key, x: 40, y: 55 });
+    state = setDecorSelection(state, "none");
+    expect(state.decor).toEqual([]);
   });
 
   it("camera reset restores default 3/4 composition and stops auto-rotate", () => {
@@ -280,29 +297,17 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(fixtures).toContain(COPY.seeInAr);
     expect(fixtures).toContain(COPY.seeInArPreparing);
     expect(fixtures).toContain(COPY.arCardCaption);
-    expect(shell).toContain("COPY.seeInArPreparing");
+    expect(shell).toContain("messages.studio.arPreparing");
     expect(shell).not.toContain("studio-ws__ar-live");
     expect(shell).not.toContain("Previzualizare AR locală");
     expect(fixtures).toContain(COPY.regenerate);
     expect(shell).toContain("PERSONALIZE_STUDIO_HREF");
-    expect(shell).toContain("studio-ws__dpad");
-    expect(shell).toContain("studio-ws__roll");
     expect(shell).toContain("studio-ws__spin");
-    expect(shell).toContain('aria-label={COPY.tiltUp}');
-    expect(shell).toContain('aria-label={COPY.tiltDown}');
-    expect(shell).toContain('aria-label={COPY.rotateLeft}');
-    expect(shell).toContain('aria-label={COPY.rotateRight}');
-    expect(shell).toContain('aria-label={COPY.rollCcw}');
-    expect(shell).toContain('aria-label={COPY.rollCw}');
-    expect(shell).toContain('aria-label={COPY.resetView}');
+    expect(shell).not.toContain("studio-ws__dpad");
+    expect(shell).not.toContain("studio-ws__roll");
     expect(shell).toContain("nudgeOrbitFromScreen");
-    expect(shell).toContain("yaw: -ORBIT_YAW_STEP");
-    expect(shell).toContain("yaw: ORBIT_YAW_STEP");
-    expect(shell).toContain("pitch: ORBIT_PITCH_STEP");
-    expect(shell).toContain("pitch: -ORBIT_PITCH_STEP");
-    expect(shell).toContain("roll: -ORBIT_ROLL_STEP");
-    expect(shell).toContain("roll: ORBIT_ROLL_STEP");
-    expect(shell).toContain('dispatch({ type: "camera", id: "reset" })');
+    expect(shell).toContain("orbitDeltaFromPointer(dx, dy)");
+    expect(shell).toContain('dispatch({ type: "camera", id: preset.id })');
     expect(shell).toContain('dispatch({ type: "autoRotate", value: !state.autoRotate })');
     expect(shell).not.toContain("useState");
     expect(fixtures).toContain(COPY.autoRotateOff);
@@ -379,7 +384,7 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(shell).toContain("studio-ws__view-controls--sheet");
     expect(shell).toContain("studio-ws__spin--float");
     expect(shell).toContain("studio-ws__overlay-tools");
-    expect(shell).toContain('dispatch({ type: "orbit", yaw: 0, pitch: ORBIT_PITCH_STEP, user: true })');
+    expect(shell).not.toContain("studio-ws__dpad");
     expect(css).toContain("touch-action: none");
     expect(css).toMatch(/@media \(max-width: 899px\)[\s\S]*\.studio-ws__overlay-tools\s*\{\s*display:\s*none/);
     expect(css).toMatch(/@media \(max-width: 899px\)[\s\S]*\.studio-ws__view-controls--sheet\s*\{\s*display:\s*grid/);
@@ -399,9 +404,13 @@ describe("Studio personalize workspace — fixture + local state", () => {
     const fixtures = readLocal("fixtures.ts");
     expect(shell).not.toContain("/studio-preview/personalizeaza/camera");
     expect(shell).not.toContain("PERSONALIZE_CAMERA_HREF");
-    expect(shell).toContain("seeInArPreparing");
+    expect(shell).toContain("messages.studio.arPreparing");
     expect(fixtures).toContain("AR în pregătire");
-    expect(fixtures).toContain("Previzualizare 2D locală");
+    expect(fixtures).toContain("Vezi scena în AR");
+    expect(fixtures).toContain("Vezi scena în lumea ta");
+    expect(fixtures).toContain("Previzualizare locală — scena nu este încă disponibilă în AR.");
+    expect(shell).toContain("data-ar-eligible=");
+    expect(shell).toContain("mirror");
     expect(shell).not.toMatch(/\brel=["']ar["']/);
     expect(shell).not.toMatch(/\bnavigator\.mediaDevices\b|\.getUserMedia\b/);
     expect(shell).not.toContain("studio-ws__ar-live");

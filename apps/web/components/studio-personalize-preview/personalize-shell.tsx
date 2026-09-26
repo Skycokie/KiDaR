@@ -2,20 +2,17 @@
 
 import { useEffect, useReducer, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
   Check,
   Grid3x3,
   Maximize2,
-  RotateCcw,
   RotateCw,
   Route,
   SlidersHorizontal,
   X
 } from "lucide-react";
+import { useStudioI18n } from "@/components/i18n/studio-i18n";
 import { SiteHeader } from "@/components/site-nav";
+import { DECOR_ASSET_SRC } from "./decor-assets";
 import {
   ANIMATIONS,
   CAMERA_PRESETS,
@@ -38,21 +35,22 @@ import {
 } from "./fixtures";
 import {
   applyIdeaPrompt,
+  applyContextStory,
   createInitialPersonalizeState,
   createWorkspaceState,
   frameFit,
   nudgeOrbit,
   nudgeOrbitFromScreen,
   orbitDeltaFromPointer,
-  ORBIT_PITCH_STEP,
-  ORBIT_ROLL_STEP,
-  ORBIT_YAW_STEP,
   regenerateVariant,
   resetIdeaPrompt,
+  resetContextStory,
   setAnimation,
   setArLive,
   setCameraPreset,
+  setContextStory,
   setDecorSelection,
+  moveDecorInstance,
   setDetails,
   setIdeaPrompt,
   setLeftOpen,
@@ -64,7 +62,6 @@ import {
   setPublishOpen,
   setRightOpen,
   setShadow,
-  setShowOriginalPage,
   setAutoRotate,
   setStage,
   setStylePreset,
@@ -79,8 +76,15 @@ import {
   type PersonalizeState
 } from "./form-state";
 import { IdeaPromptCard } from "./idea-prompt-card";
+import type { PromptLanguage } from "./idea-prompt";
+import { ContextCard } from "./context-card";
+import { contextPreviewLines } from "./scene-context";
+import { CURRENT_SCENE_ELIGIBILITY, sceneSummary, toStudioSceneDraft } from "./scene-draft";
 import { GardenPoster } from "./garden-poster";
-import { createInteractionState, reduceInteraction } from "./interaction-state";
+import {
+  createInteractionState,
+  reduceInteraction
+} from "./interaction-state";
 import {
   type PreviewProjectContext,
   type StartSaveStatus,
@@ -111,15 +115,18 @@ type Action =
   | { type: "shadow"; value: number }
   | { type: "animation"; id: AnimationId }
   | { type: "decor"; id: DecorId | "none" }
+  | { type: "decorMove"; key: string; x: number; y: number }
   | { type: "idea"; value: string }
-  | { type: "applyIdea" }
+  | { type: "applyIdea"; locale?: PromptLanguage }
   | { type: "resetIdea" }
+  | { type: "context"; value: string }
+  | { type: "applyContext" }
+  | { type: "resetContext" }
   | { type: "camera"; id: CameraPresetId }
   | { type: "grid" }
   | { type: "frame" }
   | { type: "zoom"; value: number }
   | { type: "orbit"; yaw: number; pitch: number; roll?: number; user?: boolean }
-  | { type: "page"; value: boolean }
   | { type: "autoRotate"; value: boolean }
   | { type: "variant"; index: number }
   | { type: "arLive"; value: boolean }
@@ -155,12 +162,20 @@ function reducer(state: PersonalizeState, action: Action): PersonalizeState {
       return setAnimation(state, action.id);
     case "decor":
       return setDecorSelection(state, action.id);
+    case "decorMove":
+      return moveDecorInstance(state, action.key, action.x, action.y);
     case "idea":
       return setIdeaPrompt(state, action.value);
     case "applyIdea":
-      return applyIdeaPrompt(state, state.ideaPrompt);
+      return applyIdeaPrompt(state, state.ideaPrompt, action.locale ?? "ro");
     case "resetIdea":
       return resetIdeaPrompt(state);
+    case "context":
+      return setContextStory(state, action.value);
+    case "applyContext":
+      return applyContextStory(state, state.contextStory);
+    case "resetContext":
+      return resetContextStory(state);
     case "camera":
       return setCameraPreset(state, action.id);
     case "grid":
@@ -180,8 +195,6 @@ function reducer(state: PersonalizeState, action: Action): PersonalizeState {
         );
       }
       return nudgeOrbit(state, action.yaw, action.pitch, false, action.roll ?? 0);
-    case "page":
-      return setShowOriginalPage(state, action.value);
     case "autoRotate":
       return setAutoRotate(state, action.value);
     case "variant":
@@ -219,6 +232,16 @@ function SheetChrome({
   );
 }
 
+const STEP_MESSAGE = {
+  desenul: "drawing",
+  personajul: "character",
+  aspect: "appearance",
+  miscare: "motion",
+  decor: "decor",
+  context: "context",
+  testeaza: "ar"
+} as const satisfies Record<StudioStageId, keyof ReturnType<typeof useStudioI18n>["messages"]["studio"]["steps"]>;
+
 function StageNav({
   state,
   hasDrawing,
@@ -228,6 +251,7 @@ function StageNav({
   hasDrawing: boolean;
   onSelect: (id: StudioStageId) => void;
 }) {
+  const { messages } = useStudioI18n();
   return (
     <nav className="studio-ws__stages" aria-label={COPY.sidebarLabel}>
       <p className="studio-ws__stages-label">{COPY.pathLabel}</p>
@@ -253,8 +277,8 @@ function StageNav({
                   )}
                 </span>
                 <span className="studio-ws__stage-copy">
-                  <strong>{stage.label}</strong>
-                  {stage.hint ? <span>{stage.hint}</span> : null}
+                  <strong>{messages.studio.steps[STEP_MESSAGE[stage.id]]}</strong>
+                  <span>{messages.studio.stepHints[STEP_MESSAGE[stage.id]]}</span>
                 </span>
               </button>
             </li>
@@ -265,14 +289,31 @@ function StageNav({
   );
 }
 
-function ideaCard(state: PersonalizeState, dispatch: (action: Action) => void, locked: boolean) {
+function ideaCard(
+  state: PersonalizeState,
+  dispatch: (action: Action) => void,
+  locked: boolean,
+  locale: PromptLanguage
+) {
   return (
     <IdeaPromptCard
       state={state}
       locked={locked}
       onChange={(value) => dispatch({ type: "idea", value })}
-      onApply={() => dispatch({ type: "applyIdea" })}
+      onApply={() => dispatch({ type: "applyIdea", locale })}
       onReset={() => dispatch({ type: "resetIdea" })}
+    />
+  );
+}
+
+function contextCard(state: PersonalizeState, dispatch: (action: Action) => void, locked: boolean) {
+  return (
+    <ContextCard
+      state={state}
+      locked={locked}
+      onChange={(value) => dispatch({ type: "context", value })}
+      onApply={() => dispatch({ type: "applyContext" })}
+      onReset={() => dispatch({ type: "resetContext" })}
     />
   );
 }
@@ -288,6 +329,7 @@ function Inspector({
   drawingSrc?: string | null;
   projectId?: string | null;
 }) {
+  const { locale, messages } = useStudioI18n();
   const hasDrawing = Boolean(drawingSrc);
   const showIdea =
     state.stage === "personajul" ||
@@ -299,7 +341,7 @@ function Inspector({
       <div className="studio-ws__inspector-block">
         <h2>Desen</h2>
         <p className="studio-ws__muted">{hasDrawing ? COPY.drawingReady : COPY.emptyDrawing}</p>
-        {hasDrawing ? null : ideaCard(state, dispatch, true)}
+        {hasDrawing ? null : ideaCard(state, dispatch, true, locale)}
         <div className={`studio-ws__drawing-card${drawingSrc ? " has-photo" : ""}`}>
           {drawingSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -324,7 +366,7 @@ function Inspector({
   if (state.stage === "personajul") {
     return (
       <div className="studio-ws__inspector-block">
-        {showIdea ? ideaCard(state, dispatch, !hasDrawing) : null}
+        {showIdea ? ideaCard(state, dispatch, !hasDrawing, locale) : null}
         <h2>Personaj</h2>
         <p className="studio-ws__section-label">{COPY.modeSection}</p>
         <div className="studio-ws__mode-cards" role="group" aria-label={COPY.modeSection}>
@@ -423,7 +465,7 @@ function Inspector({
   if (state.stage === "aspect") {
     return (
       <div className="studio-ws__inspector-block">
-        {ideaCard(state, dispatch, !hasDrawing)}
+        {ideaCard(state, dispatch, !hasDrawing, locale)}
         <h2>{COPY.aspect}</h2>
         <p className="studio-ws__section-label">{COPY.paletteSection}</p>
         <div className="studio-ws__choice-row" role="radiogroup" aria-label={COPY.paletteSection}>
@@ -527,7 +569,7 @@ function Inspector({
   if (state.stage === "miscare") {
     return (
       <div className="studio-ws__inspector-block">
-        {ideaCard(state, dispatch, !hasDrawing)}
+        {ideaCard(state, dispatch, !hasDrawing, locale)}
         <h2>{COPY.giveLife}</h2>
         <div className="studio-ws__motion-cards" role="radiogroup" aria-label={COPY.giveLife}>
           {ANIMATIONS.map((anim) => {
@@ -560,13 +602,12 @@ function Inspector({
     const noneSelected = state.decor.length === 0;
     return (
       <div className="studio-ws__inspector-block">
-        {ideaCard(state, dispatch, !hasDrawing)}
+        {ideaCard(state, dispatch, !hasDrawing, locale)}
         <h2>{COPY.placeInWorld}</h2>
-        <div className="studio-ws__assets" role="radiogroup" aria-label={COPY.placeInWorld}>
+        <p className="studio-ws__muted">{COPY.decorHint}</p>
+        <div className="studio-ws__assets" role="group" aria-label={COPY.placeInWorld}>
           <button
             type="button"
-            role="radio"
-            aria-checked={noneSelected}
             className={`studio-ws__asset${noneSelected ? " is-selected" : ""}`}
             onClick={() => dispatch({ type: "decor", id: "none" })}
           >
@@ -574,18 +615,20 @@ function Inspector({
             <span>{COPY.noDecor}</span>
           </button>
           {DECOR_ASSETS.map((asset) => {
-            const selected = state.decor[0] === asset.id;
+            const count = state.decor.filter((item) => item.id === asset.id).length;
             return (
               <button
                 key={asset.id}
                 type="button"
-                role="radio"
-                aria-checked={selected}
-                className={`studio-ws__asset${selected ? " is-selected" : ""}`}
+                className={`studio-ws__asset${count > 0 ? " is-selected" : ""}`}
                 onClick={() => dispatch({ type: "decor", id: asset.id })}
+                aria-label={count > 0 ? `${asset.label}, ${count}` : asset.label}
               >
-                <span className={`studio-ws__asset-icon studio-ws__asset-icon--${asset.id}`} aria-hidden="true" />
+                <span className={`studio-ws__asset-icon studio-ws__asset-icon--${asset.id}`} aria-hidden="true">
+                  <img src={DECOR_ASSET_SRC[asset.id]} alt="" width={32} height={32} draggable={false} />
+                </span>
                 <span>{asset.label}</span>
+                {count > 0 ? <span className="studio-ws__asset-count">{count}</span> : null}
               </button>
             );
           })}
@@ -594,19 +637,54 @@ function Inspector({
     );
   }
 
-  return (
-    <div className="studio-ws__inspector-block">
-      <h2>AR</h2>
-      <p className="studio-ws__muted">{COPY.arPreviewNote}</p>
-      <div className="studio-ws__ar-card">
-        <span className="studio-ws__ar-frame" aria-hidden="true" />
-        <span className="studio-ws__ar-caption">
-          {drawingSrc ? COPY.arCardCaption : COPY.arCardEmpty}
-        </span>
+  if (state.stage === "context") {
+    return (
+      <div className="studio-ws__inspector-block">
+        {contextCard(state, dispatch, !hasDrawing)}
       </div>
-      <button type="button" className="studio-ws__primary-btn" disabled title={COPY.seeInArPreparing}>
-        {COPY.seeInArPreparing}
+    );
+  }
+
+  const scene = toStudioSceneDraft(state, hasDrawing);
+  const summary = sceneSummary(scene);
+  const storyLines = scene.context.story ? contextPreviewLines(scene.context, state) : [];
+  return (
+    <div className="studio-ws__inspector-block" data-ar-eligible={CURRENT_SCENE_ELIGIBILITY.arEligible ? "yes" : "no"}>
+      <h2>{COPY.sceneHeading}</h2>
+      <p className="studio-ws__muted">{COPY.sceneBody}</p>
+      <p className="studio-ws__scene-label">{COPY.sceneLocalLabel}</p>
+      <div className="studio-ws__scene-mirror">
+        <GardenPoster
+          state={state}
+          transformMode={state.transformMode}
+          drawingSrc={drawingSrc}
+          mirror
+        />
+      </div>
+      {storyLines.length > 0 ? (
+        <div className="studio-ws__scene-story">
+          <p className="studio-ws__scene-label">{COPY.contextPreviewTitle}</p>
+          <ul>
+            {storyLines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <dl className="studio-ws__scene-summary">
+        {summary.map((line) => (
+          <div key={line.label}>
+            <dt>{line.label}</dt>
+            <dd>{line.value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="studio-ws__scene-status">{messages.studio.arPreparing}</p>
+      <p className="studio-ws__muted">{COPY.sceneExplanation}</p>
+      <button type="button" className="studio-ws__primary-btn" disabled>
+        {COPY.seeSceneInAr}
       </button>
+      <p className="studio-ws__muted">{COPY.sceneHelper}</p>
     </div>
   );
 }
@@ -654,6 +732,7 @@ function InteractionPanel({
   onNudge: (direction: -1 | 1) => void;
   onReset: () => void;
 }) {
+  const { messages } = useStudioI18n();
   const reaction =
     enabled && activeTarget === "character" && reactionNonce > 0
       ? COPY.interactCharacter
@@ -666,7 +745,7 @@ function InteractionPanel({
       <h2 id="studio-interact-title">{COPY.interactTitle}</h2>
       <p className="studio-ws__interact-sub">{COPY.interactSubtitle}</p>
       <p className="studio-ws__muted">{COPY.interactIntro}</p>
-      {hasDrawing ? null : <p className="studio-ws__muted">{COPY.interactNeedsDrawing}</p>}
+      {hasDrawing ? null : <p className="studio-ws__muted">{messages.studio.addDrawingFirst}</p>}
       {enabled ? <p className="studio-ws__interact-status">{COPY.interactActive}</p> : null}
       {enabled ? <p className="studio-ws__muted">{COPY.interactHint}</p> : null}
       <div className="studio-ws__interact-actions">
@@ -688,8 +767,8 @@ function InteractionPanel({
         <button type="button" aria-label={COPY.interactZoomIn} disabled={controlsDisabled} onClick={() => onZoom(1)}>
           +
         </button>
-        <button type="button" aria-label={COPY.interactReset} disabled={controlsDisabled} onClick={onReset}>
-          {COPY.interactReset}
+        <button type="button" aria-label={messages.studio.resetScene} disabled={controlsDisabled} onClick={onReset}>
+          {messages.studio.resetScene}
         </button>
       </div>
       <p className="studio-ws__interact-live" role="status" aria-live="polite">
@@ -708,6 +787,7 @@ export function PersonalizePreviewShell({
   drawingSrc?: string | null;
   projectContext?: PreviewProjectContext | null;
 }) {
+  const { locale, messages } = useStudioI18n();
   const projectId = projectContext?.projectId ?? null;
   const orbitSeed = {
     hasDrawing: Boolean(drawingSrc),
@@ -818,56 +898,20 @@ export function PersonalizePreviewShell({
     else delete el.dataset.dragging;
   };
 
-  const playDrag = useRef<{ id: number; x: number; y: number; ox: number; oy: number; moved: boolean } | null>(null);
-  const suppressCharacterClick = useRef(false);
-
-  const onCharacterPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (!interaction.enabled) return;
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    const stage = event.currentTarget.closest(".studio-stage");
-    if (stage instanceof HTMLElement) stage.dataset.dragging = "yes";
-    playDrag.current = {
-      id: event.pointerId,
-      x: event.clientX,
-      y: event.clientY,
-      ox: event.clientX,
-      oy: event.clientY,
-      moved: false
-    };
-  };
-
-  const onCharacterPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    const drag = playDrag.current;
-    if (!drag || drag.id !== event.pointerId) return;
-    const dx = event.clientX - drag.x;
-    const dy = event.clientY - drag.y;
-    drag.x = event.clientX;
-    drag.y = event.clientY;
-    if (Math.hypot(event.clientX - drag.ox, event.clientY - drag.oy) > 5) drag.moved = true;
-    interactDispatch({ type: "drag", dx, dy });
-  };
-
-  const onCharacterPointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    const drag = playDrag.current;
-    if (!drag || drag.id !== event.pointerId) return;
-    playDrag.current = null;
-    if (drag.moved) suppressCharacterClick.current = true;
-    const stage = event.currentTarget.closest(".studio-stage");
-    if (stage instanceof HTMLElement) delete stage.dataset.dragging;
-  };
-
   const onCharacterClick = () => {
-    if (suppressCharacterClick.current) {
-      suppressCharacterClick.current = false;
-      return;
-    }
     interactDispatch({ type: "character" });
   };
 
   const onViewportPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
-    if (target.closest("button, input, label, a")) return;
+    if (
+      target.closest(
+        "input, label, a, .studio-ws__overlay-tools, .studio-ws__viewport-bar, .studio-ws__start-save, .studio-stage__prop button"
+      )
+    ) {
+      return;
+    }
+    if (target.closest("button") && !target.closest(".studio-stage__hit")) return;
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     event.currentTarget.setPointerCapture(event.pointerId);
     markDragging(true);
@@ -945,105 +989,6 @@ export function PersonalizePreviewShell({
 
   const renderViewControls = (variant: "overlay" | "sheet") => (
     <>
-      <div className="studio-ws__dpad-cluster">
-        <div className="studio-ws__dpad" role="group" aria-label="Rotire scenă">
-          <button
-            type="button"
-            className="studio-ws__dpad-btn studio-ws__dpad-btn--up"
-            aria-label={COPY.tiltUp}
-            title={COPY.tiltUp}
-            onClick={() => dispatch({ type: "orbit", yaw: 0, pitch: ORBIT_PITCH_STEP, user: true })}
-          >
-            <ArrowUp size={16} strokeWidth={1.75} aria-hidden />
-          </button>
-          <button
-            type="button"
-            className="studio-ws__dpad-btn studio-ws__dpad-btn--left"
-            aria-label={COPY.rotateLeft}
-            title={COPY.rotateLeft}
-            onClick={() => dispatch({ type: "orbit", yaw: -ORBIT_YAW_STEP, pitch: 0, user: true })}
-          >
-            <ArrowLeft size={16} strokeWidth={1.75} aria-hidden />
-          </button>
-          <button
-            type="button"
-            className="studio-ws__dpad-btn studio-ws__dpad-btn--center"
-            aria-label={COPY.resetView}
-            title={COPY.resetView}
-            onClick={() => dispatch({ type: "camera", id: "reset" })}
-          >
-            <span aria-hidden>⊙</span>
-          </button>
-          <button
-            type="button"
-            className="studio-ws__dpad-btn studio-ws__dpad-btn--right"
-            aria-label={COPY.rotateRight}
-            title={COPY.rotateRight}
-            onClick={() => dispatch({ type: "orbit", yaw: ORBIT_YAW_STEP, pitch: 0, user: true })}
-          >
-            <ArrowRight size={16} strokeWidth={1.75} aria-hidden />
-          </button>
-          <button
-            type="button"
-            className="studio-ws__dpad-btn studio-ws__dpad-btn--down"
-            aria-label={COPY.tiltDown}
-            title={COPY.tiltDown}
-            onClick={() => dispatch({ type: "orbit", yaw: 0, pitch: -ORBIT_PITCH_STEP, user: true })}
-          >
-            <ArrowDown size={16} strokeWidth={1.75} aria-hidden />
-          </button>
-        </div>
-        <div className="studio-ws__roll" role="group" aria-label={COPY.rollGroup}>
-          <button
-            type="button"
-            className="studio-ws__roll-btn"
-            aria-label={COPY.rollCcw}
-            title={COPY.rollCcw}
-            onClick={() => dispatch({ type: "orbit", yaw: 0, pitch: 0, roll: -ORBIT_ROLL_STEP, user: true })}
-          >
-            <RotateCcw size={16} strokeWidth={1.75} aria-hidden />
-          </button>
-          <button
-            type="button"
-            className="studio-ws__roll-btn"
-            aria-label={COPY.rollCw}
-            title={COPY.rollCw}
-            onClick={() => dispatch({ type: "orbit", yaw: 0, pitch: 0, roll: ORBIT_ROLL_STEP, user: true })}
-          >
-            <RotateCw size={16} strokeWidth={1.75} aria-hidden />
-          </button>
-        </div>
-        {variant === "overlay" ? (
-          <button
-            type="button"
-            className={`studio-ws__spin${state.autoRotate ? " is-active" : ""}`}
-            aria-label={COPY.autoRotate}
-            aria-pressed={state.autoRotate}
-            title={COPY.autoRotate}
-            onClick={() => dispatch({ type: "autoRotate", value: !state.autoRotate })}
-          >
-            <RotateCw size={16} strokeWidth={1.75} aria-hidden />
-            <span>{state.autoRotate ? COPY.autoRotateStop : COPY.autoRotateOff}</span>
-            {state.autoRotate ? <em>{COPY.autoRotateActive}</em> : null}
-          </button>
-        ) : null}
-      </div>
-      {hasDrawing && state.transformMode === "popout" ? (
-        <label
-          className={
-            variant === "overlay"
-              ? "studio-ws__page-toggle studio-ws__page-toggle--float"
-              : "studio-ws__page-toggle"
-          }
-        >
-          <input
-            type="checkbox"
-            checked={state.showOriginalPage}
-            onChange={(event) => dispatch({ type: "page", value: event.target.checked })}
-          />
-          <span>{COPY.showOriginalPage}</span>
-        </label>
-      ) : null}
       {variant === "sheet" ? (
       <div className="studio-ws__viewport-bar">
         <div className="studio-ws__cam-presets" role="group" aria-label="Cameră">
@@ -1107,20 +1052,23 @@ export function PersonalizePreviewShell({
       data-sheet={state.leftOpen || state.rightOpen ? "open" : "closed"}
     >
       <a className="studio-ws__skip" href="#studio-ws-main">
-        Sari la conținut
+        {messages.accessibility.skipToContent}
       </a>
 
       <SiteHeader
         brandHref={PERSONALIZE_STUDIO_HREF}
         studioHref={PERSONALIZE_STUDIO_HREF}
+        locale={locale}
+        menuLabel={messages.accessibility.menu}
+        languageLabel={messages.accessibility.languageSelector}
         trailing={
           <div className="studio-ws__header-actions">
             <span className="studio-ws__saved" aria-live="polite">
               {COPY.savedLocal}
             </span>
             {renderPublish()}
-            <button type="button" className="studio-ws__btn-primary" disabled title={COPY.seeInArPreparing}>
-              {COPY.seeInArPreparing}
+            <button type="button" className="studio-ws__btn-primary" disabled title={COPY.sceneHelper}>
+              {COPY.seeSceneInAr}
             </button>
           </div>
         }
@@ -1128,8 +1076,8 @@ export function PersonalizePreviewShell({
           <>
             <p className="studio-ws__saved studio-ws__saved--sheet">{COPY.savedLocal}</p>
             {renderPublish()}
-            <button type="button" className="studio-ws__btn-primary" disabled title={COPY.seeInArPreparing}>
-              {COPY.seeInArPreparing}
+            <button type="button" className="studio-ws__btn-primary" disabled title={COPY.sceneHelper}>
+              {COPY.seeSceneInAr}
             </button>
           </>
         }
@@ -1175,13 +1123,10 @@ export function PersonalizePreviewShell({
               state={state}
               transformMode={state.transformMode}
               drawingSrc={drawingSrc}
-              showOriginalPage={state.showOriginalPage}
               interaction={interaction}
-              onCharacterPointerDown={onCharacterPointerDown}
-              onCharacterPointerMove={onCharacterPointerMove}
-              onCharacterPointerUp={onCharacterPointerUp}
               onCharacterClick={onCharacterClick}
               onDecorActivate={() => interactDispatch({ type: "decor" })}
+              onDecorMove={(key, x, y) => dispatch({ type: "decorMove", key, x, y })}
             />
 
             <div className="studio-ws__overlay-tools">{renderViewControls("overlay")}</div>
@@ -1323,8 +1268,8 @@ export function PersonalizePreviewShell({
           <SlidersHorizontal size={17} strokeWidth={1.75} aria-hidden />
           {COPY.rightNavOpen}
         </button>
-        <button type="button" className="studio-ws__dock-cta" disabled title={COPY.seeInArPreparing}>
-          {COPY.seeInArPreparing}
+        <button type="button" className="studio-ws__dock-cta" disabled title={COPY.sceneHelper}>
+          {COPY.seeSceneInAr}
         </button>
       </nav>
 
