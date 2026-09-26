@@ -27,10 +27,9 @@ describe("preview pop-out session wiring", () => {
     expect(normalize).toContain("assignPopoutDepthLayers");
     expect(mesh).toContain("ExtrudeGeometry");
     expect(mesh).toContain("decidePreviewPopout");
-    expect(mesh).toContain("showOriginalPage");
-    expect(mesh).toContain("plane.visible = pageRef.current");
-    expect(mesh).toContain("ShadowMaterial");
-    expect(poster).toContain("showOriginalPage");
+    expect(mesh).not.toContain("ShadowMaterial");
+    expect(mesh).not.toContain("showOriginalPage");
+    expect(mesh).toContain("child.position.y -= center.y");
     expect(mesh).toContain("COPY.popoutPreparing");
     expect(mesh).toContain("COPY.popoutSeparateFailed");
     expect(mesh).toContain("COPY.popoutRetry");

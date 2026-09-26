@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "credit": "Original illustrations created for kiDAR.",
+  "assets": [
+    { "id": "cloud", "label": "Nor", "src": "/demo/decor/cloud.svg", "viewBox": "0 0 128 80" },
+    { "id": "stars", "label": "Stele", "src": "/demo/decor/stars.svg", "viewBox": "0 0 128 128" },
+    { "id": "grass", "label": "Iarbă", "src": "/demo/decor/grass.svg", "viewBox": "0 0 160 72" },
+    { "id": "tree", "label": "Copac", "src": "/demo/decor/tree.svg", "viewBox": "0 0 96 128" },
+    { "id": "house", "label": "Casă", "src": "/demo/decor/house.svg", "viewBox": "0 0 112 112" },
+    { "id": "planet", "label": "Planetă", "src": "/demo/decor/planet.svg", "viewBox": "0 0 128 128" },
+    { "id": "balloons", "label": "Baloane", "src": "/demo/decor/balloons.svg", "viewBox": "0 0 96 128" }
+  ]
+}

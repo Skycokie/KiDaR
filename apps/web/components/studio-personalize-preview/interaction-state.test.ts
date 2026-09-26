@@ -23,7 +23,7 @@ describe("local Studio interactions", () => {
     const enabled = setInteractionEnabled(createInteractionState(), true);
     expect(enabled.enabled).toBe(true);
     expect(draft.animation).toBe("dance");
-    expect(draft.decor).toEqual(["tree"]);
+    expect(draft.decor.map((item) => item.id)).toEqual(["tree"]);
     expect(draft.palette).toBe("bright");
     expect(setInteractionEnabled(enabled, false).enabled).toBe(false);
   });

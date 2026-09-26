@@ -5,9 +5,10 @@ import {
   applyIdeaPrompt,
   createInitialPersonalizeState,
   createWorkspaceState,
+  createDecorInstance,
   resetIdeaPrompt
 } from "./form-state";
-import { IDEA_SUGGESTIONS, interpretIdeaPrompt } from "./idea-prompt";
+import { IDEA_SUGGESTIONS, interpretIdeaPrompt, PROMPT_MAPPINGS } from "./idea-prompt";
 
 describe("local Studio idea prompt", () => {
   it("maps a Romanian idea onto motion, decor, and palette together", () => {
@@ -51,16 +52,17 @@ describe("local Studio idea prompt", () => {
   });
 
   it("does not reset existing Studio choices when nothing is recognized", () => {
+    const tree = createDecorInstance("tree");
     const start = {
       ...createInitialPersonalizeState(),
       animation: "dance" as const,
-      decor: ["tree" as const],
+      decor: [tree],
       palette: "bright" as const,
       lighting: "studio" as const
     };
     const next = applyIdeaPrompt(start, "ceva ce nu recunosc deloc");
     expect(next.animation).toBe("dance");
-    expect(next.decor).toEqual(["tree"]);
+    expect(next.decor).toEqual([tree]);
     expect(next.palette).toBe("bright");
     expect(next.lighting).toBe("studio");
     expect(next.ideaResult?.recognized).toBe(false);
@@ -98,5 +100,36 @@ describe("local Studio idea prompt", () => {
       .join("\n");
     expect(sources).not.toMatch(/\bfetch\s*\(/);
     expect(sources).not.toMatch(/XMLHttpRequest|WebSocket|tripo|openai|anthropic/i);
+  });
+
+  it("maps English terms without changing Romanian defaults", () => {
+    expect(PROMPT_MAPPINGS.ro.terms.motion.pluteste).toBe("float");
+    expect(PROMPT_MAPPINGS.ro.terms.motion.danseaza).toBe("dance");
+    expect(PROMPT_MAPPINGS.ro.terms.decor.stele).toBe("stars");
+    expect(PROMPT_MAPPINGS.ro.terms.decor.nor).toBe("cloud");
+    expect(PROMPT_MAPPINGS.en.terms.motion.float).toBe("float");
+    expect(PROMPT_MAPPINGS.en.terms.motion.fly).toBe("float");
+    expect(PROMPT_MAPPINGS.en.terms.motion["in the air"]).toBe("float");
+    expect(PROMPT_MAPPINGS.en.terms.motion.dance).toBe("dance");
+    expect(PROMPT_MAPPINGS.en.terms.decor.stars).toBe("stars");
+    expect(PROMPT_MAPPINGS.en.terms.decor.space).toBe("stars");
+    expect(PROMPT_MAPPINGS.en.terms.decor.cloud).toBe("cloud");
+
+    expect(interpretIdeaPrompt("Float among the stars", "en")).toMatchObject({
+      motion: "float",
+      decor: "stars"
+    });
+    expect(interpretIdeaPrompt("Dance in a garden", "en")).toMatchObject({
+      motion: "dance",
+      decor: "grass"
+    });
+    expect(interpretIdeaPrompt("fly in the air", "en").motion).toBe("float");
+    expect(interpretIdeaPrompt("Să plutească printre stele", "en").recognized).toBe(false);
+    expect(interpretIdeaPrompt("xyzzy unknown words", "en")).toMatchObject({
+      recognized: false,
+      motion: undefined,
+      decor: undefined
+    });
+    expect(interpretIdeaPrompt("Să plutească printre stele").motion).toBe("float");
   });
 });
