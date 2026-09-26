@@ -33,11 +33,19 @@ export function popoutDisplayPhase(
 
 export function activatePopout(
   state: PopoutInteractionState,
-  options: { reducedMotion: boolean }
+  options: { reducedMotion: boolean; force?: boolean }
 ): PopoutInteractionState {
   if (options.reducedMotion) return state;
-  if (state.phase === "failed" || state.phase === "loading" || state.phase === "playing") {
+  if (state.phase === "failed" || state.phase === "loading") {
     return state;
+  }
+  if (state.phase === "playing") {
+    if (!options.force) return state;
+    return {
+      ...state,
+      reveal: "out",
+      spinId: state.spinId + 1
+    };
   }
   if (state.phase === "ready") {
     return {

@@ -56,6 +56,19 @@ describe("homepage pop-out interaction", () => {
     expect(state.mountGlb).toBe(true);
   });
 
+  it("restarts the turn when a click forces a new spin during play", () => {
+    let state = markPopoutReady(
+      activatePopout(createPopoutInteractionState(), { reducedMotion: false })
+    );
+    expect(state.phase).toBe("playing");
+    const replay = activatePopout(state, { reducedMotion: false });
+    expect(replay).toEqual(state);
+    state = activatePopout(state, { reducedMotion: false, force: true });
+    expect(state.phase).toBe("playing");
+    expect(state.spinId).toBe(2);
+    expect(state.reveal).toBe("out");
+  });
+
   it("falls back to PNG permanently after a load failure", () => {
     let state = activatePopout(createPopoutInteractionState(), { reducedMotion: false });
     state = markPopoutFailed(state);

@@ -57,6 +57,7 @@ export function CharacterGlbStage({
   const spinEpochRef = useRef(0);
   const spinElapsedRef = useRef(0);
   const spinningRef = useRef(false);
+  const spinSeenRef = useRef(0);
   activeRef.current = active;
   onReadyRef.current = onReady;
   onFallbackRef.current = onFallback;
@@ -170,7 +171,13 @@ export function CharacterGlbStage({
 
         const loop = (now: number) => {
           if (cancelled || !renderer || !root) return;
-          if (!activeRef.current || document.hidden) {
+          if (spinId > spinSeenRef.current) {
+            spinSeenRef.current = spinId;
+            spinEpochRef.current = spinId;
+            spinElapsedRef.current = 0;
+            spinningRef.current = true;
+          }
+          if ((!activeRef.current && !spinningRef.current) || document.hidden) {
             frame = 0;
             lastStamp = 0;
             return;
@@ -189,7 +196,7 @@ export function CharacterGlbStage({
             renderer.render(scene, camera);
             return;
           }
-          if (!activeRef.current || document.hidden) return;
+          if ((!activeRef.current && !spinningRef.current) || document.hidden) return;
           frame = window.requestAnimationFrame(loop);
         };
         kickRef.current = kick;
@@ -233,7 +240,8 @@ export function CharacterGlbStage({
   }, [active]);
 
   useEffect(() => {
-    if (spinId <= 0) return;
+    if (spinId <= 0 || spinId === spinSeenRef.current) return;
+    spinSeenRef.current = spinId;
     spinEpochRef.current = spinId;
     spinElapsedRef.current = 0;
     spinningRef.current = true;

@@ -15,6 +15,7 @@ import detectiveYellowCoat from "./art/detective-yellow-coat.webp";
 import detectiveRedHairedBoy from "./art/detective-red-haired-boy-happy-cutout.png";
 import detectivePurpleGirl from "./art/detective-purple-girl-happy-cutout.png";
 import detectiveCurlyBoy from "./art/detective-curly-boy-happy-cutout.png";
+import auGasitCocosul from "./art/au-gasit-cocosul.jpg";
 import rooster from "./art/rooster.png";
 import { CharacterPopout, type PopoutVariant } from "./character-popout";
 import { HOMEPAGE_DEMO_CHARACTERS, type HomepageCharacterDemo } from "./homepage-character-assets";
@@ -27,19 +28,26 @@ import {
   settlePopout,
   type PopoutInteractionState
 } from "./popout-interaction";
+import { shouldHeroSpin, starlitNextPhase, type StarlitPhase } from "./starlit-emerge";
 
 const CharacterGlbStage = dynamic(
   () => import("./character-glb-stage").then((mod) => mod.CharacterGlbStage),
   { ssr: false }
 );
 
+const StarlitEmergeStage = dynamic(
+  () => import("./starlit-emerge-stage").then((mod) => mod.StarlitEmergeStage),
+  { ssr: false }
+);
+
 function usePopoutInteraction() {
   const [state, setState] = useState<PopoutInteractionState>(createPopoutInteractionState);
 
-  const activate = useCallback(() => {
+  const activate = useCallback((options?: { force?: boolean }) => {
     setState((current) =>
       activatePopout(current, {
-        reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        force: options?.force === true
       })
     );
   }, []);
@@ -53,8 +61,19 @@ function usePopoutInteraction() {
   };
 }
 
+function usePopoutSpinRequest(spinRequestId: number, activate: (options?: { force?: boolean }) => void) {
+  const handledRef = useRef(0);
+  useEffect(() => {
+    if (spinRequestId <= 0 || handledRef.current === spinRequestId) return;
+    handledRef.current = spinRequestId;
+    activate({ force: true });
+  }, [activate, spinRequestId]);
+}
+
 export function DrawingScene() {
   const rootRef = useRef<HTMLDivElement>(null);
+  const [starlit, setStarlit] = useState<StarlitPhase>("hidden");
+  const [heroSpinId, setHeroSpinId] = useState(0);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -87,6 +106,7 @@ export function DrawingScene() {
     <div
       className="detective-hero"
       ref={rootRef}
+      data-starlit={starlit}
       onPointerMove={onMove}
       onPointerLeave={onLeave}
       aria-hidden="true"
@@ -106,8 +126,47 @@ export function DrawingScene() {
           src={detectiveYellowCoat}
           demo={HOMEPAGE_DEMO_CHARACTERS.detectiveYellowCoat}
           className="detective-character--hero"
+          spinRequestId={heroSpinId}
         />
+        {starlit === "hidden" ? (
+          <button
+            type="button"
+            className="detective-hero__reveal"
+            aria-label="Arată obiectul găsit în 3D"
+            onClick={() => setStarlit((current) => starlitNextPhase(current, "photo"))}
+          />
+        ) : null}
       </div>
+      {starlit !== "hidden" ? (
+        <div className="starlit-emerge">
+          <span className="starlit-emerge__glow" aria-hidden="true" />
+          <StarlitEmergeStage
+            phase={starlit}
+            onOut={() => setStarlit("out")}
+            onHidden={() => setStarlit("hidden")}
+          />
+        </div>
+      ) : null}
+      {starlit === "out" ? (
+        <>
+          <button
+            type="button"
+            className="detective-hero__hero-hit"
+            aria-label="Ridică și învârte detectivul galben"
+            onClick={() => {
+              if (shouldHeroSpin(starlit)) setHeroSpinId((current) => current + 1);
+            }}
+          />
+          <button
+            type="button"
+            className="detective-hero__return"
+            aria-label="Trimite obiectul înapoi în poză"
+            onClick={() => {
+              if (starlitNextPhase(starlit, "scene") === "returning") setStarlit("returning");
+            }}
+          />
+        </>
+      ) : null}
     </div>
   );
 }
@@ -116,12 +175,14 @@ function DetectiveCharacter({
   src,
   demo,
   className = "",
-  celebrationId = 0
+  celebrationId = 0,
+  spinRequestId = 0
 }: {
   src: StaticImageData;
   demo: HomepageCharacterDemo;
   className?: string;
   celebrationId?: number;
+  spinRequestId?: number;
 }) {
   const { state, activate, onReady, onFallback, onSpinDone } = usePopoutInteraction();
   const active = state.phase === "playing" || state.phase === "loading";
@@ -130,14 +191,16 @@ function DetectiveCharacter({
     if (celebrationId > 0) activate();
   }, [activate, celebrationId]);
 
+  usePopoutSpinRequest(spinRequestId, activate);
+
   return (
     <div
       className={`detective-character ${className}`}
       data-phase={popoutDisplayPhase(state)}
       data-reveal={state.reveal}
       data-character={demo.id}
-      onPointerEnter={activate}
-      onClick={activate}
+      onPointerEnter={() => activate()}
+      onClick={() => activate()}
     >
       <div className="detective-character__portrait">
         <Image src={src} alt="" fill sizes="(max-width: 699px) 21vw, 112px" />
@@ -155,6 +218,27 @@ function DetectiveCharacter({
           onSpinDone={onSpinDone}
         />
       ) : null}
+    </div>
+  );
+}
+
+/** The found-rooster moment, shown as a single framed illustration. */
+export function LandingDiscovery() {
+  return (
+    <div className="landing-discovery" aria-hidden="true">
+      <div className="landing-discovery__glow" />
+      <div className="landing-discovery__frame">
+        <Image
+          className="landing-discovery__image"
+          src={auGasitCocosul}
+          alt=""
+          width={1024}
+          height={1024}
+          sizes="(max-width: 899px) 92vw, 620px"
+          style={{ width: "100%", height: "auto", display: "block" }}
+        />
+        <div className="landing-discovery__shine" />
+      </div>
     </div>
   );
 }

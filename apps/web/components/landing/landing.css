@@ -64,6 +64,8 @@ body:has(.landing) {
 }
 
 .landing-masthead {
+  position: relative;
+  z-index: 6;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
@@ -257,6 +259,136 @@ body:has(.landing) {
     linear-gradient(145deg, rgba(255, 255, 255, 0.09), transparent 30%),
     linear-gradient(to top, rgba(9, 11, 16, 0.18), transparent 34%);
   pointer-events: none;
+}
+
+.starlit-emerge {
+  position: absolute;
+  z-index: 3;
+  inset: 1% -2% -16% -2%;
+  opacity: 0;
+  transform: translateY(10%) scale(0.94);
+  filter: saturate(0.86) brightness(0.92);
+  transition:
+    opacity 1.6s ease,
+    transform 3.6s cubic-bezier(0.16, 0.84, 0.28, 1),
+    filter 3.6s ease;
+}
+
+.detective-hero[data-starlit="emerging"] .starlit-emerge,
+.detective-hero[data-starlit="out"] .starlit-emerge {
+  opacity: 1;
+  transform: translateY(-9%) scale(1.14);
+  filter:
+    drop-shadow(0 26px 18px rgba(12, 8, 16, 0.48))
+    saturate(1.06)
+    brightness(1.03);
+}
+
+.detective-hero[data-starlit="out"] .starlit-emerge {
+  cursor: default;
+}
+
+.detective-hero[data-starlit="returning"] .starlit-emerge {
+  opacity: 0;
+  transform: translateY(10%) scale(0.94);
+  transition:
+    opacity 0.6s ease,
+    transform 0.7s ease-in,
+    filter 0.7s ease;
+}
+
+.starlit-emerge__stage,
+.starlit-emerge__canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.starlit-emerge__canvas {
+  display: block;
+}
+
+.starlit-emerge__glow {
+  position: absolute;
+  inset: 14% 12% 10%;
+  z-index: -1;
+  border-radius: 46%;
+  background: radial-gradient(circle at 50% 58%, rgba(255, 188, 96, 0.55), transparent 68%);
+  opacity: 0;
+  filter: blur(22px);
+  transition: opacity 2.4s ease 0.35s;
+}
+
+.detective-hero[data-starlit="emerging"] .starlit-emerge__glow,
+.detective-hero[data-starlit="out"] .starlit-emerge__glow {
+  opacity: 1;
+}
+
+.detective-hero[data-starlit="emerging"] .detective-character--hero,
+.detective-hero[data-starlit="out"] .detective-character--hero,
+.detective-hero[data-starlit="returning"] .detective-character--hero {
+  opacity: 0;
+  transition: opacity 0.9s ease 0.45s;
+}
+
+.detective-hero__reveal {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.detective-hero__hero-hit {
+  position: absolute;
+  z-index: 7;
+  left: 50%;
+  bottom: 4%;
+  width: 148px;
+  height: 190px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  transform: translateX(-50%);
+  cursor: pointer;
+}
+
+.detective-hero__return {
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.detective-hero__reveal:focus-visible,
+.detective-hero__hero-hit:focus-visible,
+.detective-hero__return:focus-visible {
+  outline: 2px solid #ffd9a0;
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .starlit-emerge,
+  .detective-hero[data-starlit="emerging"] .starlit-emerge,
+  .detective-hero[data-starlit="out"] .starlit-emerge,
+  .detective-hero[data-starlit="returning"] .starlit-emerge,
+  .starlit-emerge__glow,
+  .detective-hero[data-starlit="emerging"] .detective-character--hero,
+  .detective-hero[data-starlit="out"] .detective-character--hero,
+  .detective-hero[data-starlit="returning"] .detective-character--hero {
+    transition: none;
+  }
+
+  .detective-hero[data-starlit="emerging"] .starlit-emerge,
+  .detective-hero[data-starlit="out"] .starlit-emerge {
+    transform: translateY(-4%) scale(1.04);
+    filter: none;
+  }
 }
 
 .detective-character {
@@ -1125,8 +1257,46 @@ body:has(.landing) {
     transform: translateY(-6%) scale(1.55);
   }
 
-  .landing-rooster {
-    min-height: 470px;
+.landing-discovery {
+  position: relative;
+  width: min(100%, 620px);
+  margin: 26px auto 0;
+  isolation: isolate;
+}
+
+.landing-discovery__glow {
+  position: absolute;
+  inset: 6% -4% -2%;
+  z-index: -1;
+  border-radius: 45%;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(255, 188, 96, 0.22), transparent 58%),
+    radial-gradient(circle at 74% 68%, rgba(141, 130, 234, 0.16), transparent 52%);
+  filter: blur(26px);
+}
+
+.landing-discovery__frame {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(243, 239, 230, 0.16);
+  border-radius: 28px;
+  background: #19151c;
+  box-shadow:
+    0 30px 70px rgba(0, 0, 0, 0.4),
+    0 0 0 8px rgba(255, 255, 255, 0.025);
+}
+
+.landing-discovery__shine {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent 32%),
+    linear-gradient(to top, rgba(9, 11, 16, 0.16), transparent 32%);
+  pointer-events: none;
+}
+
+.landing-rooster {
+  min-height: 470px;
   }
 
   .detective-character--red,
