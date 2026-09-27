@@ -958,18 +958,28 @@ export function PersonalizePreviewShell({
     if (!url) return;
     const audio = new Audio(url);
     voiceAudioRef.current = audio;
+    audio.addEventListener("ended", () => {
+      if (voiceAudioRef.current !== audio) return;
+      voiceAudioRef.current = null;
+      setSpokenMessage(null);
+    });
     void audio.play().catch(() => {
       // Autoplay can be blocked until a gesture; narrator waits for interact toggle.
     });
   };
 
-  const speakCharacter = (mode: "narrator" | "hidden") => {
+  const speakCharacter = (mode: "narrator" | "hidden" | "tap") => {
     const voice = liveVoice;
     if (!voice) return;
     if (mode === "narrator" && voice.role !== "narrator") return;
     if (mode === "hidden" && voice.role !== "hidden") return;
     setSpokenMessage(voice.message);
     playVoiceClip(voiceStatus?.audioUrl);
+  };
+
+  const silenceCharacter = () => {
+    setSpokenMessage(null);
+    stopVoiceAudio();
   };
 
   useEffect(() => {
@@ -1008,9 +1018,13 @@ export function PersonalizePreviewShell({
 
   const onCharacterClick = () => {
     interactDispatch({ type: "character" });
-    if (liveVoice?.role === "hidden") {
-      speakCharacter("hidden");
+    if (!liveVoice) return;
+    // Tapping a speaking character stops it; tapping a silent one makes it speak (either role).
+    if (spokenMessage !== null) {
+      silenceCharacter();
+      return;
     }
+    speakCharacter("tap");
   };
 
   const onViewportPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {

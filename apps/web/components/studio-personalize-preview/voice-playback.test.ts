@@ -16,8 +16,15 @@ describe("Studio voice playback", () => {
     const shell = read("personalize-shell.tsx");
     expect(shell).toContain("onVoiceDraftChange={setVoiceDraft}");
     expect(shell).toContain("const voice = liveVoice;");
-    expect(shell).toContain('if (liveVoice?.role === "hidden")');
+    expect(shell).toContain('speakCharacter("tap")');
     expect(shell).not.toMatch(/voiceStatus\?\.voice\?\.role/);
+  });
+
+  it("tapping a speaking character stops it", () => {
+    const shell = read("personalize-shell.tsx");
+    const tap = shell.slice(shell.indexOf("const onCharacterClick"), shell.indexOf("const onViewportPointerDown"));
+    expect(tap).toContain("if (spokenMessage !== null)");
+    expect(tap).toContain("silenceCharacter();");
   });
 
   it("saves the current role and message before uploading audio", () => {
