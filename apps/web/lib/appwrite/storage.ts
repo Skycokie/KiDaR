@@ -48,6 +48,13 @@ export function assetFileId(projectId: string, kind: string) {
   return `${kind}_${projectId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 32)}`.slice(0, 36);
 }
 
+/** Stable Appwrite file id for a character voice clip (max 36 chars). */
+export function voiceAssetFileId(projectId: string, characterId: string) {
+  const project = projectId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 20);
+  const character = characterId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 10);
+  return `v_${project}_${character}`.slice(0, 36);
+}
+
 export async function uploadSourceDrawing(ownerId: string, projectId: string, file: File) {
   const fileId = sourceFileId(ownerId, projectId);
   return upsertFile(APPWRITE_SOURCE_BUCKET, fileId, file, ownerId);
@@ -60,6 +67,16 @@ export async function uploadProjectAsset(
   file: File
 ) {
   const fileId = assetFileId(projectId, kind);
+  return upsertFile(APPWRITE_ASSETS_BUCKET, fileId, file, ownerId);
+}
+
+export async function uploadCharacterVoiceAudio(
+  ownerId: string,
+  projectId: string,
+  characterId: string,
+  file: File
+) {
+  const fileId = voiceAssetFileId(projectId, characterId);
   return upsertFile(APPWRITE_ASSETS_BUCKET, fileId, file, ownerId);
 }
 

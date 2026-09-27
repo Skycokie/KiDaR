@@ -44,7 +44,37 @@ export const COPY = {
   emptyDrawing: "Ca să personalizezi previzualizarea, adaugă o poză sau un desen din Atelier.",
   drawingReady: "Desenul salvat din Atelier e pe scenă. Continuă ca să ridici personajul din hârtie.",
   demoPreview: "Previzualizare demonstrativă",
-  figurineDemo: "Previzualizare locală. Nu s-a generat o figurină 3D.",
+  figurineDemo: "Tripo transformă desenul într-o figurină 3D pe care o poți roti aici, în Studio.",
+  figurineGenerate: "Generează figurină 3D",
+  figurineRegenerate: "Generează din nou",
+  figurinePreparing: "Modelăm figurina…",
+  figurineNeedsProject: "Pornește lumea din Atelier ca să generăm figurina din desenul tău.",
+  figurineNeedsDrawing: "Adaugă un desen din Atelier ca să generăm figurina 3D.",
+  voiceHeading: "Vocea personajului",
+  voiceSupport: "Alege dacă vorbește singur sau doar când e descoperit. Adaugă un mesaj scurt și un audio.",
+  voiceRoleLabel: "Rol",
+  voiceRoleNarrator: "Narator",
+  voiceRoleNarratorHint: "Vorbește când activezi interacțiunile",
+  voiceRoleHidden: "Ascuns",
+  voiceRoleHiddenHint: "Vorbește doar când e apăsat pe scenă",
+  voiceMessageLabel: "Mesaj",
+  voiceMessagePlaceholder: "De exemplu: Bună! Eu sunt pește-balenă și te așteptam.",
+  voiceMessageCount: "caractere",
+  voiceSave: "Salvează mesajul",
+  voiceSaving: "Salvăm…",
+  voiceAudioLabel: "Audio",
+  voiceUpload: "Încarcă audio",
+  voiceRecord: "Înregistrează",
+  voiceRecording: "Înregistrare…",
+  voiceStop: "Oprește",
+  voicePlay: "Ascultă",
+  voiceDelete: "Șterge vocea",
+  voiceNeedsProject: "Pornește lumea din Atelier ca să salvezi vocea personajului.",
+  voiceNeedsDrawing: "Adaugă un desen ca să setezi vocea personajului.",
+  voiceSaved: "Mesajul e salvat.",
+  voiceAudioSaved: "Audio-ul e gata.",
+  voiceHonest: "În această versiune vocea se aude doar în Studio, pe scenă.",
+  voiceLimits: "MP3, M4A, WebM sau OGG · până la 2 MB · cam 30 de secunde",
   noDecor: "Fără decor",
   decorHint: "Apasă din nou pentru încă unul. Trage pe scenă ca să-l muți.",
   paletteSection: "Culori",
@@ -110,7 +140,7 @@ export const COPY = {
   popoutPreparing: "Pregătim Pop-out-ul…",
   popoutSeparateFailed: "Nu am putut separa elementele desenului în acest preview.",
   popoutRetry: "Încearcă din nou",
-  figurineVolumeHint: "Previzualizare demonstrativă. Nu s-a generat o figurină 3D.",
+  figurineVolumeHint: "Figurină 3D din desen, generată cu Tripo.",
   volume: "Volum",
   details: "Detalii",
   aspect: "Aspect",
@@ -138,6 +168,7 @@ export type StudioStageId =
   | "miscare"
   | "decor"
   | "context"
+  | "vocea"
   | "testeaza";
 
 export type TransformModeId = "popout" | "figurine";
@@ -162,12 +193,13 @@ export const STAGES: ChoiceOption<StudioStageId>[] = [
   { id: "miscare", label: "Mișcare", hint: "Dă viață" },
   { id: "decor", label: "Decor", hint: "Așază în lume" },
   { id: "context", label: "Context", hint: "Construiește povestea" },
+  { id: "vocea", label: "Vocea", hint: "Mesaj și audio" },
   { id: "testeaza", label: "AR", hint: "Previzualizare locală" }
 ];
 
 export const TRANSFORM_MODES: ChoiceOption<TransformModeId>[] = [
   { id: "popout", label: "Pop-out din desen", hint: "Ridicat din hârtie, ușor plat" },
-  { id: "figurine", label: "Figurină 3D", hint: "Previzualizare demonstrativă" }
+  { id: "figurine", label: "Figurină 3D", hint: "Personaj 3D din desen, cu Tripo" }
 ];
 
 export const STYLE_PRESETS: ChoiceOption<StylePresetId>[] = [

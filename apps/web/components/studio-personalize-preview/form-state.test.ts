@@ -71,6 +71,7 @@ describe("Studio personalize workspace — fixture + local state", () => {
       "Mișcare",
       "Decor",
       "Context",
+      "Vocea",
       "AR"
     ]);
   });
@@ -248,6 +249,9 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(state.transformMode).toBe("figurine");
     expect(isPersonalizeWriteBlocked("/api/projects/x")).toBe(false);
     expect(isPersonalizeWriteBlocked("/api/projects/x/source")).toBe(true);
+    expect(isPersonalizeWriteBlocked("/api/projects/x/figurine")).toBe(false);
+    expect(isPersonalizeWriteBlocked("/api/projects/x/voices/primary")).toBe(false);
+    expect(isPersonalizeWriteBlocked("/api/projects/x/voices/primary/audio")).toBe(false);
     expect(isPersonalizeWriteBlocked("/api/publish")).toBe(true);
   });
 
@@ -267,6 +271,8 @@ describe("Studio personalize workspace — fixture + local state", () => {
   it("blocks api writes except the owned project start-transform path", () => {
     expect(isPersonalizeWriteBlocked("/api/projects")).toBe(true);
     expect(isPersonalizeWriteBlocked("/api/projects/x")).toBe(false);
+    expect(isPersonalizeWriteBlocked("/api/projects/x/figurine")).toBe(false);
+    expect(isPersonalizeWriteBlocked("/api/projects/x/voices/primary")).toBe(false);
     expect(isPersonalizeWriteBlocked("/api/projects/x/asset")).toBe(true);
     expect(isPersonalizeWriteBlocked("/api/publish")).toBe(true);
     expect(PERSONALIZE_BACK_HREF).toBe("/studio-preview");
@@ -309,7 +315,10 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(shell).toContain("orbitDeltaFromPointer(dx, dy)");
     expect(shell).toContain('dispatch({ type: "camera", id: preset.id })');
     expect(shell).toContain('dispatch({ type: "autoRotate", value: !state.autoRotate })');
-    expect(shell).not.toContain("useState");
+    expect(shell).toContain("useState");
+    expect(shell).toContain("readCharacterVoiceStatus");
+    expect(shell).toContain("spokenMessage");
+    expect(shell).toContain("VoiceCard");
     expect(fixtures).toContain(COPY.autoRotateOff);
     expect(fixtures).toContain(COPY.autoRotateStop);
     expect(fixtures).toContain(COPY.rollCcw);
@@ -334,11 +343,13 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(poster).toContain("transformMode");
     expect(poster).toContain("data-mode={transformMode}");
     expect(poster).toContain("PopoutMeshStage");
+    expect(poster).toContain("FigurineLiveStage");
     expect(poster).toContain("ssr: false");
     expect(poster).not.toContain("PopoutDrawingStack");
     expect(poster).toContain("PopoutFixtureFigure");
     expect(poster).toContain("FigurineFixtureFigure");
     expect(poster).toContain("FigurineDrawingShell");
+    expect(shell).toContain("FigurineGenerateCard");
     expect(poster).toContain("figurineVolumeScale");
     expect(poster).toContain("popoutExtrusionPx");
     const removedHint = "Rotește lumea pentru a vedea straturile.";

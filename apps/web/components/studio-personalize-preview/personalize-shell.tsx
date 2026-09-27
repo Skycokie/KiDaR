@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useRef, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useReducer, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
   Check,
   Grid3x3,
@@ -78,6 +78,13 @@ import {
 import { IdeaPromptCard } from "./idea-prompt-card";
 import type { PromptLanguage } from "./idea-prompt";
 import { ContextCard } from "./context-card";
+import { FigurineGenerateCard } from "./figurine-generate-card";
+import { VoiceCard } from "./voice-card";
+import {
+  readCharacterVoiceStatus,
+  type VoiceStatusView
+} from "./character-voice-client";
+import { PRIMARY_CHARACTER_ID } from "@kidar/core";
 import { contextPreviewLines } from "./scene-context";
 import { CURRENT_SCENE_ELIGIBILITY, sceneSummary, toStudioSceneDraft } from "./scene-draft";
 import { GardenPoster } from "./garden-poster";
@@ -239,6 +246,7 @@ const STEP_MESSAGE = {
   miscare: "motion",
   decor: "decor",
   context: "context",
+  vocea: "voice",
   testeaza: "ar"
 } as const satisfies Record<StudioStageId, keyof ReturnType<typeof useStudioI18n>["messages"]["studio"]["steps"]>;
 
@@ -322,12 +330,16 @@ function Inspector({
   state,
   dispatch,
   drawingSrc,
-  projectId
+  projectId,
+  onVoiceChange,
+  onPlayVoice
 }: {
   state: PersonalizeState;
   dispatch: (action: Action) => void;
   drawingSrc?: string | null;
   projectId?: string | null;
+  onVoiceChange?: (status: VoiceStatusView | null) => void;
+  onPlayVoice: (url: string) => void;
 }) {
   const { locale, messages } = useStudioI18n();
   const hasDrawing = Boolean(drawingSrc);
@@ -397,7 +409,7 @@ function Inspector({
           })}
         </div>
         {state.transformMode === "figurine" ? (
-          <p className="studio-ws__muted">{COPY.figurineDemo}</p>
+          <FigurineGenerateCard projectId={projectId} hasDrawing={hasDrawing} />
         ) : null}
 
         <p className="studio-ws__section-label">{COPY.variantSoon}</p>
@@ -645,6 +657,17 @@ function Inspector({
     );
   }
 
+  if (state.stage === "vocea") {
+    return (
+      <VoiceCard
+        projectId={projectId}
+        hasDrawing={hasDrawing}
+        onVoiceChange={onVoiceChange}
+        onPlay={onPlayVoice}
+      />
+    );
+  }
+
   const scene = toStudioSceneDraft(state, hasDrawing);
   const summary = sceneSummary(scene);
   const storyLines = scene.context.story ? contextPreviewLines(scene.context, state) : [];
@@ -801,6 +824,10 @@ export function PersonalizePreviewShell({
     baselineYaw: orbitSeed.yaw ?? createInitialPersonalizeState().orbitYaw,
     baselinePitch: orbitSeed.pitch ?? createInitialPersonalizeState().orbitPitch
   });
+  const [voiceStatus, setVoiceStatus] = useState<VoiceStatusView | null>(null);
+  const [spokenMessage, setSpokenMessage] = useState<string | null>(null);
+  const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const narratorPlayedRef = useRef(false);
   const dragRef = useRef({ active: false, pointerId: -1, lastX: 0, lastY: 0 });
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = useRef<{ distance: number } | null>(null);
@@ -891,6 +918,76 @@ export function PersonalizePreviewShell({
     };
   }, [state.publishOpen]);
 
+  useEffect(() => {
+    if (!projectId) {
+      setVoiceStatus(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const result = await readCharacterVoiceStatus(projectId, PRIMARY_CHARACTER_ID);
+      if (cancelled || !result.ok) return;
+      setVoiceStatus(result.status);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  const stopVoiceAudio = () => {
+    const current = voiceAudioRef.current;
+    if (!current) return;
+    current.pause();
+    current.src = "";
+    voiceAudioRef.current = null;
+  };
+
+  const playVoiceClip = (url: string | null | undefined) => {
+    stopVoiceAudio();
+    if (!url) return;
+    const audio = new Audio(url);
+    voiceAudioRef.current = audio;
+    void audio.play().catch(() => {
+      // Autoplay can be blocked until a gesture; narrator waits for interact toggle.
+    });
+  };
+
+  const speakCharacter = (mode: "narrator" | "hidden") => {
+    const voice = voiceStatus?.voice;
+    if (!voice) return;
+    if (mode === "narrator" && voice.role !== "narrator") return;
+    if (mode === "hidden" && voice.role !== "hidden") return;
+    setSpokenMessage(voice.message);
+    playVoiceClip(voiceStatus?.audioUrl);
+  };
+
+  useEffect(() => {
+    if (!interaction.enabled) {
+      narratorPlayedRef.current = false;
+      setSpokenMessage(null);
+      stopVoiceAudio();
+      return;
+    }
+    if (narratorPlayedRef.current) return;
+    if (voiceStatus?.voice?.role !== "narrator") return;
+    narratorPlayedRef.current = true;
+    speakCharacter("narrator");
+    // Speak once when interactions turn on with a narrator voice.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [interaction.enabled, voiceStatus?.voice?.role, voiceStatus?.voice?.message, voiceStatus?.audioUrl]);
+
+  useEffect(() => {
+    // Narrator replays only after interactions are toggled off and on again.
+    setSpokenMessage(null);
+    stopVoiceAudio();
+  }, [state.stage]);
+
+  useEffect(() => {
+    return () => {
+      stopVoiceAudio();
+    };
+  }, []);
+
   const markDragging = (active: boolean) => {
     const el = viewportRef.current;
     if (!el) return;
@@ -900,6 +997,9 @@ export function PersonalizePreviewShell({
 
   const onCharacterClick = () => {
     interactDispatch({ type: "character" });
+    if (voiceStatus?.voice?.role === "hidden") {
+      speakCharacter("hidden");
+    }
   };
 
   const onViewportPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -1123,7 +1223,9 @@ export function PersonalizePreviewShell({
               state={state}
               transformMode={state.transformMode}
               drawingSrc={drawingSrc}
+              projectId={projectId}
               interaction={interaction}
+              spokenMessage={spokenMessage}
               onCharacterClick={onCharacterClick}
               onDecorActivate={() => interactDispatch({ type: "decor" })}
               onDecorMove={(key, x, y) => dispatch({ type: "decorMove", key, x, y })}
@@ -1245,6 +1347,8 @@ export function PersonalizePreviewShell({
             dispatch={dispatch}
             drawingSrc={drawingSrc}
             projectId={projectId}
+            onVoiceChange={setVoiceStatus}
+            onPlayVoice={playVoiceClip}
           />
         </aside>
       </main>

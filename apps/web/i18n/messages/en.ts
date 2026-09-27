@@ -64,6 +64,7 @@ export const en: Messages = {
       motion: "Motion",
       decor: "Decor",
       context: "Context",
+      voice: "Voice",
       ar: "AR"
     },
     stepHints: {
@@ -73,6 +74,7 @@ export const en: Messages = {
       motion: "Bring it to life",
       decor: "Place it in the world",
       context: "Build the story",
+      voice: "Message and audio",
       ar: "Local preview"
     },
     previewOnly: "Local preview",

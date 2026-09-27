@@ -62,6 +62,7 @@ export type Messages = {
       motion: string;
       decor: string;
       context: string;
+      voice: string;
       ar: string;
     };
     stepHints: {
@@ -71,6 +72,7 @@ export type Messages = {
       motion: string;
       decor: string;
       context: string;
+      voice: string;
       ar: string;
     };
     previewOnly: string;
