@@ -174,7 +174,7 @@ and studio assets:
   `APPWRITE_ASSETS_BUCKET`; keep them equal on Free)
 - `fileSecurity: true`
 - No bucket-level permissions; uploads go through the server with the API key
-- Max size 25 MB; extensions `png,jpg,jpeg,glb,svg,mp3`
+- Max size 25 MB; extensions `png,jpg,jpeg,glb,svg,mp3,m4a,ogg,webm` (audio for character voices)
 - Each file gives its owner `read` only
 
 ## Environment variables

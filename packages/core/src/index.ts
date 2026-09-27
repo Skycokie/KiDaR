@@ -131,6 +131,30 @@ export type {
 } from "./figurine";
 
 export {
+  CHARACTER_VOICE_ROLES,
+  CHARACTER_VOICE_MESSAGE_MAX,
+  CHARACTER_VOICE_AUDIO_MAX_BYTES,
+  CHARACTER_VOICE_AUDIO_MAX_SECONDS,
+  CHARACTER_VOICE_AUDIO_TYPES,
+  PRIMARY_CHARACTER_ID,
+  isCharacterVoiceRole,
+  isValidCharacterId,
+  trimVoiceMessage,
+  normalizeCharacterVoice,
+  isAllowedVoiceAudioType,
+  readCharacterVoice,
+  upsertCharacterVoice,
+  removeCharacterVoice
+} from "./character-voice";
+export type {
+  CharacterVoiceRole,
+  CharacterVoice,
+  CharacterVoiceMap,
+  NormalizeCharacterVoiceOk,
+  NormalizeCharacterVoiceFail
+} from "./character-voice";
+
+export {
   FIGURE_STAGING_ENVIRONMENT,
   FIGURE_STAGING_BUCKET_NAME,
   FIGURE_STAGING_KEY_PREFIX,
@@ -378,6 +402,11 @@ export interface ProjectSettings {
   };
   logoPath?: string;
   soundPath?: string;
+  /**
+   * Per-character Studio voice (narrator / hidden + message + optional audio).
+   * Not part of pipeline inputHash — voice edits must not rebuild Tripo / pop-out.
+   */
+  characterVoices?: import("./character-voice").CharacterVoiceMap;
   scale: number;
   offset: { x: number; y: number; z: number };
   soundUrl?: string;

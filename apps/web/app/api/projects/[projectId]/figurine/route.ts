@@ -71,7 +71,7 @@ export async function GET(_request: Request, { params }: Context) {
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
   const availability = projectFigurineAvailability(project);
-  const arEnabled = readFigureFeatureFlags(process.env).ar;
+  const modelUrl = project.settings?.figurineModelUrl ?? null;
 
   const inputHash = computeInputHash({
     projectId: project.id,
@@ -100,7 +100,7 @@ export async function GET(_request: Request, { params }: Context) {
     availability,
     disclosure: FIGURINE_DISCLOSURE_RO,
     subjects: project.settings?.figurineSubjects ?? [],
-    figurineModelUrl: arEnabled ? (project.settings?.figurineModelUrl ?? null) : null,
+    figurineModelUrl: modelUrl,
     job: job
       ? {
           id: job.id,
@@ -113,8 +113,7 @@ export async function GET(_request: Request, { params }: Context) {
                 ? 100
                 : 0,
           label: figurineProgressLabel(phase),
-          publicUrl:
-            arEnabled && typeof job.result?.publicUrl === "string" ? job.result.publicUrl : null,
+          publicUrl: typeof job.result?.publicUrl === "string" ? job.result.publicUrl : null,
           failureCode:
             typeof job.result?.failureCode === "string" ? job.result.failureCode : null,
           failureMessage:

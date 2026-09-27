@@ -22,10 +22,15 @@ const PopoutMeshStage = dynamic(
   { ssr: false }
 );
 
+const FigurineLiveStage = dynamic(
+  () => import("./figurine-live-stage").then((mod) => mod.FigurineLiveStage),
+  { ssr: false }
+);
+
 /**
  * Studio stage preview. Transform mode is an explicit prop from the shell.
  * Project photos use the local Three pop-out (cutout + ExtrudeGeometry).
- * Figurine stays a local clay/toy mock. Fixture pop-out stays SVG when there is no photo.
+ * Figurine uses the linked 3D job when a project is present; otherwise the clay mock.
  */
 
 function FixturePartShapes({
@@ -309,8 +314,10 @@ export function GardenPoster({
   state,
   transformMode,
   drawingSrc,
+  projectId = null,
   mirror = false,
   interaction,
+  spokenMessage = null,
   onCharacterClick,
   onDecorActivate,
   onDecorMove
@@ -318,9 +325,12 @@ export function GardenPoster({
   state: PersonalizeState;
   transformMode: TransformModeId;
   drawingSrc?: string | null;
+  projectId?: string | null;
   /** Compact copy for the AR step. Skips a second WebGL cutout. */
   mirror?: boolean;
   interaction?: InteractionState;
+  /** Live character voice bubble; takes priority over context dialogue. */
+  spokenMessage?: string | null;
   onCharacterClick?: () => void;
   onDecorActivate?: () => void;
   onDecorMove?: (key: string, x: number, y: number) => void;
@@ -343,6 +353,7 @@ export function GardenPoster({
   const saturate = state.originalColors ? 1 : 0.55 + state.variantIndex * 0.2;
   const extrusion = popoutExtrusionPx(state.volume);
   const { messages } = useStudioI18n();
+  const dialogueText = spokenMessage ?? state.context.dialogue;
 
   return (
     <div
@@ -395,12 +406,10 @@ export function GardenPoster({
       <div className="studio-stage__floor" aria-hidden="true" />
 
       {hasDrawing ? null : <p className="studio-stage__demo-label">{messages.studio.demoPreview}</p>}
-      {state.context.dialogue ? (
-        <p className="studio-stage__dialogue">{state.context.dialogue}</p>
-      ) : null}
+      {dialogueText ? <p className="studio-stage__dialogue">{dialogueText}</p> : null}
 
-      {isFigurine ? (
-        <p className="studio-stage__mode-hint studio-stage__mode-hint--figurine">{COPY.figurineVolumeHint}</p>
+      {isFigurine && !projectId ? (
+        <p className="studio-stage__mode-hint studio-stage__mode-hint--figurine">{COPY.figurineNeedsProject}</p>
       ) : null}
 
       <div className="studio-stage__play">
@@ -427,7 +436,25 @@ export function GardenPoster({
           />
         ) : null}
 
-        {isFigurine && hasDrawing ? (
+        {isFigurine && hasDrawing && projectId && !mirror ? (
+          <FigurineLiveStage
+            projectId={projectId}
+            yaw={state.orbitYaw}
+            pitch={state.orbitPitch}
+            roll={state.orbitRoll}
+            zoom={state.zoom}
+            volume={state.volume}
+            fallback={
+              <FigurineDrawingShell
+                drawingSrc={drawingSrc!}
+                volume={state.volume}
+                preserveOutline={state.preserveOutline}
+              />
+            }
+          />
+        ) : null}
+
+        {isFigurine && hasDrawing && (!projectId || mirror) ? (
           <FigurineDrawingShell
             drawingSrc={drawingSrc!}
             volume={state.volume}

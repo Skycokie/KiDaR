@@ -72,7 +72,8 @@ const COLLECTION_PERMISSIONS = [];
  */
 const BUCKET_PERMISSIONS = [];
 const BUCKET_MAX_BYTES = 25 * 1024 * 1024;
-const BUCKET_EXTENSIONS = ["png", "jpg", "jpeg", "glb", "svg", "mp3"];
+// Character voice clips: upload (mp3/m4a/ogg) and browser recordings (webm, or m4a on Safari).
+const BUCKET_EXTENSIONS = ["png", "jpg", "jpeg", "glb", "svg", "mp3", "m4a", "ogg", "webm"];
 
 const SCHEMA = [
   {
@@ -447,7 +448,8 @@ async function ensureBucket(storage, bucketId) {
   const needsUpdate =
     bucket.fileSecurity !== true ||
     !permsEqual(bucket.$permissions, BUCKET_PERMISSIONS) ||
-    Number(bucket.maximumFileSize) !== BUCKET_MAX_BYTES;
+    Number(bucket.maximumFileSize) !== BUCKET_MAX_BYTES ||
+    !permsEqual(bucket.allowedFileExtensions, BUCKET_EXTENSIONS);
 
   if (!needsUpdate) return;
 

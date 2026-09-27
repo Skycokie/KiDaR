@@ -64,6 +64,7 @@ export const ro: Messages = {
       motion: "Mișcare",
       decor: "Decor",
       context: "Context",
+      voice: "Vocea",
       ar: "AR"
     },
     stepHints: {
@@ -73,6 +74,7 @@ export const ro: Messages = {
       motion: "Dă viață",
       decor: "Așază în lume",
       context: "Construiește povestea",
+      voice: "Mesaj și audio",
       ar: "Previzualizare locală"
     },
     previewOnly: "Previzualizare locală",

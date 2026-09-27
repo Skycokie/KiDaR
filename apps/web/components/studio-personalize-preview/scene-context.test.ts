@@ -137,7 +137,9 @@ describe("local Studio Context step", () => {
     const shell = readFileSync(join(__dirname, "personalize-shell.tsx"), "utf8");
     const stage = readFileSync(join(__dirname, "garden-poster.tsx"), "utf8");
     expect(shell).toContain("contextPreviewLines(scene.context, state)");
-    expect(stage).toContain("{state.context.dialogue}");
+    expect(stage).toContain("state.context.dialogue");
+    expect(stage).toContain("spokenMessage");
+    expect(stage).toContain("studio-stage__dialogue");
     expect(`${shell}\n${stage}`).not.toMatch(/dangerouslySetInnerHTML/);
   });
 

@@ -677,7 +677,10 @@ export function isStageComplete(state: PersonalizeState, stage: StudioStageId): 
 
 /**
  * Paths that must never be called as write endpoints from this preview shell.
- * The one exception is PATCH /api/projects/:projectId for settings.scene.startTransform.
+ * Allowed writes:
+ * - PATCH /api/projects/:projectId (start transform)
+ * - POST /api/projects/:projectId/figurine (Tripo)
+ * - PATCH/POST/DELETE /api/projects/:projectId/voices/... (character voice)
  */
 export function isStartTransformPatchPath(url: string): boolean {
   let path = url.split("?")[0] ?? url;
@@ -690,6 +693,28 @@ export function isStartTransformPatchPath(url: string): boolean {
   return /^\/api\/projects\/[^/]+$/.test(path);
 }
 
+export function isFigurineGeneratePath(url: string): boolean {
+  let path = url.split("?")[0] ?? url;
+  try {
+    path = new URL(url, "http://local.invalid").pathname;
+  } catch {
+    // keep split path
+  }
+  path = path.replace(/\/+$/, "") || "/";
+  return /^\/api\/projects\/[^/]+\/figurine$/.test(path);
+}
+
+export function isCharacterVoicePath(url: string): boolean {
+  let path = url.split("?")[0] ?? url;
+  try {
+    path = new URL(url, "http://local.invalid").pathname;
+  } catch {
+    // keep split path
+  }
+  path = path.replace(/\/+$/, "") || "/";
+  return /^\/api\/projects\/[^/]+\/voices\/[^/]+(?:\/audio)?$/.test(path);
+}
+
 export function isPersonalizeWriteBlocked(url: string): boolean {
   let path = url.split("?")[0] ?? url;
   try {
@@ -699,6 +724,8 @@ export function isPersonalizeWriteBlocked(url: string): boolean {
   }
   path = path.replace(/\/+$/, "") || "/";
   if (isStartTransformPatchPath(path)) return false;
+  if (isFigurineGeneratePath(path)) return false;
+  if (isCharacterVoicePath(path)) return false;
   if (path.startsWith("/api/")) return true;
   return false;
 }
