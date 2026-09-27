@@ -1,10 +1,10 @@
-import { Permission, Role } from "node-appwrite";
 import { InputFile } from "node-appwrite/file";
 import {
   APPWRITE_ASSETS_BUCKET,
   APPWRITE_SOURCE_BUCKET
 } from "./config";
-import { createSessionClient } from "./client";
+import { createAdminClient } from "./client";
+import { ownerReadOnlyPermissions } from "./permissions";
 
 export function previewUrl(bucketId: string, fileId: string) {
   return `/api/files/${encodeURIComponent(bucketId)}/${encodeURIComponent(fileId)}`;
@@ -24,14 +24,10 @@ async function upsertFile(
   file: File,
   ownerId: string
 ) {
-  const { storage } = createSessionClient();
+  const { storage } = createAdminClient();
   const buffer = Buffer.from(await file.arrayBuffer());
   const input = InputFile.fromBuffer(buffer, file.name || preferredId);
-  const permissions = [
-    Permission.read(Role.user(ownerId)),
-    Permission.update(Role.user(ownerId)),
-    Permission.delete(Role.user(ownerId))
-  ];
+  const permissions = ownerReadOnlyPermissions(ownerId);
 
   try {
     await storage.getFile(bucketId, preferredId);
@@ -68,7 +64,7 @@ export async function uploadProjectAsset(
 }
 
 export async function deleteStorageFiles(bucketId: string, fileIds: string[]) {
-  const { storage } = createSessionClient();
+  const { storage } = createAdminClient();
   for (const fileId of fileIds) {
     try {
       await storage.deleteFile(bucketId, fileId);
