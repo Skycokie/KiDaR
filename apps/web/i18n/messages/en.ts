@@ -188,5 +188,115 @@ export const en: Messages = {
       title: "Settings",
       body: "Tools come later. This stays a calm, focused space, not a cinematic stage."
     }
+  },
+  creaza: {
+    metaTitle: "Create · kidAR",
+    metaDescription: "Photograph a drawing, choose the scene, and bring the page to life.",
+    brandKicker: "kidAR · Create",
+    previewBadge: "Create · 4 steps",
+    surpriseName: "Surprise from {date}",
+    progressLabel: "Progress: step {current} of {total}",
+    steps: {
+      preset: "Start",
+      foto: "Picture",
+      experienta: "Scene",
+      confirmare: "World"
+    },
+    preset: {
+      title: "What does the world start with?",
+      lead: "Choose a kind of drawing. Then put a picture on the table and give it a scene.",
+      cta: "Start the world",
+      ctaBusy: "Preparing the surprise…",
+      doorsLabel: "Starting point",
+      doors: {
+        coloring: {
+          title: "A colored drawing",
+          detail: "Characters, objects, notebook pages — any line that wants to step off the paper."
+        },
+        story: {
+          title: "A story page",
+          detail: "Book illustrations and scenes that can become a gate."
+        },
+        mission: {
+          title: "A mission",
+          detail: "Clues, keys, and challenges for games and classrooms."
+        }
+      }
+    },
+    foto: {
+      title: "Put the picture on the table",
+      lead: "A clear photo of the paper. No screens, no heavy shadows.",
+      dropEmpty: "Place the picture here",
+      dropHint: "JPG or PNG · up to 10 MB",
+      dropSelected: "Your picture is on the table",
+      dropLoading: "Saving the picture…",
+      dropDragOver: "Drop the picture here",
+      tips: ["Photograph the whole page", "Soft light, no strong flash", "Don’t photograph a screen"],
+      cta: "Save the picture and continue",
+      ctaBusy: "Saving the picture…",
+      back: "Back",
+      previewAlt: "Picture preview: {name}",
+      smallWarning: "The photo looks very small — the same warning as in the real flow.",
+      fixtureBarLabel: "Fixture states (optional)",
+      fixturePrefix: "Fixture:",
+      removePhoto: "Remove picture",
+      fixtureStates: {
+        empty: "No picture",
+        dragOver: "Drag-over",
+        selected: "Picture selected",
+        error: "Invalid picture",
+        loading: "Saving… (mock)"
+      }
+    },
+    experienta: {
+      title: "How should it come to life?",
+      lead: "Choose the scene on this page. It is saved to the world only when you press the button below.",
+      cta: "Save the scene and continue",
+      ctaBusy: "Saving the scene…",
+      back: "Back to the picture",
+      soon: "Coming soon",
+      doors: {
+        popout: { title: "Pops off the page", detail: "We lift what matters from the drawing — calm, clear, magical." },
+        gallery: { title: "A figure on top", detail: "Choose a character or object that appears on the page." }
+      }
+    },
+    confirmare: {
+      title: "The world is ready to personalize",
+      lead: "We kept your choice. Continue in Studio to shape the character, or start another one.",
+      summaryPreset: "Starting point",
+      summaryFoto: "Picture",
+      summaryScene: "Scene",
+      again: "Start another world",
+      atelier: "Open Studio",
+      note: "The draft has its start, picture, and scene saved. Next comes Studio — personalizing on stage.",
+      notChosen: "Not chosen"
+    },
+    errors: {
+      preset: {
+        select: "Choose what the world starts with.",
+        auth: "You need to be signed in to start the world.",
+        quota: "You’ve used the surprises in the free plan. You can still use Studio for existing projects.",
+        generic: "We couldn’t start the world. Try again.",
+        ambiguous:
+          "We couldn’t confirm whether the world was created. Check your worlds before trying again — an automatic retry could create an extra draft."
+      },
+      photoInvalid: "We can only use JPG or PNG photos, up to 10 MB.",
+      upload: {
+        missingProject: "The world isn’t ready yet. Go back and press “Start the world”.",
+        missingPhoto: "Choose a JPG or PNG picture first.",
+        auth: "You need to be signed in to save the picture.",
+        notFound: "This world is no longer available.",
+        generic: "We couldn’t save the picture. Try again.",
+        network: "We couldn’t save the picture. Check your connection and try again."
+      },
+      scene: {
+        missingProject: "The world isn’t ready yet. Go back and press “Start the world”.",
+        invalidScene: "Choose Pop-out to continue. Figure is coming soon.",
+        auth: "You need to be signed in to save the scene.",
+        notFound: "This world is no longer available.",
+        generic: "We couldn’t save the scene. Try again.",
+        network: "We couldn’t save the scene. Check your connection and try again."
+      }
+    }
   }
 };

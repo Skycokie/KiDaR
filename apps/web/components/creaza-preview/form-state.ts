@@ -11,6 +11,7 @@ import {
   type ExperienceChoice,
   type SimpleCreatorPreset
 } from "@/lib/simple-creator";
+import type { Messages } from "@/i18n/types";
 import type { CreateProjectClientError } from "./create-project";
 import type { CreazaPreviewStep, FotoFixtureState } from "./fixtures";
 import type { LocalSourceImage } from "./local-source";
@@ -62,40 +63,52 @@ export type CreazaLocalFormState = {
   sceneError: SceneError;
 };
 
-export const PRESET_ERROR_COPY: Record<Exclude<PresetError, "">, string> = {
-  select: "Alege cu ce începe lumea.",
-  auth: "Trebuie să fii autentificat ca să începi lumea.",
-  quota: "Ai folosit surprizele din planul gratuit. Poți folosi Studio pentru proiectele existente.",
-  generic: "Nu am putut începe lumea. Încearcă din nou.",
-  ambiguous:
-    "Nu am putut confirma dacă lumea a fost creată. Verifică galeria lumilor înainte să încerci din nou — un retry automat ar putea crea un draft în plus."
-};
+type ErrorCopy = Messages["creaza"]["errors"];
 
-export const FOTO_ERROR_COPY: Record<Exclude<FotoValidationError, "">, string> = {
-  type: "Putem folosi doar fotografii JPG sau PNG, până la 10 MB.",
-  size: "Putem folosi doar fotografii JPG sau PNG, până la 10 MB."
-};
+export function presetErrorText(t: ErrorCopy, error: Exclude<PresetError, "">): string {
+  return t.preset[error];
+}
 
-export const UPLOAD_ERROR_COPY: Record<Exclude<UploadError, "">, string> = {
-  "missing-project": "Lumea nu este pregătită încă. Întoarce-te și apasă „Începe lumea”.",
-  "missing-photo": "Alege mai întâi o poză JPG sau PNG.",
-  type: "Putem folosi doar fotografii JPG sau PNG, până la 10 MB.",
-  size: "Putem folosi doar fotografii JPG sau PNG, până la 10 MB.",
-  auth: "Trebuie să fii autentificat ca să salvezi poza.",
-  "not-found": "Lumea nu mai este disponibilă.",
-  generic: "Nu am putut salva poza. Încearcă din nou.",
-  network: "Nu am putut salva poza. Verifică conexiunea și încearcă din nou."
-};
+export function fotoErrorText(t: ErrorCopy): string {
+  return t.photoInvalid;
+}
 
-export const SCENE_ERROR_COPY: Record<Exclude<SceneError, "">, string> = {
-  "missing-project": "Lumea nu este pregătită încă. Întoarce-te și apasă „Începe lumea”.",
-  "invalid-scene": "Alege Popout ca să continui. Figurină vine în curând.",
-  auth: "Trebuie să fii autentificat ca să salvezi scena.",
-  "not-found": "Lumea nu mai este disponibilă.",
-  "bad-request": "Nu am putut salva scena. Încearcă din nou.",
-  generic: "Nu am putut salva scena. Încearcă din nou.",
-  network: "Nu am putut salva scena. Verifică conexiunea și încearcă din nou."
-};
+export function uploadErrorText(t: ErrorCopy, error: Exclude<UploadError, "">): string {
+  switch (error) {
+    case "missing-project":
+      return t.upload.missingProject;
+    case "missing-photo":
+      return t.upload.missingPhoto;
+    case "type":
+    case "size":
+      return t.photoInvalid;
+    case "auth":
+      return t.upload.auth;
+    case "not-found":
+      return t.upload.notFound;
+    case "network":
+      return t.upload.network;
+    default:
+      return t.upload.generic;
+  }
+}
+
+export function sceneErrorText(t: ErrorCopy, error: Exclude<SceneError, "">): string {
+  switch (error) {
+    case "missing-project":
+      return t.scene.missingProject;
+    case "invalid-scene":
+      return t.scene.invalidScene;
+    case "auth":
+      return t.scene.auth;
+    case "not-found":
+      return t.scene.notFound;
+    case "network":
+      return t.scene.network;
+    default:
+      return t.scene.generic;
+  }
+}
 
 export function createInitialCreazaFormState(): CreazaLocalFormState {
   return {
@@ -478,8 +491,8 @@ export function isCreateProjectAllowed(url: string): boolean {
   return path === "/api/projects";
 }
 
-export function fotoDisplayName(state: CreazaLocalFormState): string {
+export function fotoDisplayName(state: CreazaLocalFormState, notChosen: string): string {
   if (state.localSource) return state.localSource.name;
   if (state.fotoMockName) return state.fotoMockName;
-  return "Neales";
+  return notChosen;
 }

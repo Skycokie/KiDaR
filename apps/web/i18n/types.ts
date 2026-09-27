@@ -179,4 +179,95 @@ export type Messages = {
     };
     settings: { title: string; body: string };
   };
+  creaza: {
+    metaTitle: string;
+    metaDescription: string;
+    brandKicker: string;
+    previewBadge: string;
+    /** `{date}` is replaced with a long localized date. */
+    surpriseName: string;
+    /** `{current}` and `{total}` are replaced with step numbers. */
+    progressLabel: string;
+    steps: {
+      preset: string;
+      foto: string;
+      experienta: string;
+      confirmare: string;
+    };
+    preset: {
+      title: string;
+      lead: string;
+      cta: string;
+      ctaBusy: string;
+      doorsLabel: string;
+      doors: {
+        coloring: { title: string; detail: string };
+        story: { title: string; detail: string };
+        mission: { title: string; detail: string };
+      };
+    };
+    foto: {
+      title: string;
+      lead: string;
+      dropEmpty: string;
+      dropHint: string;
+      dropSelected: string;
+      dropLoading: string;
+      dropDragOver: string;
+      tips: readonly [string, string, string];
+      cta: string;
+      ctaBusy: string;
+      back: string;
+      /** `{name}` is replaced with the file name. */
+      previewAlt: string;
+      smallWarning: string;
+      fixtureBarLabel: string;
+      fixturePrefix: string;
+      removePhoto: string;
+      fixtureStates: { empty: string; dragOver: string; selected: string; error: string; loading: string };
+    };
+    experienta: {
+      title: string;
+      lead: string;
+      cta: string;
+      ctaBusy: string;
+      back: string;
+      soon: string;
+      doors: {
+        popout: { title: string; detail: string };
+        gallery: { title: string; detail: string };
+      };
+    };
+    confirmare: {
+      title: string;
+      lead: string;
+      summaryPreset: string;
+      summaryFoto: string;
+      summaryScene: string;
+      again: string;
+      atelier: string;
+      note: string;
+      notChosen: string;
+    };
+    errors: {
+      preset: { select: string; auth: string; quota: string; generic: string; ambiguous: string };
+      photoInvalid: string;
+      upload: {
+        missingProject: string;
+        missingPhoto: string;
+        auth: string;
+        notFound: string;
+        generic: string;
+        network: string;
+      };
+      scene: {
+        missingProject: string;
+        invalidScene: string;
+        auth: string;
+        notFound: string;
+        generic: string;
+        network: string;
+      };
+    };
+  };
 };
