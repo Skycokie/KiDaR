@@ -245,7 +245,7 @@ function HeroEmergence() {
   );
 }
 
-export function HeroStage() {
+export function HeroStage({ label }: { label: string }) {
   return (
     <div className="atelier-stage" aria-hidden="true">
       <div className="atelier-stage__wash" />
@@ -273,7 +273,7 @@ export function HeroStage() {
       <div className="atelier-stage__cutout">
         <HeroEmergence />
       </div>
-      <p className="atelier-stage__label">Poză → Lume AR</p>
+      <p className="atelier-stage__label">{label}</p>
     </div>
   );
 }

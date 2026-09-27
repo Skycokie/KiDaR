@@ -33,7 +33,15 @@ describe("i18n coverage", () => {
     expect([...strings(ro), ...strings(en)].filter((text) => text.includes("kiDAR"))).toEqual([]);
   });
 
-  it.each(["app/auth/callback/route.ts", "components/landing/drawing-scene.tsx"])(
+  it.each([
+    "app/auth/callback/route.ts",
+    "components/landing/drawing-scene.tsx",
+    "app/studio/page.tsx",
+    "components/studio-preview/studio-shell.tsx",
+    "components/studio-preview/fixtures.ts",
+    "components/studio-preview/artworks.tsx",
+    "lib/studio-worlds.ts"
+  ])(
     "%s has no hardcoded Romanian UI text",
     (file) => {
       const source = read(file)
