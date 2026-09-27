@@ -34,21 +34,21 @@ async function minHeight(locator: import("@playwright/test").Locator) {
 test("editorial homepage is Romanian with auth-aware CTAs for guests", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Desenul tău prinde viață." })).toBeVisible();
-  await expect(page.getByText("kiDAR", { exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Descoperă kiDAR" })).toHaveAttribute("href", "/intra");
+  await expect(page.getByText("kidAR", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Descoperă kidAR" })).toHaveAttribute("href", "/intra");
   await expect(page.getByRole("link", { name: "Intră în Studio" })).toHaveAttribute("href", "/login");
   await expect(page.getByRole("heading", { name: "Desenează" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Fotografiază" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Descoperă" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Intră în kiDAR" })).toHaveAttribute("href", "/intra");
-  await minHeight(page.getByRole("link", { name: "Descoperă kiDAR" }));
+  await expect(page.getByRole("link", { name: "Intră în kidAR" })).toHaveAttribute("href", "/intra");
+  await minHeight(page.getByRole("link", { name: "Descoperă kidAR" }));
 });
 
 test("editorial homepage sends signed-in users to Atelier and Studio preview", async ({ page }) => {
   await signIn(page);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Desenul tău prinde viață." })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Descoperă kiDAR" })).toHaveAttribute("href", "/creaza");
+  await expect(page.getByRole("link", { name: "Descoperă kidAR" })).toHaveAttribute("href", "/creaza");
   await expect(page.getByRole("link", { name: "Intră în Studio" })).toHaveAttribute(
     "href",
     "/studio-preview/personalizeaza"
@@ -57,7 +57,7 @@ test("editorial homepage sends signed-in users to Atelier and Studio preview", a
 
 test("Romanian entry has a visible email label and status copy", async ({ page }) => {
   await page.goto("/intra");
-  await expect(page.getByRole("heading", { name: "Intră în kiDAR" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Intră în kidAR" })).toBeVisible();
   await expect(page.getByLabel("Email")).toBeVisible();
   await expect(page.getByRole("button", { name: "Trimite legătura de intrare" })).toBeVisible();
   await minHeight(page.getByRole("button", { name: "Trimite legătura de intrare" }));
@@ -155,7 +155,7 @@ test("unauthenticated Studio login is Romanian", async ({ page }) => {
   await page.goto("/login");
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByRole("img", { name: "kidAR — Play With Studio" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Intră în kiDAR" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Intră în kidAR" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Trimite legătura de intrare" })).toBeVisible();
 });
 

@@ -70,7 +70,13 @@ function usePopoutSpinRequest(spinRequestId: number, activate: (options?: { forc
   }, [activate, spinRequestId]);
 }
 
-export function DrawingScene() {
+export type DrawingSceneLabels = {
+  revealFound3d: string;
+  spinDetective: string;
+  returnToPhoto: string;
+};
+
+export function DrawingScene({ labels }: { labels: DrawingSceneLabels }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [starlit, setStarlit] = useState<StarlitPhase>("hidden");
   const [heroSpinId, setHeroSpinId] = useState(0);
@@ -132,7 +138,7 @@ export function DrawingScene() {
           <button
             type="button"
             className="detective-hero__reveal"
-            aria-label="Arată obiectul găsit în 3D"
+            aria-label={labels.revealFound3d}
             onClick={() => setStarlit((current) => starlitNextPhase(current, "photo"))}
           />
         ) : null}
@@ -152,7 +158,7 @@ export function DrawingScene() {
           <button
             type="button"
             className="detective-hero__hero-hit"
-            aria-label="Ridică și învârte detectivul galben"
+            aria-label={labels.spinDetective}
             onClick={() => {
               if (shouldHeroSpin(starlit)) setHeroSpinId((current) => current + 1);
             }}
@@ -160,7 +166,7 @@ export function DrawingScene() {
           <button
             type="button"
             className="detective-hero__return"
-            aria-label="Trimite obiectul înapoi în poză"
+            aria-label={labels.returnToPhoto}
             onClick={() => {
               if (starlitNextPhase(starlit, "scene") === "returning") setStarlit("returning");
             }}

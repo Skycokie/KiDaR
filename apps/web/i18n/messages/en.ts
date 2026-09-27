@@ -10,9 +10,9 @@ export const en: Messages = {
     eyebrow: "PLAY WITH",
     title: "Your drawing comes to life.",
     description: "Turn a drawing into a figure you can discover in your world.",
-    discoverCta: "Discover kiDAR",
+    discoverCta: "Discover kidAR",
     studioCta: "Enter Studio",
-    originalArtNote: "Original illustrations created for kiDAR.",
+    originalArtNote: "Original illustrations created for kidAR.",
     processTitle: "From a drawing, into a new world.",
     draw: "Draw",
     drawBody: "Create a character in your own style.",
@@ -21,10 +21,13 @@ export const en: Messages = {
     discover: "Discover",
     discoverBody: "Look at the figure and explore it in your space.",
     closeTitle: "A small idea can become a big world.",
-    enterCta: "Enter kiDAR"
+    enterCta: "Enter kidAR",
+    revealFound3d: "Show the found object in 3D",
+    spinDetective: "Lift and spin the yellow detective",
+    returnToPhoto: "Send the object back into the picture"
   },
   auth: {
-    title: "Enter kiDAR",
+    title: "Enter kidAR",
     lead: "You only need an email address. No password.",
     emailLabel: "Email",
     emailPlaceholder: "name@example.com",
@@ -37,13 +40,21 @@ export const en: Messages = {
     checkEmailBody: "We sent you a sign-in link. Open the email and press the button to continue.",
     spamHint: "If you don’t see the message, check Spam or ask for a new link.",
     requestNewLink: "Request a new link",
-    confirmTitle: "Confirm sign-in to kiDAR",
-    confirmBody: "Press the button to enter kiDAR.",
+    confirmTitle: "Confirm sign-in to kidAR",
+    confirmBody: "Press the button to enter kidAR.",
     scannerProtection: "This confirmation stops email scanners from using the link before you do.",
-    enter: "Enter kiDAR",
+    enter: "Enter kidAR",
     devOnly: "Only on this computer:",
     openLink: "open the sign-in link",
-    studioAccount: "I already have a Studio account"
+    studioAccount: "I already have a Studio account",
+    confirmPageTitle: "Confirm sign-in",
+    retryTitle: "Sign in again",
+    linkMissing: "The sign-in link is missing or incomplete.",
+    expiredTitle: "Link expired",
+    linkUsedBeforeEnter: "This link was already used or has expired. Ask for a new one and press",
+    linkUsedAfterEnter: "only once, from the most recent email.",
+    sessionFailed: "We couldn’t start your session. Ask for a new link and try again.",
+    unknownError: "Unknown error"
   },
   studio: {
     steps: {

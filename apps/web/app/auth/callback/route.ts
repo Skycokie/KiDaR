@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/appwrite/client";
 import { SESSION_COOKIE } from "@/lib/appwrite/config";
 import { ensureProfile } from "@/lib/appwrite/db";
+import { getMessages } from "@/i18n/get-messages";
+import { getRequestLocale } from "@/i18n/get-request-locale";
+import { hrefForLocale } from "@/i18n/locale";
 
 export const dynamic = "force-dynamic";
 
@@ -10,13 +13,13 @@ function wantsCreaza(nextCookie: string | undefined, nextQuery: string | null) {
   return nextCookie === "/creaza" || nextQuery === "/creaza";
 }
 
-function htmlPage(title: string, body: string) {
+function htmlPage(lang: string, title: string, body: string) {
   return `<!DOCTYPE html>
-<html lang="ro">
+<html lang="${lang}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${title}</title>
+    <title>${escapeHtml(title)}</title>
   <style>
     body { margin: 0; background: #0b0e14; }
     .auth-shell {
@@ -141,7 +144,7 @@ function htmlPage(title: string, body: string) {
 <main class="auth-shell">
   <section class="auth-card">
     <div class="auth-brand">
-      <span class="kidar-wordmark" role="img" aria-label="kidAR — Play With Studio">
+      <span class="kidar-wordmark" role="img" aria-label="${escapeHtml(getMessages(lang === "en" ? "en" : "ro").brand.accessibleLabel)}">
         <span class="kidar-wordmark__eyebrow">
           <span class="kidar-wordmark__play">PLAY</span>
           <span class="kidar-wordmark__with">WITH</span>
@@ -183,23 +186,29 @@ function resolveNextPath(requestUrl: URL) {
  * the token on POST (human confirm). Use the admin Appwrite client for SSR
  * session minting — bare project clients fail createSession on the server.
  */
+function missingLinkPage(lang: string, intra: string) {
+  const t = getMessages(lang === "en" ? "en" : "ro").auth;
+  return htmlPage(
+    lang,
+    t.retryTitle,
+    `<h1>${escapeHtml(t.retryTitle)}</h1>
+<p class="auth-lead">${escapeHtml(t.linkMissing)}</p>
+<p class="auth-secondary"><a href="${intra}">${escapeHtml(t.requestNewLink)}</a></p>`
+  );
+}
+
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const origin = resolveOrigin(requestUrl);
+  const locale = getRequestLocale();
+  const t = getMessages(locale).auth;
   const userId = requestUrl.searchParams.get("userId");
   const secret = requestUrl.searchParams.get("secret");
   const nextPath = resolveNextPath(requestUrl);
-  const intra = new URL("/intra", origin).toString();
+  const intra = new URL(hrefForLocale("/intra", locale), origin).toString();
 
   if (!userId || !secret) {
-    return htmlResponse(
-      htmlPage(
-        "Intră din nou",
-        `<h1>Intră din nou</h1>
-<p class="auth-lead">Linkul de intrare lipsește sau e incomplet.</p>
-<p class="auth-secondary"><a href="${intra}">Cere o legătură nouă</a></p>`
-      )
-    );
+    return htmlResponse(missingLinkPage(locale, intra));
   }
 
   const safeUserId = escapeHtml(userId);
@@ -208,17 +217,18 @@ export async function GET(request: Request) {
 
   return htmlResponse(
     htmlPage(
-      "Confirmă intrarea",
-      `<h1>Confirmă intrarea în kiDAR</h1>
-<p class="auth-lead">Apasă butonul pentru a intra în kiDAR.</p>
-<p class="auth-note">Confirmarea oprește scanerele de email să consume legătura înaintea ta.</p>
+      locale,
+      t.confirmPageTitle,
+      `<h1>${escapeHtml(t.confirmTitle)}</h1>
+<p class="auth-lead">${escapeHtml(t.confirmBody)}</p>
+<p class="auth-note">${escapeHtml(t.scannerProtection)}</p>
 <form method="post" action="/auth/callback">
   <input type="hidden" name="userId" value="${safeUserId}">
   <input type="hidden" name="secret" value="${safeSecret}">
   <input type="hidden" name="next" value="${safeNext}">
-  <button class="auth-btn" type="submit">Intră în kiDAR</button>
+  <button class="auth-btn" type="submit">${escapeHtml(t.enter)}</button>
 </form>
-<p class="auth-secondary"><a href="${intra}">Cere o legătură nouă</a></p>`
+<p class="auth-secondary"><a href="${intra}">${escapeHtml(t.requestNewLink)}</a></p>`
     )
   );
 }
@@ -237,23 +247,17 @@ export async function POST(request: Request) {
   )
     ? "/creaza"
     : "/studio";
-  const destination = new URL(nextPath, origin).toString();
-  const intra = new URL("/intra", origin).toString();
+  const locale = getRequestLocale();
+  const t = getMessages(locale).auth;
+  const destination = new URL(hrefForLocale(nextPath, locale), origin).toString();
+  const intra = new URL(hrefForLocale("/intra", locale), origin).toString();
 
   if (nextCookie) {
     cookies().set("kidar_next", "", { path: "/", maxAge: 0 });
   }
 
   if (!userId || !secret) {
-    return htmlResponse(
-      htmlPage(
-        "Intră din nou",
-        `<h1>Intră din nou</h1>
-<p class="auth-lead">Linkul de intrare lipsește sau e incomplet.</p>
-<p class="auth-secondary"><a href="${intra}">Cere o legătură nouă</a></p>`
-      ),
-      400
-    );
+    return htmlResponse(missingLinkPage(locale, intra), 400);
   }
 
   try {
@@ -281,22 +285,23 @@ export async function POST(request: Request) {
     }
     return response;
   } catch (cause) {
-    const message = cause instanceof Error ? cause.message : "Eroare necunoscută";
+    const message = cause instanceof Error ? cause.message : t.unknownError;
     const type =
       cause && typeof cause === "object" && "type" in cause
         ? String((cause as { type?: string }).type ?? "")
         : "";
     const hint = type.includes("user_invalid_token") || /invalid|expired|used/i.test(message)
-      ? "Linkul a fost deja folosit sau a expirat. Cere unul nou și apasă <strong>Intră în kiDAR</strong> o singură dată, din cel mai recent email."
-      : "Nu am putut deschide sesiunea. Cere o legătură nouă și încearcă din nou.";
+      ? `${escapeHtml(t.linkUsedBeforeEnter)} <strong>${escapeHtml(t.enter)}</strong> ${escapeHtml(t.linkUsedAfterEnter)}`
+      : escapeHtml(t.sessionFailed);
 
     return htmlResponse(
       htmlPage(
-        "Link expirat",
-        `<h1>Link expirat</h1>
+        locale,
+        t.expiredTitle,
+        `<h1>${escapeHtml(t.expiredTitle)}</h1>
 <p class="auth-lead">${hint}</p>
 <p><small>${escapeHtml(type || message)}</small></p>
-<p class="auth-secondary"><a href="${intra}">Cere o legătură nouă</a></p>`
+<p class="auth-secondary"><a href="${intra}">${escapeHtml(t.requestNewLink)}</a></p>`
       ),
       401
     );

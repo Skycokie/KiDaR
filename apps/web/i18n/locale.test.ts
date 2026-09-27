@@ -34,7 +34,7 @@ describe("locale resolution", () => {
     expect(resolveLocale({ pathLocale: "de", cookie: "fr", acceptLanguage: "it" })).toBe("ro");
     expect(getMessages("de").landing.title).toBe("Desenul tău prinde viață.");
     expect(getMessages("en").landing.title).toBe("Your drawing comes to life.");
-    expect(getMessages("ro").auth.title).toBe("Intră în kiDAR");
+    expect(getMessages("ro").auth.title).toBe("Intră în kidAR");
     expect(getMessages("en").auth.submit).toBe("Send sign-in link");
   });
 

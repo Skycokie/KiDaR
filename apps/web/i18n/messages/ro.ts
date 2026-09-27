@@ -10,9 +10,9 @@ export const ro: Messages = {
     eyebrow: "PLAY WITH",
     title: "Desenul tău prinde viață.",
     description: "Transformă un desen într-o figurină pe care o poți descoperi în lumea ta.",
-    discoverCta: "Descoperă kiDAR",
+    discoverCta: "Descoperă kidAR",
     studioCta: "Intră în Studio",
-    originalArtNote: "Ilustrații originale create pentru kiDAR.",
+    originalArtNote: "Ilustrații originale create pentru kidAR.",
     processTitle: "Din desen, într-o lume nouă.",
     draw: "Desenează",
     drawBody: "Creează un personaj în stilul tău.",
@@ -21,10 +21,13 @@ export const ro: Messages = {
     discover: "Descoperă",
     discoverBody: "Privește figurina și exploreaz-o în spațiul tău.",
     closeTitle: "O idee mică poate deveni o lume mare.",
-    enterCta: "Intră în kiDAR"
+    enterCta: "Intră în kidAR",
+    revealFound3d: "Arată obiectul găsit în 3D",
+    spinDetective: "Ridică și învârte detectivul galben",
+    returnToPhoto: "Trimite obiectul înapoi în poză"
   },
   auth: {
-    title: "Intră în kiDAR",
+    title: "Intră în kidAR",
     lead: "Folosești doar adresa de email. Fără parolă.",
     emailLabel: "Email",
     emailPlaceholder: "nume@exemplu.ro",
@@ -37,13 +40,21 @@ export const ro: Messages = {
     checkEmailBody: "Ți-am trimis o legătură de intrare. Deschide emailul și apasă butonul pentru a continua.",
     spamHint: "Dacă nu vezi mesajul, verifică folderul Spam sau cere o legătură nouă.",
     requestNewLink: "Cere o legătură nouă",
-    confirmTitle: "Confirmă intrarea în kiDAR",
-    confirmBody: "Apasă butonul pentru a intra în kiDAR.",
+    confirmTitle: "Confirmă intrarea în kidAR",
+    confirmBody: "Apasă butonul pentru a intra în kidAR.",
     scannerProtection: "Confirmarea oprește scanerele de email să consume legătura înaintea ta.",
-    enter: "Intră în kiDAR",
+    enter: "Intră în kidAR",
     devOnly: "Doar pe acest computer:",
     openLink: "deschide legătura de intrare",
-    studioAccount: "Am deja un cont Studio"
+    studioAccount: "Am deja un cont Studio",
+    confirmPageTitle: "Confirmă intrarea",
+    retryTitle: "Intră din nou",
+    linkMissing: "Linkul de intrare lipsește sau e incomplet.",
+    expiredTitle: "Link expirat",
+    linkUsedBeforeEnter: "Linkul a fost deja folosit sau a expirat. Cere unul nou și apasă",
+    linkUsedAfterEnter: "o singură dată, din cel mai recent email.",
+    sessionFailed: "Nu am putut deschide sesiunea. Cere o legătură nouă și încearcă din nou.",
+    unknownError: "Eroare necunoscută"
   },
   studio: {
     steps: {

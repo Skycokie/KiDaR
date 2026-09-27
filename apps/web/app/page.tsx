@@ -27,7 +27,7 @@ const body = DM_Sans({
 export async function generateMetadata(): Promise<Metadata> {
   const copy = getMessages(getRequestLocale()).landing;
   return {
-    title: `kiDAR — ${copy.title.replace(/\.$/, "")}`,
+    title: `kidAR — ${copy.title.replace(/\.$/, "")}`,
     description: copy.description
   };
 }
@@ -70,7 +70,13 @@ export default async function HomePage() {
             </div>
             <p className="landing-credit">{copy.originalArtNote}</p>
           </div>
-          <DrawingScene />
+          <DrawingScene
+            labels={{
+              revealFound3d: copy.revealFound3d,
+              spinDetective: copy.spinDetective,
+              returnToPhoto: copy.returnToPhoto
+            }}
+          />
         </section>
 
         <section className="landing-process" aria-labelledby="process-title">
