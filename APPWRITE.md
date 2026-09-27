@@ -93,10 +93,17 @@ missing resources and aligns collection/bucket permission flags when needed.
 
 ### Collections
 
-Document security is **enabled**. Collection-level permission is only
-`create("users")` so signed-in creators can insert rows. Each document gets
-owner `read` / `update` / `delete` from application code
-(`Permission.*` + `Role.user(ownerId)`).
+Document security is **enabled** and collections have **no** collection-level
+permissions. Only the server writes documents, with the API key, after the
+route has checked ownership. Each document gives its owner `read` only
+(`ownerReadOnlyPermissions` in `apps/web/lib/appwrite/permissions.ts`).
+Users must never get `update` / `delete`: the Appwrite project id is public,
+so a signed-in user could otherwise call Appwrite directly and change `plan`,
+`status`, or job payloads.
+
+Existing documents and files created under the old model are fixed with
+`pnpm appwrite:migrate-permissions` (dry run), then
+`pnpm appwrite:migrate-permissions -- --apply --project=<project id>`.
 
 #### `profiles`
 
@@ -166,9 +173,9 @@ and studio assets:
 - ID `source-drawings` (override with `APPWRITE_SOURCE_BUCKET` /
   `APPWRITE_ASSETS_BUCKET`; keep them equal on Free)
 - `fileSecurity: true`
-- Bucket permission: `create("users")`
+- No bucket-level permissions; uploads go through the server with the API key
 - Max size 25 MB; extensions `png,jpg,jpeg,glb,svg,mp3`
-- File permissions set by the app for the owning user
+- Each file gives its owner `read` only
 
 ## Environment variables
 

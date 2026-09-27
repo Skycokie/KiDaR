@@ -1,5 +1,5 @@
 import type { Models } from "node-appwrite";
-import { ID, Permission, Query, Role } from "node-appwrite";
+import { ID, Query } from "node-appwrite";
 import type { ProjectMode, ProjectSettings } from "@kidar/core";
 import {
   APPWRITE_DATABASE_ID,
@@ -8,6 +8,7 @@ import {
   APPWRITE_PROJECTS_COLLECTION
 } from "./config";
 import { createAdminClient, createSessionClient } from "./client";
+import { ownerReadOnlyPermissions } from "./permissions";
 
 export type Plan = "free" | "paid";
 
@@ -75,14 +76,6 @@ export function mapProfile(doc: Models.Document): ProfileRecord {
   };
 }
 
-function ownerPermissions(userId: string) {
-  return [
-    Permission.read(Role.user(userId)),
-    Permission.update(Role.user(userId)),
-    Permission.delete(Role.user(userId))
-  ];
-}
-
 export async function ensureProfile(userId: string): Promise<ProfileRecord> {
   const { databases } = createAdminClient();
   try {
@@ -98,7 +91,7 @@ export async function ensureProfile(userId: string): Promise<ProfileRecord> {
       APPWRITE_PROFILES_COLLECTION,
       userId,
       { plan: "free", stripe_customer_id: null },
-      ownerPermissions(userId)
+      ownerReadOnlyPermissions(userId)
     );
     return mapProfile(created);
   }
@@ -175,7 +168,7 @@ export async function createProjectDocument(
     settings: ProjectSettings;
   }
 ): Promise<ProjectRecord> {
-  const { databases } = createSessionClient();
+  const { databases } = createAdminClient();
   const doc = await databases.createDocument(
     APPWRITE_DATABASE_ID,
     APPWRITE_PROJECTS_COLLECTION,
@@ -188,7 +181,7 @@ export async function createProjectDocument(
       status: "draft",
       settings: JSON.stringify(data.settings)
     },
-    ownerPermissions(owner)
+    ownerReadOnlyPermissions(owner)
   );
   return mapProject(doc);
 }
@@ -197,7 +190,7 @@ export async function updateProjectDocument(
   projectId: string,
   patch: Record<string, unknown>
 ): Promise<ProjectRecord> {
-  const { databases } = createSessionClient();
+  const { databases } = createAdminClient();
   const payload = { ...patch };
   if (payload.settings && typeof payload.settings !== "string") {
     payload.settings = JSON.stringify(payload.settings);
@@ -212,7 +205,7 @@ export async function updateProjectDocument(
 }
 
 export async function deleteProjectDocument(projectId: string): Promise<void> {
-  const { databases } = createSessionClient();
+  const { databases } = createAdminClient();
   await databases.deleteDocument(
     APPWRITE_DATABASE_ID,
     APPWRITE_PROJECTS_COLLECTION,
@@ -227,7 +220,7 @@ export async function createJobDocument(data: {
   payload: Record<string, unknown>;
   owner: string;
 }) {
-  const { databases } = createSessionClient();
+  const { databases } = createAdminClient();
   return databases.createDocument(
     APPWRITE_DATABASE_ID,
     APPWRITE_JOBS_COLLECTION,
@@ -238,6 +231,6 @@ export async function createJobDocument(data: {
       status: data.status,
       payload: JSON.stringify(data.payload)
     },
-    ownerPermissions(data.owner)
+    ownerReadOnlyPermissions(data.owner)
   );
 }

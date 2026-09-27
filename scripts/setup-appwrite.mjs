@@ -30,8 +30,6 @@ const {
   Client,
   Databases,
   Storage,
-  Permission,
-  Role,
   DatabasesIndexType,
   AppwriteException
 } = require("node-appwrite");
@@ -61,18 +59,18 @@ const SOURCE_BUCKET = process.env.APPWRITE_SOURCE_BUCKET || "source-drawings";
 const ASSETS_BUCKET = process.env.APPWRITE_ASSETS_BUCKET || SOURCE_BUCKET;
 
 /**
- * Collection-level permission: authenticated users may create documents.
- * Document-level permissions (set by the app on each document) restrict
- * read/update/delete to the owning user. documentSecurity must be true.
+ * No collection-level permissions: users cannot create documents directly.
+ * The server creates every document with the API key and grants the owner
+ * read-only access (documentSecurity must be true).
  */
-const COLLECTION_CREATE_USERS = [Permission.create(Role.users())];
+const COLLECTION_PERMISSIONS = [];
 
 /**
- * Bucket-level permission: authenticated users may create files.
- * File-level permissions (set by the app) restrict access to the owner.
- * fileSecurity must be true. Free plan: one bucket shared by source + assets.
+ * No bucket-level permissions: uploads go through the server with the API key.
+ * File-level permissions grant the owner read-only access (fileSecurity=true).
+ * Free plan: one bucket shared by source + assets.
  */
-const BUCKET_CREATE_USERS = [Permission.create(Role.users())];
+const BUCKET_PERMISSIONS = [];
 const BUCKET_MAX_BYTES = 25 * 1024 * 1024;
 const BUCKET_EXTENSIONS = ["png", "jpg", "jpeg", "glb", "svg", "mp3"];
 
@@ -228,18 +226,18 @@ async function ensureCollection(databases, spec) {
       databaseId: DATABASE_ID,
       collectionId: spec.id,
       name: spec.name,
-      permissions: COLLECTION_CREATE_USERS,
+      permissions: COLLECTION_PERMISSIONS,
       documentSecurity: true,
       enabled: true
     });
-    log("created", `collection ${spec.id} (documentSecurity=true, create(users))`);
+    log("created", `collection ${spec.id} (documentSecurity=true, server-only writes)`);
   }
 
   if (!collection) return null;
 
   const needsPermUpdate =
     collection.documentSecurity !== true ||
-    !permsEqual(collection.$permissions, COLLECTION_CREATE_USERS);
+    !permsEqual(collection.$permissions, COLLECTION_PERMISSIONS);
 
   if (needsPermUpdate) {
     if (MUTE) {
@@ -249,7 +247,7 @@ async function ensureCollection(databases, spec) {
       );
       if (VERIFY) {
         throw new Error(
-          `Collection ${spec.id} must use documentSecurity=true and create("users")`
+          `Collection ${spec.id} must use documentSecurity=true and no collection-level permissions`
         );
       }
     } else {
@@ -257,7 +255,7 @@ async function ensureCollection(databases, spec) {
         databaseId: DATABASE_ID,
         collectionId: spec.id,
         name: spec.name,
-        permissions: COLLECTION_CREATE_USERS,
+        permissions: COLLECTION_PERMISSIONS,
         documentSecurity: true,
         enabled: true
       });
@@ -436,19 +434,19 @@ async function ensureBucket(storage, bucketId) {
     bucket = await storage.createBucket({
       bucketId,
       name: "Project files",
-      permissions: BUCKET_CREATE_USERS,
+      permissions: BUCKET_PERMISSIONS,
       fileSecurity: true,
       enabled: true,
       maximumFileSize: BUCKET_MAX_BYTES,
       allowedFileExtensions: BUCKET_EXTENSIONS
     });
-    log("created", `bucket ${bucketId} (fileSecurity=true, create(users), 25MB)`);
+    log("created", `bucket ${bucketId} (fileSecurity=true, server-only writes, 25MB)`);
     return;
   }
 
   const needsUpdate =
     bucket.fileSecurity !== true ||
-    !permsEqual(bucket.$permissions, BUCKET_CREATE_USERS) ||
+    !permsEqual(bucket.$permissions, BUCKET_PERMISSIONS) ||
     Number(bucket.maximumFileSize) !== BUCKET_MAX_BYTES;
 
   if (!needsUpdate) return;
@@ -466,7 +464,7 @@ async function ensureBucket(storage, bucketId) {
   await storage.updateBucket({
     bucketId,
     name: bucket.name || "Project files",
-    permissions: BUCKET_CREATE_USERS,
+    permissions: BUCKET_PERMISSIONS,
     fileSecurity: true,
     enabled: true,
     maximumFileSize: BUCKET_MAX_BYTES,
@@ -491,7 +489,7 @@ async function main() {
     );
   }
   console.log(
-    "permissions: documentSecurity + collection create(users); fileSecurity + bucket create(users)"
+    "permissions: documentSecurity + fileSecurity; no collection/bucket permissions (server-only writes)"
   );
   console.log("note: scan_events is intentionally not created (M4)");
 
