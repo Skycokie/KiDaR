@@ -2,6 +2,12 @@ import type { ProjectSettings } from "@kidar/core";
 import { FIXTURE_PROJECTS } from "@/components/studio-preview/fixtures";
 import type { Locale } from "@/i18n/config";
 import { getMessages } from "@/i18n/get-messages";
+import { hrefForLocale } from "@/i18n/locale";
+
+/** Where a world opens: the personalize workspace, never the removed legacy editor. */
+export function personalizeHref(projectId: string, locale: Locale = "ro"): string {
+  return `${hrefForLocale("/studio-preview/personalizeaza", locale)}?projectId=${encodeURIComponent(projectId)}`;
+}
 
 /** Deliberately reduced card DTO — never the full ProjectRecord. */
 export type StudioWorldStatus = "draft" | "ready" | "published";
@@ -103,7 +109,7 @@ export function toStudioWorldCard(
   return {
     id: project.id,
     title,
-    href: `/studio/${project.id}`,
+    href: personalizeHref(project.id, locale),
     status: normalizeStudioWorldStatus(project.status, project.settings),
     updatedLabel: formatStudioUpdatedLabel(project.updated_at, locale),
     visualVariant: visualVariantFromId(project.id)
