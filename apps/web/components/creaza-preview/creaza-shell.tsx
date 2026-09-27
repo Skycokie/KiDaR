@@ -4,11 +4,13 @@ import { useEffect, useId, useMemo, useReducer, useRef } from "react";
 import { SOURCE_ACCEPT, type SimpleCreatorPreset } from "@/lib/simple-creator";
 import { CreazaArt } from "./art";
 import { buildCreateProjectPayload, postCreateProject } from "./create-project";
+import type { Locale } from "@/i18n/config";
+import { getMessages } from "@/i18n/get-messages";
+import { hrefForLocale } from "@/i18n/locale";
 import {
-  COPY,
   CREAZA_STEPS,
   EXPERIENCE_DOORS,
-  FOTO_FIXTURE_LABELS,
+  FOTO_FIXTURE_STATES,
   PRESET_DOORS,
   TOTAL_STEPS,
   type FotoFixtureState
@@ -29,19 +31,19 @@ import {
   failPresetCreate,
   failSceneSave,
   failSourceUpload,
-  FOTO_ERROR_COPY,
   fotoDisplayName,
+  fotoErrorText,
   goBack,
-  PRESET_ERROR_COPY,
+  presetErrorText,
   resetCreazaForm,
   resumeExistingDraft,
-  SCENE_ERROR_COPY,
+  sceneErrorText,
   selectExperience,
   selectPreset,
   setFotoDragOver,
   setLocalSourceFailure,
   setLocalSourceSuccess,
-  UPLOAD_ERROR_COPY,
+  uploadErrorText,
   type CreazaLocalFormState,
   type SceneError,
   type UploadError
@@ -55,9 +57,6 @@ import { SiteHeader } from "@/components/site-nav";
 import { patchSceneMode } from "./save-scene";
 import { postSourceUpload } from "./upload-source";
 import "./creaza-preview.css";
-const PRESET_TITLES: Record<string, string> = Object.fromEntries(
-  PRESET_DOORS.map((door) => [door.id, door.title])
-);
 
 type Action =
   | { type: "select-preset"; preset: SimpleCreatorPreset }
@@ -129,7 +128,9 @@ function reducer(state: CreazaLocalFormState, action: Action): CreazaLocalFormSt
  * Atelier preview: Create Go B + Source Go B + Scene Go B.
  * Publish remains blocked. Scene PATCH is `{ mode: "popout" }` only.
  */
-export function CreazaPreviewShell() {
+export function CreazaPreviewShell({ locale = "ro" }: { locale?: Locale }) {
+  const messages = getMessages(locale);
+  const t = messages.creaza;
   const [state, dispatch] = useReducer(reducer, undefined, createInitialCreazaFormState);
   const fileInputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -171,7 +172,7 @@ export function CreazaPreviewShell() {
     createInFlightRef.current = true;
     dispatch({ type: "begin-create" });
 
-    const payload = buildCreateProjectPayload(decision.preset);
+    const payload = buildCreateProjectPayload(decision.preset, new Date(), locale);
     const result = await postCreateProject(payload);
 
     createInFlightRef.current = false;
@@ -228,28 +229,37 @@ export function CreazaPreviewShell() {
 
   const dropLocked = state.fotoBusy;
   const sceneLocked = state.sceneBusy;
-  const fotoAlert =
-    state.uploadError && UPLOAD_ERROR_COPY[state.uploadError]
-      ? UPLOAD_ERROR_COPY[state.uploadError]
-      : state.fotoError
-        ? FOTO_ERROR_COPY[state.fotoError]
-        : null;
-  const sceneAlert =
-    state.sceneError && SCENE_ERROR_COPY[state.sceneError] ? SCENE_ERROR_COPY[state.sceneError] : null;
+  const fotoAlert = state.uploadError
+    ? uploadErrorText(t.errors, state.uploadError)
+    : state.fotoError
+      ? fotoErrorText(t.errors)
+      : null;
+  const sceneAlert = state.sceneError ? sceneErrorText(t.errors, state.sceneError) : null;
+  const previewAlt = (name: string) => t.foto.previewAlt.replace("{name}", name);
 
   return (
-    <div className="creaza-preview" data-creaza-mode="scene-go-b">      <a className="creaza-preview__skip" href="#creaza-preview-main">
-        Sari la conținut
+    <div className="creaza-preview" data-creaza-mode="scene-go-b">
+      <a className="creaza-preview__skip" href="#creaza-preview-main">
+        {messages.accessibility.skipToContent}
       </a>
 
       <SiteHeader
         brandHref="/studio"
         studioHref="/studio-preview/personalizeaza"
-        trailing={<p className="creaza-preview__badge">{COPY.previewBadge}</p>}
+        locale={locale}
+        menuLabel={messages.accessibility.menu}
+        languageLabel={messages.accessibility.languageSelector}
+        navLabel={messages.worlds.nav.main}
+        trailing={<p className="creaza-preview__badge">{t.previewBadge}</p>}
       />
 
       <main id="creaza-preview-main" className="creaza-preview__main">
-        <ol className="creaza-progress" aria-label={`Progres: pasul ${stepMeta.index} din ${TOTAL_STEPS}`}>
+        <ol
+          className="creaza-progress"
+          aria-label={t.progressLabel
+            .replace("{current}", String(stepMeta.index))
+            .replace("{total}", String(TOTAL_STEPS))}
+        >
           {CREAZA_STEPS.map((item) => {
             const currentIndex = stepMeta.index;
             const klass =
@@ -263,7 +273,7 @@ export function CreazaPreviewShell() {
                 <span>
                   {item.index} / {TOTAL_STEPS}
                 </span>
-                {item.short}
+                {t.steps[item.id]}
               </li>
             );
           })}
@@ -271,13 +281,13 @@ export function CreazaPreviewShell() {
 
         {state.step === "preset" ? (
           <section aria-labelledby="creaza-preset-title" aria-busy={state.presetBusy}>
-            <p className="creaza-kicker">{COPY.brandKicker}</p>
+            <p className="creaza-kicker">{t.brandKicker}</p>
             <h1 id="creaza-preset-title" className="creaza-title">
-              {COPY.preset.title}
+              {t.preset.title}
             </h1>
-            <p className="creaza-lead">{COPY.preset.lead}</p>
+            <p className="creaza-lead">{t.preset.lead}</p>
 
-            <div className="creaza-doors" role="listbox" aria-label="Punct de pornire">
+            <div className="creaza-doors" role="listbox" aria-label={t.preset.doorsLabel}>
               {PRESET_DOORS.map((door) => (
                 <button
                   key={door.id}
@@ -292,8 +302,8 @@ export function CreazaPreviewShell() {
                     <CreazaArt kind={door.art} />
                   </span>
                   <span className="creaza-door__copy">
-                    <strong>{door.title}</strong>
-                    <em>{door.detail}</em>
+                    <strong>{t.preset.doors[door.id].title}</strong>
+                    <em>{t.preset.doors[door.id].detail}</em>
                   </span>
                 </button>
               ))}
@@ -301,12 +311,12 @@ export function CreazaPreviewShell() {
 
             {state.presetError ? (
               <p className="creaza-inline-error" role="alert">
-                {PRESET_ERROR_COPY[state.presetError]}
+                {presetErrorText(t.errors, state.presetError)}
               </p>
             ) : null}
 
             <p className="creaza-status" role="status" aria-live="polite">
-              {state.presetBusy ? COPY.preset.ctaBusy : ""}
+              {state.presetBusy ? t.preset.ctaBusy : ""}
             </p>
 
             <div className="creaza-actions">
@@ -316,7 +326,7 @@ export function CreazaPreviewShell() {
                 disabled={state.presetBusy}
                 onClick={() => void startWorld()}
               >
-                {state.presetBusy ? COPY.preset.ctaBusy : COPY.preset.cta}
+                {state.presetBusy ? t.preset.ctaBusy : t.preset.cta}
               </button>
             </div>
           </section>
@@ -324,11 +334,11 @@ export function CreazaPreviewShell() {
 
         {state.step === "foto" ? (
           <section aria-labelledby="creaza-foto-title" aria-busy={state.fotoBusy}>
-            <p className="creaza-kicker">{COPY.brandKicker}</p>
+            <p className="creaza-kicker">{t.brandKicker}</p>
             <h1 id="creaza-foto-title" className="creaza-title">
-              {COPY.foto.title}
+              {t.foto.title}
             </h1>
-            <p className="creaza-lead">{COPY.foto.lead}</p>
+            <p className="creaza-lead">{t.foto.lead}</p>
 
             <input
               ref={fileInputRef}
@@ -361,7 +371,7 @@ export function CreazaPreviewShell() {
                 aria-controls={fileInputId}
                 aria-label={
                   fotoAlert ??
-                  (state.localSource ? COPY.foto.dropSelected : COPY.foto.dropEmpty)
+                  (state.localSource ? t.foto.dropSelected : t.foto.dropEmpty)
                 }
                 onClick={() => {
                   if (dropLocked) return;
@@ -399,7 +409,7 @@ export function CreazaPreviewShell() {
                   <img
                     className="creaza-drop__preview"
                     src={state.localSource.objectUrl}
-                    alt={`Previzualizare poză: ${state.localSource.name}`}
+                    alt={previewAlt(state.localSource.name)}
                   />
                 ) : (state.fotoUi === "selected" || state.fotoUi === "loading") && !state.fotoError ? (
                   <div className="creaza-drop__paper">
@@ -411,12 +421,12 @@ export function CreazaPreviewShell() {
                   {fotoAlert
                     ? fotoAlert
                     : state.localSource
-                      ? COPY.foto.dropSelected
+                      ? t.foto.dropSelected
                       : state.fotoUi === "loading"
-                        ? COPY.foto.dropLoading
+                        ? t.foto.dropLoading
                         : state.fotoUi === "drag-over"
-                          ? "Trage poza aici"
-                          : COPY.foto.dropEmpty}
+                          ? t.foto.dropDragOver
+                          : t.foto.dropEmpty}
                 </p>
                 <p className="creaza-drop__hint">
                   {state.localSource
@@ -426,18 +436,18 @@ export function CreazaPreviewShell() {
                           : ""
                       }`
                     : state.fotoMockName
-                      ? `Fixture: ${state.fotoMockName}`
-                      : COPY.foto.dropHint}
+                      ? `${t.foto.fixturePrefix} ${state.fotoMockName}`
+                      : t.foto.dropHint}
                 </p>
                 {state.fotoSmallWarning ? (
                   <p className="creaza-drop__hint" role="status">
-                    Fotografia pare foarte mică — același avertisment ca în fluxul real.
+                    {t.foto.smallWarning}
                   </p>
                 ) : null}
               </div>
 
               <ul className="creaza-tips">
-                {COPY.foto.tips.map((tip) => (
+                {t.foto.tips.map((tip) => (
                   <li key={tip}>{tip}</li>
                 ))}
               </ul>
@@ -450,19 +460,19 @@ export function CreazaPreviewShell() {
             ) : null}
 
             <p className="creaza-status" role="status" aria-live="polite">
-              {state.fotoBusy ? COPY.foto.ctaBusy : ""}
+              {state.fotoBusy ? t.foto.ctaBusy : ""}
             </p>
 
-            <div className="creaza-fixture-bar" role="group" aria-label="Stări fixture (opțional)">
-              {(Object.keys(FOTO_FIXTURE_LABELS) as FotoFixtureState[]).map((key) => (
+            <div className="creaza-fixture-bar" role="group" aria-label={t.foto.fixtureBarLabel}>
+              {FOTO_FIXTURE_STATES.map((fixture) => (
                 <button
-                  key={key}
+                  key={fixture.id}
                   type="button"
                   disabled={dropLocked}
-                  className={!state.localSource && state.fotoUi === key ? "is-active" : undefined}
-                  onClick={() => dispatch({ type: "foto-fixture", ui: key })}
+                  className={!state.localSource && state.fotoUi === fixture.id ? "is-active" : undefined}
+                  onClick={() => dispatch({ type: "foto-fixture", ui: fixture.id })}
                 >
-                  {FOTO_FIXTURE_LABELS[key]}
+                  {t.foto.fixtureStates[fixture.key]}
                 </button>
               ))}
               {state.localSource ? (
@@ -471,7 +481,7 @@ export function CreazaPreviewShell() {
                   disabled={dropLocked}
                   onClick={() => dispatch({ type: "local-clear" })}
                 >
-                  Elimină poza
+                  {t.foto.removePhoto}
                 </button>
               ) : null}
             </div>
@@ -483,7 +493,7 @@ export function CreazaPreviewShell() {
                 disabled={dropLocked}
                 onClick={() => dispatch({ type: "back" })}
               >
-                {COPY.foto.back}
+                {t.foto.back}
               </button>
               <button
                 type="button"
@@ -491,7 +501,7 @@ export function CreazaPreviewShell() {
                 disabled={dropLocked}
                 onClick={() => void savePhoto()}
               >
-                {state.fotoBusy ? COPY.foto.ctaBusy : COPY.foto.cta}
+                {state.fotoBusy ? t.foto.ctaBusy : t.foto.cta}
               </button>
             </div>
           </section>
@@ -499,15 +509,15 @@ export function CreazaPreviewShell() {
 
         {state.step === "experienta" ? (
           <section aria-labelledby="creaza-exp-title" aria-busy={state.sceneBusy}>
-            <p className="creaza-kicker">{COPY.brandKicker}</p>
+            <p className="creaza-kicker">{t.brandKicker}</p>
             <h1 id="creaza-exp-title" className="creaza-title">
-              {COPY.experienta.title}
+              {t.experienta.title}
             </h1>
-            <p className="creaza-lead">{COPY.experienta.lead}</p>
+            <p className="creaza-lead">{t.experienta.lead}</p>
 
             <div className="creaza-scene-grid">
               {EXPERIENCE_DOORS.map((door) => {
-                const soon = "soon" in door && door.soon;
+                const soon = door.soon;
                 return (
                   <button
                     key={door.id}
@@ -522,9 +532,9 @@ export function CreazaPreviewShell() {
                       dispatch({ type: "select-experience", experience: door.id });
                     }}
                   >
-                    {soon ? <span className="creaza-door__soon">În curând</span> : null}
-                    <strong>{door.title}</strong>
-                    <em>{door.detail}</em>
+                    {soon ? <span className="creaza-door__soon">{t.experienta.soon}</span> : null}
+                    <strong>{t.experienta.doors[door.id].title}</strong>
+                    <em>{t.experienta.doors[door.id].detail}</em>
                   </button>
                 );
               })}
@@ -543,7 +553,7 @@ export function CreazaPreviewShell() {
                 disabled={sceneLocked}
                 onClick={() => dispatch({ type: "back" })}
               >
-                {COPY.experienta.back}
+                {t.experienta.back}
               </button>
               <button
                 type="button"
@@ -551,7 +561,7 @@ export function CreazaPreviewShell() {
                 disabled={sceneLocked}
                 onClick={() => void saveScene()}
               >
-                {state.sceneBusy ? COPY.experienta.ctaBusy : COPY.experienta.cta}
+                {state.sceneBusy ? t.experienta.ctaBusy : t.experienta.cta}
               </button>
             </div>
           </section>
@@ -559,11 +569,11 @@ export function CreazaPreviewShell() {
 
         {state.step === "confirmare" ? (
           <section aria-labelledby="creaza-done-title">
-            <p className="creaza-kicker">{COPY.brandKicker}</p>
+            <p className="creaza-kicker">{t.brandKicker}</p>
             <h1 id="creaza-done-title" className="creaza-title">
-              {COPY.confirmare.title}
+              {t.confirmare.title}
             </h1>
-            <p className="creaza-lead">{COPY.confirmare.lead}</p>
+            <p className="creaza-lead">{t.confirmare.lead}</p>
 
             <div className="creaza-summary">
               <div className="creaza-summary__art">
@@ -572,7 +582,7 @@ export function CreazaPreviewShell() {
                   <img
                     className="creaza-drop__preview"
                     src={state.localSource.objectUrl}
-                    alt={`Previzualizare poză: ${state.localSource.name}`}
+                    alt={previewAlt(state.localSource.name)}
                   />
                 ) : (
                   <CreazaArt kind="paper" />
@@ -580,35 +590,35 @@ export function CreazaPreviewShell() {
               </div>
               <dl>
                 <div>
-                  <dt>{COPY.confirmare.summaryPreset}</dt>
-                  <dd>{state.preset ? PRESET_TITLES[state.preset] : "—"}</dd>
+                  <dt>{t.confirmare.summaryPreset}</dt>
+                  <dd>{state.preset ? t.preset.doors[state.preset].title : "—"}</dd>
                 </div>
                 <div>
-                  <dt>{COPY.confirmare.summaryFoto}</dt>
-                  <dd>{fotoDisplayName(state)}</dd>
+                  <dt>{t.confirmare.summaryFoto}</dt>
+                  <dd>{fotoDisplayName(state, t.confirmare.notChosen)}</dd>
                 </div>
                 <div>
-                  <dt>{COPY.confirmare.summaryScene}</dt>
-                  <dd>{EXPERIENCE_DOORS.find((d) => d.id === state.experience)?.title ?? "—"}</dd>
+                  <dt>{t.confirmare.summaryScene}</dt>
+                  <dd>{t.experienta.doors[state.experience]?.title ?? "—"}</dd>
                 </div>
               </dl>
             </div>
 
-            <p className="creaza-note">{COPY.confirmare.note}</p>
+            <p className="creaza-note">{t.confirmare.note}</p>
 
             <div className="creaza-actions">
               <button type="button" className="creaza-cta" onClick={() => dispatch({ type: "reset" })}>
-                {COPY.confirmare.again}
+                {t.confirmare.again}
               </button>
               <a
                 className="creaza-ghost"
                 href={
                   state.projectId
-                    ? `/studio-preview/personalizeaza?projectId=${encodeURIComponent(state.projectId)}`
-                    : "/studio-preview/personalizeaza"
+                    ? `${hrefForLocale("/studio-preview/personalizeaza", locale)}?projectId=${encodeURIComponent(state.projectId)}`
+                    : hrefForLocale("/studio-preview/personalizeaza", locale)
                 }
               >
-                {COPY.confirmare.atelier}
+                {t.confirmare.atelier}
               </a>
             </div>
           </section>

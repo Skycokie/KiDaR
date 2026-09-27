@@ -188,5 +188,115 @@ export const ro: Messages = {
       title: "Setări",
       body: "Utilitarele vin mai târziu. Aici rămâne un spațiu calm și dens, nu o scenă cinematică."
     }
+  },
+  creaza: {
+    metaTitle: "Creează · kidAR",
+    metaDescription: "Fotografiază un desen, alege scena, și fă pagina să prindă viață.",
+    brandKicker: "kidAR · Creează",
+    previewBadge: "Creează · 4 pași",
+    surpriseName: "Surpriza din {date}",
+    progressLabel: "Progres: pasul {current} din {total}",
+    steps: {
+      preset: "Pornire",
+      foto: "Poză",
+      experienta: "Scenă",
+      confirmare: "Lume"
+    },
+    preset: {
+      title: "Cu ce începe lumea?",
+      lead: "Alegi un tip de desen. Apoi aduci o poză pe masă și îi dai o scenă.",
+      cta: "Începe lumea",
+      ctaBusy: "Pregătim surpriza…",
+      doorsLabel: "Punct de pornire",
+      doors: {
+        coloring: {
+          title: "Un desen colorat",
+          detail: "Personaje, obiecte, pagini din caiet — orice linie care vrea să iasă din hârtie."
+        },
+        story: {
+          title: "O pagină de poveste",
+          detail: "Ilustrații din cărți și scene care pot deveni o poartă."
+        },
+        mission: {
+          title: "O misiune",
+          detail: "Indicii, chei și provocări pentru jocuri și clase."
+        }
+      }
+    },
+    foto: {
+      title: "Așază poza pe masă",
+      lead: "O fotografie clară a hârtiei. Fără ecrane, fără umbre grele.",
+      dropEmpty: "Așază poza aici",
+      dropHint: "JPG sau PNG · până la 10 MB",
+      dropSelected: "Poza ta e pe masă",
+      dropLoading: "Salvăm poza…",
+      dropDragOver: "Trage poza aici",
+      tips: ["Fotografiați pagina întreagă", "Lumină blândă, fără flash puternic", "Nu fotografiați un ecran"],
+      cta: "Salvează poza și continuă",
+      ctaBusy: "Salvăm poza…",
+      back: "Înapoi",
+      previewAlt: "Previzualizare poză: {name}",
+      smallWarning: "Fotografia pare foarte mică — același avertisment ca în fluxul real.",
+      fixtureBarLabel: "Stări fixture (opțional)",
+      fixturePrefix: "Fixture:",
+      removePhoto: "Elimină poza",
+      fixtureStates: {
+        empty: "Fără poză",
+        dragOver: "Drag-over",
+        selected: "Poză selectată",
+        error: "Poză invalidă",
+        loading: "Se salvează… (mock)"
+      }
+    },
+    experienta: {
+      title: "Cum vrei să prindă viață?",
+      lead: "Alege scena pe această pagină. Se salvează pe lume doar când apeși butonul de mai jos.",
+      cta: "Salvează scena și continuă",
+      ctaBusy: "Salvăm scena…",
+      back: "Înapoi la poză",
+      soon: "În curând",
+      doors: {
+        popout: { title: "Iese din pagină", detail: "Ridicăm ce e important din desen — calm, clar, magic." },
+        gallery: { title: "O figurină deasupra", detail: "Alegi un personaj sau un obiect care apare pe pagină." }
+      }
+    },
+    confirmare: {
+      title: "Lumea e gata de personalizat",
+      lead: "Am păstrat alegerea ta. Continuă în Studio ca să dai formă personajului, sau începe alta.",
+      summaryPreset: "Punct de pornire",
+      summaryFoto: "Poză",
+      summaryScene: "Scenă",
+      again: "Începe altă lume",
+      atelier: "Deschide Studio",
+      note: "Draft-ul are începutul, poza și scena salvate. Următorul pas e Studio — personalizare pe scenă.",
+      notChosen: "Neales"
+    },
+    errors: {
+      preset: {
+        select: "Alege cu ce începe lumea.",
+        auth: "Trebuie să fii autentificat ca să începi lumea.",
+        quota: "Ai folosit surprizele din planul gratuit. Poți folosi Studio pentru proiectele existente.",
+        generic: "Nu am putut începe lumea. Încearcă din nou.",
+        ambiguous:
+          "Nu am putut confirma dacă lumea a fost creată. Verifică galeria lumilor înainte să încerci din nou — un retry automat ar putea crea un draft în plus."
+      },
+      photoInvalid: "Putem folosi doar fotografii JPG sau PNG, până la 10 MB.",
+      upload: {
+        missingProject: "Lumea nu este pregătită încă. Întoarce-te și apasă „Începe lumea”.",
+        missingPhoto: "Alege mai întâi o poză JPG sau PNG.",
+        auth: "Trebuie să fii autentificat ca să salvezi poza.",
+        notFound: "Lumea nu mai este disponibilă.",
+        generic: "Nu am putut salva poza. Încearcă din nou.",
+        network: "Nu am putut salva poza. Verifică conexiunea și încearcă din nou."
+      },
+      scene: {
+        missingProject: "Lumea nu este pregătită încă. Întoarce-te și apasă „Începe lumea”.",
+        invalidScene: "Alege Popout ca să continui. Figurină vine în curând.",
+        auth: "Trebuie să fii autentificat ca să salvezi scena.",
+        notFound: "Lumea nu mai este disponibilă.",
+        generic: "Nu am putut salva scena. Încearcă din nou.",
+        network: "Nu am putut salva scena. Verifică conexiunea și încearcă din nou."
+      }
+    }
   }
 };

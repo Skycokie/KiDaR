@@ -40,7 +40,12 @@ describe("i18n coverage", () => {
     "components/studio-preview/studio-shell.tsx",
     "components/studio-preview/fixtures.ts",
     "components/studio-preview/artworks.tsx",
-    "lib/studio-worlds.ts"
+    "lib/studio-worlds.ts",
+    "app/creaza/page.tsx",
+    "components/creaza-preview/creaza-shell.tsx",
+    "components/creaza-preview/fixtures.ts",
+    "components/creaza-preview/form-state.ts",
+    "components/creaza-preview/create-project.ts"
   ])(
     "%s has no hardcoded Romanian UI text",
     (file) => {
