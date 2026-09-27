@@ -20,6 +20,9 @@ export type Messages = {
     discoverBody: string;
     closeTitle: string;
     enterCta: string;
+    revealFound3d: string;
+    spinDetective: string;
+    returnToPhoto: string;
   };
   auth: {
     title: string;
@@ -42,6 +45,14 @@ export type Messages = {
     devOnly: string;
     openLink: string;
     studioAccount: string;
+    confirmPageTitle: string;
+    retryTitle: string;
+    linkMissing: string;
+    expiredTitle: string;
+    linkUsedBeforeEnter: string;
+    linkUsedAfterEnter: string;
+    sessionFailed: string;
+    unknownError: string;
   };
   studio: {
     steps: {

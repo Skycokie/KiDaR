@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "credit": "Original illustrations created for kiDAR.",
+  "credit": "Original illustrations created for kidAR.",
   "assets": [
     { "id": "cloud", "label": "Nor", "src": "/demo/decor/cloud.svg", "viewBox": "0 0 128 80" },
     { "id": "stars", "label": "Stele", "src": "/demo/decor/stars.svg", "viewBox": "0 0 128 128" },
