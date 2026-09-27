@@ -455,7 +455,7 @@ async function ensureBucket(storage, bucketId) {
     log(VERIFY ? "mismatch" : "would-update", `bucket ${bucketId} settings`);
     if (VERIFY) {
       throw new Error(
-        `Bucket ${bucketId} must use fileSecurity=true, create("users"), max 25MB`
+        `Bucket ${bucketId} must use fileSecurity=true, no bucket-level permissions, max 25MB`
       );
     }
     return;
@@ -468,7 +468,11 @@ async function ensureBucket(storage, bucketId) {
     fileSecurity: true,
     enabled: true,
     maximumFileSize: BUCKET_MAX_BYTES,
-    allowedFileExtensions: BUCKET_EXTENSIONS
+    allowedFileExtensions: BUCKET_EXTENSIONS,
+    // updateBucket resets omitted options to defaults; keep what the bucket has.
+    compression: bucket.compression,
+    encryption: bucket.encryption,
+    antivirus: bucket.antivirus
   });
   log("updated", `bucket ${bucketId} settings`);
 }
