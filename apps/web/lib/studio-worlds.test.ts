@@ -40,7 +40,7 @@ describe("studio-worlds DTO mapping", () => {
     expect(card).toEqual({
       id: "abc123",
       title: "Aurora vie",
-      href: "/studio/abc123",
+      href: "/studio-preview/personalizeaza?projectId=abc123",
       status: "draft",
       updatedLabel: expect.any(String),
       visualVariant: visualVariantFromId("abc123")
@@ -48,6 +48,13 @@ describe("studio-worlds DTO mapping", () => {
     expect(card).not.toHaveProperty("uploadModelPath");
     expect(card).not.toHaveProperty("source_image_path");
     expect(card.preview).toBeUndefined();
+  });
+
+  it("opens worlds in the personalize workspace, keeping the locale", () => {
+    const base = { id: "a b", name: "x", status: "draft", updated_at: "2026-09-18T10:00:00.000Z" };
+    expect(toStudioWorldCard(base, "ro").href).toBe("/studio-preview/personalizeaza?projectId=a%20b");
+    expect(toStudioWorldCard(base, "en").href).toBe("/en/studio-preview/personalizeaza?projectId=a%20b");
+    expect(toStudioWorldCard(base, "en").href).not.toMatch(/^\/(en\/)?studio\/[^/]/);
   });
 
   it("names untitled worlds in the requested locale", () => {

@@ -138,7 +138,10 @@ test("legacy creaza step URLs redirect into Atelier / Studio", async ({ page }) 
   await page.goto(`/creaza/${projectId}/experienta`);
   await expect(page).toHaveURL(/\/creaza$/, { timeout: 20_000 });
   await page.goto(`/creaza/${projectId}`);
-  await expect(page).toHaveURL(new RegExp(`/studio/${projectId}`), { timeout: 20_000 });
+  await expect(page).toHaveURL(
+    new RegExp(`/studio-preview/personalizeaza\\?projectId=${projectId}$`),
+    { timeout: 20_000 }
+  );
 });
 
 test("authenticated /intra continues to /creaza; /login goes to Studio hub", async ({ page }) => {
@@ -167,10 +170,23 @@ test("preview routes redirect to official paths", async ({ page }) => {
   await expect(page).toHaveURL(/\/studio$/, { timeout: 20_000 });
 });
 
-test("advanced Studio project page still opens for an existing world", async ({ page }) => {
+test("old Studio editor URL opens the world in the personalize workspace", async ({ page }) => {
   const projectId = await createCreatorProject(page);
   await page.goto(`/studio/${projectId}`);
-  await expect(page.getByRole("button", { name: "Publish experience" })).toBeVisible({
-    timeout: 20_000
-  });
+  await expect(page).toHaveURL(
+    new RegExp(`/studio-preview/personalizeaza\\?projectId=${projectId}$`),
+    { timeout: 20_000 }
+  );
+});
+
+test("/dashboard redirects to Studio hub", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/studio$/, { timeout: 20_000 });
+});
+
+test("anonymous /ar slug is 404 without a public mapping", async ({ page }) => {
+  const response = await page.goto("/ar/no-public-mapping-yet");
+  expect(response?.status()).toBe(404);
+  await expect(page.getByText(/experiența nu este publică încă/i)).toBeVisible();
 });
