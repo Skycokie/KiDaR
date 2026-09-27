@@ -79,7 +79,7 @@ import { IdeaPromptCard } from "./idea-prompt-card";
 import type { PromptLanguage } from "./idea-prompt";
 import { ContextCard } from "./context-card";
 import { FigurineGenerateCard } from "./figurine-generate-card";
-import { VoiceCard } from "./voice-card";
+import { VoiceCard, type VoiceDraft } from "./voice-card";
 import {
   readCharacterVoiceStatus,
   type VoiceStatusView
@@ -332,6 +332,7 @@ function Inspector({
   drawingSrc,
   projectId,
   onVoiceChange,
+  onVoiceDraftChange,
   onPlayVoice
 }: {
   state: PersonalizeState;
@@ -339,6 +340,7 @@ function Inspector({
   drawingSrc?: string | null;
   projectId?: string | null;
   onVoiceChange?: (status: VoiceStatusView | null) => void;
+  onVoiceDraftChange?: (draft: VoiceDraft | null) => void;
   onPlayVoice: (url: string) => void;
 }) {
   const { locale, messages } = useStudioI18n();
@@ -663,6 +665,7 @@ function Inspector({
         projectId={projectId}
         hasDrawing={hasDrawing}
         onVoiceChange={onVoiceChange}
+        onDraftChange={onVoiceDraftChange}
         onPlay={onPlayVoice}
       />
     );
@@ -825,6 +828,14 @@ export function PersonalizePreviewShell({
     baselinePitch: orbitSeed.pitch ?? createInitialPersonalizeState().orbitPitch
   });
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatusView | null>(null);
+  const [voiceDraft, setVoiceDraft] = useState<VoiceDraft | null>(null);
+  const savedVoice = voiceStatus?.voice ?? null;
+  const draftMessage = voiceDraft?.message.trim() ?? "";
+  const liveVoice = voiceDraft
+    ? draftMessage || savedVoice?.message
+      ? { role: voiceDraft.role, message: draftMessage || savedVoice!.message }
+      : null
+    : savedVoice;
   const [spokenMessage, setSpokenMessage] = useState<string | null>(null);
   const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const narratorPlayedRef = useRef(false);
@@ -953,7 +964,7 @@ export function PersonalizePreviewShell({
   };
 
   const speakCharacter = (mode: "narrator" | "hidden") => {
-    const voice = voiceStatus?.voice;
+    const voice = liveVoice;
     if (!voice) return;
     if (mode === "narrator" && voice.role !== "narrator") return;
     if (mode === "hidden" && voice.role !== "hidden") return;
@@ -969,12 +980,12 @@ export function PersonalizePreviewShell({
       return;
     }
     if (narratorPlayedRef.current) return;
-    if (voiceStatus?.voice?.role !== "narrator") return;
+    if (liveVoice?.role !== "narrator") return;
     narratorPlayedRef.current = true;
     speakCharacter("narrator");
     // Speak once when interactions turn on with a narrator voice.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [interaction.enabled, voiceStatus?.voice?.role, voiceStatus?.voice?.message, voiceStatus?.audioUrl]);
+  }, [interaction.enabled, liveVoice?.role, liveVoice?.message, voiceStatus?.audioUrl]);
 
   useEffect(() => {
     // Narrator replays only after interactions are toggled off and on again.
@@ -997,7 +1008,7 @@ export function PersonalizePreviewShell({
 
   const onCharacterClick = () => {
     interactDispatch({ type: "character" });
-    if (voiceStatus?.voice?.role === "hidden") {
+    if (liveVoice?.role === "hidden") {
       speakCharacter("hidden");
     }
   };
@@ -1348,6 +1359,7 @@ export function PersonalizePreviewShell({
             drawingSrc={drawingSrc}
             projectId={projectId}
             onVoiceChange={setVoiceStatus}
+            onVoiceDraftChange={setVoiceDraft}
             onPlayVoice={playVoiceClip}
           />
         </aside>

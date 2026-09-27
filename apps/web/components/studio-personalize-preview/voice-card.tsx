@@ -24,15 +24,20 @@ import {
   type VoiceRecorderSession
 } from "./voice-recorder";
 
+export type VoiceDraft = { role: CharacterVoiceRole; message: string };
+
 export function VoiceCard({
   projectId,
   hasDrawing,
   onVoiceChange,
+  onDraftChange,
   onPlay
 }: {
   projectId?: string | null;
   hasDrawing: boolean;
   onVoiceChange?: (status: VoiceStatusView | null) => void;
+  /** Unsaved role/message so the stage previews what the card shows; null when the card closes. */
+  onDraftChange?: (draft: VoiceDraft | null) => void;
   /** Plays through the stage's single Audio so a preview never overlaps stage playback. */
   onPlay: (url: string) => void;
 }) {
@@ -74,6 +79,12 @@ export function VoiceCard({
     };
   }, [projectId, onVoiceChange]);
 
+  useEffect(() => {
+    onDraftChange?.({ role, message });
+  }, [role, message, onDraftChange]);
+
+  useEffect(() => () => onDraftChange?.(null), [onDraftChange]);
+
   if (!projectId) {
     return <p className="studio-ws__muted">{COPY.voiceNeedsProject}</p>;
   }
@@ -103,7 +114,9 @@ export function VoiceCard({
     setBusy(true);
     setError("");
     setNote("");
-    if (!status?.voice) {
+    const draftChanged =
+      !status?.voice || status.voice.role !== role || status.voice.message !== message.trim();
+    if (draftChanged) {
       const saved = await saveCharacterVoice(projectId!, { role, message });
       if (!saved.ok) {
         setBusy(false);

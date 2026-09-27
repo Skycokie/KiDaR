@@ -12,6 +12,19 @@ describe("Studio voice playback", () => {
     expect(shell).toContain("onPlayVoice={playVoiceClip}");
   });
 
+  it("previews the card's unsaved role and message on stage", () => {
+    const shell = read("personalize-shell.tsx");
+    expect(shell).toContain("onVoiceDraftChange={setVoiceDraft}");
+    expect(shell).toContain("const voice = liveVoice;");
+    expect(shell).toContain('if (liveVoice?.role === "hidden")');
+    expect(shell).not.toMatch(/voiceStatus\?\.voice\?\.role/);
+  });
+
+  it("saves the current role and message before uploading audio", () => {
+    const card = read("voice-card.tsx");
+    expect(card).toContain("status.voice.role !== role || status.voice.message !== message.trim()");
+  });
+
   it("does not re-arm the narrator on stage change", () => {
     const shell = read("personalize-shell.tsx");
     const stageEffect = shell.slice(shell.indexOf("// Narrator replays only after"), shell.indexOf("}, [state.stage]);"));
