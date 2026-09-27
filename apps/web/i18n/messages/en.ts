@@ -106,5 +106,87 @@ export const en: Messages = {
     languageSelector: "Language",
     menu: "Menu",
     close: "Close"
+  },
+  worlds: {
+    metaDescription: "Your worlds — an editorial studio for AR surprises made from drawings.",
+    noscript: "Turn on JavaScript to use Studio.",
+    nav: {
+      main: "Main",
+      mobile: "Mobile",
+      worlds: "Worlds",
+      library: "Library",
+      create: "Create",
+      profile: "Profile"
+    },
+    atelier: {
+      kicker: "Atelier",
+      titleLine1: "Any picture can",
+      titleLine2: "become a world.",
+      lead: "Add a picture, choose what comes to life, and see it in AR.",
+      startWithPhoto: "Start with a picture",
+      seeWorlds: "See your worlds →",
+      stepsLabel: "How it starts",
+      stepPhoto: "Your picture",
+      stepWorld: "Your world",
+      stepPhone: "On your phone",
+      heroLabel: "Picture → AR world"
+    },
+    gallery: {
+      title: "Your worlds",
+      lead: "Not a list of files — posters and covers made from your pictures.",
+      startNew: "Start a new world →",
+      loading: "Gathering your worlds…",
+      error: "We couldn’t open your worlds right now. Try again.",
+      retry: "Try again →",
+      emptyTitle: "No worlds yet.",
+      emptyBody: "Start with a picture — it will show up here as a poster, not a file.",
+      quote: "“The picture becomes a gate.”",
+      untitled: "Untitled world",
+      updatedToday: "updated today",
+      updatedYesterday: "updated yesterday",
+      updatedOn: "updated {date}",
+      status: { draft: "In progress", ready: "Ready", published: "Published" },
+      fixtures: {
+        aurora: { title: "Aurora", line: "A pencil dragon steps out of the night." },
+        garden: { title: "The hidden garden", line: "The illustrated page opens like a gate." },
+        kite: { title: "Paper kite", line: "An afternoon drawing, not finished yet." }
+      }
+    },
+    create: {
+      kicker: "Create",
+      title: "What does the world start with?",
+      lead: "Four big doors. Only one is open for now.",
+      available: "Available now",
+      soon: "Coming soon",
+      continueHint: "Continue in the existing creation flow.",
+      choices: {
+        drawing: { title: "A drawing", detail: "We start from a page, a sketch, or an illustration." },
+        photo: { title: "A photo", detail: "A picture from the table or an album, turned into a gate." },
+        character: { title: "A character", detail: "Choose who steps out of the page — from the library or from an idea." },
+        idea: { title: "An idea", detail: "Words that will take shape once the AI is ready." }
+      },
+      promptLabel: "Imagine what comes out of the picture…",
+      promptPlaceholder: "A paper fox with watercolor ears…",
+      promptNote: "Coming soon. No generation yet, no chat, no false promises."
+    },
+    library: {
+      kicker: "Library",
+      title: "Your library",
+      lead: "Drawings, characters, sounds, and worlds waiting to come to life.",
+      filtersLabel: "Library filters",
+      filters: { all: "All", drawing: "Drawings", character: "Characters", sound: "Sounds", scene: "Scenes" },
+      assets: {
+        whale: { title: "The sky whale", meta: "Drawing · private" },
+        fox: { title: "The forest fox", meta: "Character" },
+        dragon: { title: "Paper dragon", meta: "Character" },
+        chime: { title: "Soft chime", meta: "Sound · 4s" },
+        sticker: { title: "Class sticker", meta: "Scene" },
+        orchard: { title: "Sketched orchard", meta: "Drawing · private" }
+      }
+    },
+    settings: {
+      title: "Settings",
+      body: "Tools come later. This stays a calm, focused space, not a cinematic stage."
+    }
   }
 };

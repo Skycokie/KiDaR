@@ -1,6 +1,7 @@
 /**
- * Isolated fixture data for `/studio-preview` only.
+ * Isolated fixture data for Studio ("Lumile tale").
  * Not connected to Appwrite, R2, or production project models.
+ * Copy lives in `messages.worlds`; this file only holds structure.
  */
 
 export type FixtureStatus = "draft" | "ready" | "published" | "coming-soon";
@@ -11,153 +12,55 @@ export type FixtureAssetKind = "drawing" | "character" | "sound" | "scene";
 
 export type WorldCrop = "portrait" | "panorama" | "square";
 
+export type FixtureProjectKey = "aurora" | "garden" | "kite";
+
+export type FixtureAssetKey = "whale" | "fox" | "dragon" | "chime" | "sticker" | "orchard";
+
+export type CreateChoiceId = "drawing" | "photo" | "character" | "idea";
+
 export interface FixtureProject {
   id: string;
-  title: string;
-  line: string;
-  status: FixtureStatus;
+  key: FixtureProjectKey;
+  status: Exclude<FixtureStatus, "coming-soon">;
   crop: WorldCrop;
   art: "aurora" | "garden" | "kite";
 }
 
 export interface FixtureAsset {
   id: string;
-  title: string;
+  key: FixtureAssetKey;
   kind: FixtureAssetKind;
-  meta: string;
   size: "large" | "tall" | "small" | "wide";
   art: "whale" | "fox" | "dragon" | "chime" | "sticker" | "garden";
 }
 
-export const HEADER_NAV: { id: FixtureView; label: string }[] = [
-  { id: "worlds", label: "Lumi" },
-  { id: "library", label: "Bibliotecă" }
-];
-
 /** Primary Atelier/Studio routes live in SiteHeader; this is the bottom dock. */
-export const MOBILE_NAV: { id: FixtureView; label: string }[] = [
-  { id: "create", label: "Creează" },
-  { id: "worlds", label: "Lumi" },
-  { id: "library", label: "Bibliotecă" }
+export const MOBILE_NAV: Extract<FixtureView, "create" | "worlds" | "library">[] = [
+  "create",
+  "worlds",
+  "library"
 ];
 
 export const FIXTURE_PROJECTS: FixtureProject[] = [
-  {
-    id: "proj-aurora",
-    title: "Aurora",
-    line: "Un dragon de creion iese din noapte.",
-    status: "published",
-    crop: "portrait",
-    art: "aurora"
-  },
-  {
-    id: "proj-garden",
-    title: "Grădina ascunsă",
-    line: "Pagina ilustrată se deschide ca o poartă.",
-    status: "ready",
-    crop: "panorama",
-    art: "garden"
-  },
-  {
-    id: "proj-kite",
-    title: "Zmeu de hârtie",
-    line: "Un desen de după-amiază, încă neterminat.",
-    status: "draft",
-    crop: "square",
-    art: "kite"
-  }
+  { id: "proj-aurora", key: "aurora", status: "published", crop: "portrait", art: "aurora" },
+  { id: "proj-garden", key: "garden", status: "ready", crop: "panorama", art: "garden" },
+  { id: "proj-kite", key: "kite", status: "draft", crop: "square", art: "kite" }
 ];
 
 export const FIXTURE_ASSETS: FixtureAsset[] = [
-  {
-    id: "a1",
-    title: "Balena de pe cer",
-    kind: "drawing",
-    meta: "Desen · privat",
-    size: "large",
-    art: "whale"
-  },
-  {
-    id: "a2",
-    title: "Vulpea din pădure",
-    kind: "character",
-    meta: "Personaj",
-    size: "small",
-    art: "fox"
-  },
-  {
-    id: "a3",
-    title: "Dragon de hârtie",
-    kind: "character",
-    meta: "Personaj",
-    size: "tall",
-    art: "dragon"
-  },
-  {
-    id: "a4",
-    title: "Clopoțel moale",
-    kind: "sound",
-    meta: "Sunet · 4s",
-    size: "wide",
-    art: "chime"
-  },
-  {
-    id: "a5",
-    title: "Abțibild de clasă",
-    kind: "scene",
-    meta: "Scenă",
-    size: "small",
-    art: "sticker"
-  },
-  {
-    id: "a6",
-    title: "Livadă schițată",
-    kind: "drawing",
-    meta: "Desen · privat",
-    size: "tall",
-    art: "garden"
-  }
+  { id: "a1", key: "whale", kind: "drawing", size: "large", art: "whale" },
+  { id: "a2", key: "fox", kind: "character", size: "small", art: "fox" },
+  { id: "a3", key: "dragon", kind: "character", size: "tall", art: "dragon" },
+  { id: "a4", key: "chime", kind: "sound", size: "wide", art: "chime" },
+  { id: "a5", key: "sticker", kind: "scene", size: "small", art: "sticker" },
+  { id: "a6", key: "orchard", kind: "drawing", size: "tall", art: "garden" }
 ];
 
-export const CREATE_CHOICES = [
-  {
-    id: "drawing",
-    title: "Un desen",
-    detail: "Pornim de la o pagină, o schiță sau o ilustrație.",
-    state: "Disponibil acum" as const,
-    available: true,
-    art: "whale" as const
-  },
-  {
-    id: "photo",
-    title: "O fotografie",
-    detail: "O poză de pe masă sau din album, transformată în poartă.",
-    state: "În curând" as const,
-    available: false,
-    art: "garden" as const
-  },
-  {
-    id: "character",
-    title: "Un personaj",
-    detail: "Alegi cine iese din pagină — din bibliotecă sau dintr-o idee.",
-    state: "În curând" as const,
-    available: false,
-    art: "fox" as const
-  },
-  {
-    id: "idea",
-    title: "O idee",
-    detail: "Cuvinte care vor deveni formă, când AI-ul va fi gata.",
-    state: "În curând" as const,
-    available: false,
-    art: "kite" as const
-  }
+export const CREATE_CHOICES: { id: CreateChoiceId; available: boolean; art: "whale" | "garden" | "fox" | "kite" }[] = [
+  { id: "drawing", available: true, art: "whale" },
+  { id: "photo", available: false, art: "garden" },
+  { id: "character", available: false, art: "fox" },
+  { id: "idea", available: false, art: "kite" }
 ];
 
-export const LIBRARY_FILTERS: { id: "all" | FixtureAssetKind; label: string }[] = [
-  { id: "all", label: "Toate" },
-  { id: "drawing", label: "Desene" },
-  { id: "character", label: "Personaje" },
-  { id: "sound", label: "Sunete" },
-  { id: "scene", label: "Scene" }
-];
+export const LIBRARY_FILTERS: ("all" | FixtureAssetKind)[] = ["all", "drawing", "character", "sound", "scene"];

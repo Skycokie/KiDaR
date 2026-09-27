@@ -1,3 +1,4 @@
+import type { Locale } from "@/i18n/config";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import { listProjectsForOwner } from "@/lib/appwrite/db";
 import {
@@ -11,17 +12,17 @@ import {
  * Import only from Server Components / route handlers — never from client components.
  * Session → own projects as DTOs; no session → fixtures; never mutates.
  */
-export async function getStudioWorldsForCurrentUser(): Promise<StudioWorldsResult> {
+export async function getStudioWorldsForCurrentUser(locale: Locale): Promise<StudioWorldsResult> {
   const user = await getLoggedInUser();
   if (!user) {
-    return { kind: "fixtures", worlds: fixtureStudioWorlds() };
+    return { kind: "fixtures", worlds: fixtureStudioWorlds(locale) };
   }
 
   try {
     const projects = await listProjectsForOwner(user.$id);
     return {
       kind: "live",
-      worlds: projects.map((project) => toStudioWorldCard(project))
+      worlds: projects.map((project) => toStudioWorldCard(project, locale))
     };
   } catch {
     return { kind: "error" };

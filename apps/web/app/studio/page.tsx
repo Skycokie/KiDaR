@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { Suspense, type ReactNode } from "react";
 import { DM_Sans, IBM_Plex_Mono, Syne } from "next/font/google";
 import { StudioShell } from "@/components/studio-preview";
+import type { Locale } from "@/i18n/config";
+import { getMessages } from "@/i18n/get-messages";
+import { getRequestLocale } from "@/i18n/get-request-locale";
+import { hrefForLocale } from "@/i18n/locale";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import { getStudioWorldsForCurrentUser } from "@/lib/studio-worlds.server";
 
@@ -24,10 +28,12 @@ const mono = IBM_Plex_Mono({
   display: "swap"
 });
 
-export const metadata: Metadata = {
-  title: "Studio · kidAR",
-  description: "Lumile tale — Atelier editorial pentru surprize AR din desene."
-};
+export function generateMetadata(): Metadata {
+  return {
+    title: "Studio · kidAR",
+    description: getMessages(getRequestLocale()).worlds.metaDescription
+  };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -35,25 +41,35 @@ function FontFrame({ children }: { children: ReactNode }) {
   return <div className={`${display.variable} ${body.variable} ${mono.variable}`}>{children}</div>;
 }
 
-async function StudioLive() {
+async function StudioLive({ locale }: { locale: Locale }) {
   const [worldsResult, user] = await Promise.all([
-    getStudioWorldsForCurrentUser(),
+    getStudioWorldsForCurrentUser(locale),
     getLoggedInUser()
   ]);
-  const createHref = user ? "/creaza" : "/intra";
-  return <StudioShell worldsResult={worldsResult} createHref={createHref} />;
+  const createHref = hrefForLocale(user ? "/creaza" : "/intra", locale);
+  return <StudioShell worldsResult={worldsResult} createHref={createHref} locale={locale} />;
 }
 
 export default function StudioPage() {
+  const locale = getRequestLocale();
+  const t = getMessages(locale).worlds;
   return (
     <FontFrame>
       <noscript>
         <p className="studio-noscript" style={{ margin: "1rem", color: "#9aa3b5" }}>
-          Activează JavaScript pentru Studio.
+          {t.noscript}
         </p>
       </noscript>
-      <Suspense fallback={<StudioShell worldsResult={{ kind: "loading" }} createHref="/intra" />}>
-        <StudioLive />
+      <Suspense
+        fallback={
+          <StudioShell
+            worldsResult={{ kind: "loading" }}
+            createHref={hrefForLocale("/intra", locale)}
+            locale={locale}
+          />
+        }
+      >
+        <StudioLive locale={locale} />
       </Suspense>
     </FontFrame>
   );

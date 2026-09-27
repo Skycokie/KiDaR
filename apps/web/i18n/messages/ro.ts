@@ -106,5 +106,87 @@ export const ro: Messages = {
     languageSelector: "Limbă",
     menu: "Meniu",
     close: "Închide"
+  },
+  worlds: {
+    metaDescription: "Lumile tale — Atelier editorial pentru surprize AR din desene.",
+    noscript: "Activează JavaScript pentru Studio.",
+    nav: {
+      main: "Principal",
+      mobile: "Mobil",
+      worlds: "Lumi",
+      library: "Bibliotecă",
+      create: "Creează",
+      profile: "Profil"
+    },
+    atelier: {
+      kicker: "Atelier",
+      titleLine1: "Orice poză poate",
+      titleLine2: "deveni o lume.",
+      lead: "Adaugă o poză, alege ce prinde viață și vezi-l în AR.",
+      startWithPhoto: "Începe cu o poză",
+      seeWorlds: "Vezi lumile tale →",
+      stepsLabel: "Cum începe",
+      stepPhoto: "Poza ta",
+      stepWorld: "Lumea ta",
+      stepPhone: "Pe telefonul tău",
+      heroLabel: "Poză → Lume AR"
+    },
+    gallery: {
+      title: "Lumile tale",
+      lead: "Nu o listă de fișiere — afișe, coperți, postere din pozele tale.",
+      startNew: "Începe o lume nouă →",
+      loading: "Îți adunăm lumile…",
+      error: "Nu am putut deschide lumile tale acum. Reîncearcă.",
+      retry: "Reîncearcă →",
+      emptyTitle: "Nicio lume încă.",
+      emptyBody: "Începe cu o poză — aici va apărea ca un afiș, nu ca un fișier.",
+      quote: "„Poza devine poartă.”",
+      untitled: "Lume fără nume",
+      updatedToday: "actualizat azi",
+      updatedYesterday: "actualizat ieri",
+      updatedOn: "actualizat {date}",
+      status: { draft: "În lucru", ready: "Pregătit", published: "Publicat" },
+      fixtures: {
+        aurora: { title: "Aurora", line: "Un dragon de creion iese din noapte." },
+        garden: { title: "Grădina ascunsă", line: "Pagina ilustrată se deschide ca o poartă." },
+        kite: { title: "Zmeu de hârtie", line: "Un desen de după-amiază, încă neterminat." }
+      }
+    },
+    create: {
+      kicker: "Creează",
+      title: "Cu ce începe lumea?",
+      lead: "Patru porți mari. Doar una e deschisă acum.",
+      available: "Disponibil acum",
+      soon: "În curând",
+      continueHint: "Continuă în fluxul existent de creare.",
+      choices: {
+        drawing: { title: "Un desen", detail: "Pornim de la o pagină, o schiță sau o ilustrație." },
+        photo: { title: "O fotografie", detail: "O poză de pe masă sau din album, transformată în poartă." },
+        character: { title: "Un personaj", detail: "Alegi cine iese din pagină — din bibliotecă sau dintr-o idee." },
+        idea: { title: "O idee", detail: "Cuvinte care vor deveni formă, când AI-ul va fi gata." }
+      },
+      promptLabel: "Imaginează ce apare din poză…",
+      promptPlaceholder: "Un vulpoi de hârtie cu urechi din acuarelă…",
+      promptNote: "În curând. Fără generare acum, fără chat, fără pretenții false."
+    },
+    library: {
+      kicker: "Bibliotecă",
+      title: "Biblioteca ta",
+      lead: "Desene, personaje, sunete și lumi care așteaptă să prindă viață.",
+      filtersLabel: "Filtre bibliotecă",
+      filters: { all: "Toate", drawing: "Desene", character: "Personaje", sound: "Sunete", scene: "Scene" },
+      assets: {
+        whale: { title: "Balena de pe cer", meta: "Desen · privat" },
+        fox: { title: "Vulpea din pădure", meta: "Personaj" },
+        dragon: { title: "Dragon de hârtie", meta: "Personaj" },
+        chime: { title: "Clopoțel moale", meta: "Sunet · 4s" },
+        sticker: { title: "Abțibild de clasă", meta: "Scenă" },
+        orchard: { title: "Livadă schițată", meta: "Desen · privat" }
+      }
+    },
+    settings: {
+      title: "Setări",
+      body: "Utilitarele vin mai târziu. Aici rămâne un spațiu calm și dens, nu o scenă cinematică."
+    }
   }
 };

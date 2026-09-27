@@ -99,4 +99,84 @@ export type Messages = {
     menu: string;
     close: string;
   };
+  worlds: {
+    metaDescription: string;
+    noscript: string;
+    nav: {
+      main: string;
+      mobile: string;
+      worlds: string;
+      library: string;
+      create: string;
+      profile: string;
+    };
+    atelier: {
+      kicker: string;
+      titleLine1: string;
+      titleLine2: string;
+      lead: string;
+      startWithPhoto: string;
+      seeWorlds: string;
+      stepsLabel: string;
+      stepPhoto: string;
+      stepWorld: string;
+      stepPhone: string;
+      heroLabel: string;
+    };
+    gallery: {
+      title: string;
+      lead: string;
+      startNew: string;
+      loading: string;
+      error: string;
+      retry: string;
+      emptyTitle: string;
+      emptyBody: string;
+      quote: string;
+      untitled: string;
+      updatedToday: string;
+      updatedYesterday: string;
+      /** `{date}` is replaced with a short localized date. */
+      updatedOn: string;
+      status: { draft: string; ready: string; published: string };
+      fixtures: {
+        aurora: { title: string; line: string };
+        garden: { title: string; line: string };
+        kite: { title: string; line: string };
+      };
+    };
+    create: {
+      kicker: string;
+      title: string;
+      lead: string;
+      available: string;
+      soon: string;
+      continueHint: string;
+      choices: {
+        drawing: { title: string; detail: string };
+        photo: { title: string; detail: string };
+        character: { title: string; detail: string };
+        idea: { title: string; detail: string };
+      };
+      promptLabel: string;
+      promptPlaceholder: string;
+      promptNote: string;
+    };
+    library: {
+      kicker: string;
+      title: string;
+      lead: string;
+      filtersLabel: string;
+      filters: { all: string; drawing: string; character: string; sound: string; scene: string };
+      assets: {
+        whale: { title: string; meta: string };
+        fox: { title: string; meta: string };
+        dragon: { title: string; meta: string };
+        chime: { title: string; meta: string };
+        sticker: { title: string; meta: string };
+        orchard: { title: string; meta: string };
+      };
+    };
+    settings: { title: string; body: string };
+  };
 };

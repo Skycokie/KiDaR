@@ -22,7 +22,8 @@ export function SiteHeader({
   mobileExtra,
   locale = "ro",
   menuLabel = "Meniu",
-  languageLabel = "Limbă"
+  languageLabel = "Limbă",
+  navLabel = "Principal"
 }: {
   brandHref?: string;
   /** Studio workspace entry (preview prototype or hub). */
@@ -34,6 +35,7 @@ export function SiteHeader({
   locale?: Locale;
   menuLabel?: string;
   languageLabel?: string;
+  navLabel?: string;
 }) {
   const rawPathname = usePathname() ?? "";
   const pathLocale = rawPathname.match(/^\/(ro|en)(?=\/|$)/)?.[1] as Locale | undefined;
@@ -53,7 +55,7 @@ export function SiteHeader({
         <KidarWordmark variant="compact" labelled={false} />
       </Link>
 
-      <nav className="site-header__nav" aria-label="Principal">
+      <nav className="site-header__nav" aria-label={navLabel}>
         <div className="site-header__pill" role="list">
           <Link
             role="listitem"
