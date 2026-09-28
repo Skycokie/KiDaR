@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, Syne } from "next/font/google";
 import { StudioI18nProvider } from "@/components/i18n/studio-i18n";
 import { PersonalizePreviewShell } from "@/components/studio-personalize-preview";
+import { getMessages } from "@/i18n/get-messages";
 import { getRequestLocale } from "@/i18n/get-request-locale";
 import type { PreviewProjectContext } from "@/components/studio-personalize-preview/save-start-transform";
 import { getLoggedInUser } from "@/lib/appwrite/client";
@@ -21,13 +22,8 @@ const body = DM_Sans({
 });
 
 export async function generateMetadata(): Promise<Metadata> {
-  const locale = getRequestLocale();
-  const title = locale === "en" ? "kidAR Studio — personalize" : "kidAR Studio — personalizează";
-  const description =
-    locale === "en"
-      ? "Personalize the character on stage. Controls stay on this screen."
-      : "Personalizează personajul pe scenă. Controalele rămân locale pe acest ecran.";
-  return { title, description };
+  const t = getMessages(getRequestLocale()).personalize;
+  return { title: t.metaTitle, description: t.metaDescription };
 }
 
 type PageProps = {
@@ -74,11 +70,7 @@ export default async function StudioPersonalizePreviewPage({ searchParams }: Pag
   return (
     <div className={`${display.variable} ${body.variable}`}>
       <noscript>
-        <p style={{ margin: "1rem", color: "#9aa3b5" }}>
-          {locale === "en"
-            ? "Enable JavaScript for Studio. The controls on this screen do not open the camera."
-            : "Activează JavaScript pentru Studio. Controalele de pe acest ecran nu deschid camera."}
-        </p>
+        <p style={{ margin: "1rem", color: "#9aa3b5" }}>{getMessages(locale).personalize.noscript}</p>
       </noscript>
       <StudioI18nProvider locale={locale}>
         <PersonalizePreviewShell drawingSrc={drawingSrc} projectContext={projectContext} />

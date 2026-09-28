@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FIGURINE_DISCLOSURE_RO } from "@kidar/core";
-import { COPY } from "./fixtures";
+import { useStudioI18n } from "@/components/i18n/studio-i18n";
 import {
-  FIGURINE_ERROR_COPY,
   readFigurineStatus,
   shouldPollFigurine,
   startFigurineGeneration,
@@ -22,6 +20,8 @@ export function FigurineGenerateCard({
   const [status, setStatus] = useState<FigurineStatusView | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<FigurineClientError | "">("");
+  const { messages } = useStudioI18n();
+  const COPY = messages.personalize;
 
   useEffect(() => {
     if (!projectId) return;
@@ -64,7 +64,7 @@ export function FigurineGenerateCard({
 
   return (
     <div className="studio-ws__figurine-live" data-figurine-ready={ready ? "yes" : "no"}>
-      <p className="studio-ws__muted">{FIGURINE_DISCLOSURE_RO}</p>
+      <p className="studio-ws__muted">{COPY.figurineDisclosure}</p>
       <button
         type="button"
         className="studio-ws__primary-btn"
@@ -102,7 +102,7 @@ export function FigurineGenerateCard({
           {status.job.progress > 0 ? ` · ${status.job.progress}%` : ""}
         </p>
       ) : null}
-      {error ? <p role="alert">{FIGURINE_ERROR_COPY[error]}</p> : null}
+      {error ? <p role="alert">{COPY.figurineErrors[error]}</p> : null}
       {failed && status?.job?.failureMessage ? <p role="alert">{status.job.failureMessage}</p> : null}
       {status && !status.available && status.message ? <p role="status">{status.message}</p> : null}
     </div>

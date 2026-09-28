@@ -2,14 +2,10 @@
  * Local-only Studio personalize state. No persistence, no network writes.
  */
 
+import type { Locale } from "@/i18n/config";
+import { getMessages } from "@/i18n/get-messages";
 import {
-  ANIMATIONS,
-  CAMERA_PRESETS,
-  COPY,
-  DECOR_ASSETS,
-  STAGES,
-  STYLE_PRESETS,
-  TRANSFORM_MODES,
+  STAGE_MESSAGE_KEY,
   type AnimationId,
   type CameraPresetId,
   type DecorId,
@@ -19,7 +15,6 @@ import {
   type StylePresetId,
   type TransformModeId
 } from "./fixtures";
-import { getMessages } from "@/i18n/get-messages";
 import { interpretIdeaPrompt, limitIdeaPrompt, type IdeaPromptResult, type PromptLanguage } from "./idea-prompt";
 import {
   emptySceneContext,
@@ -360,12 +355,17 @@ export function setContextStory(state: PersonalizeState, value: string): Persona
  * Apply Context story locally. Updates only recognized Studio categories.
  * Unrecognized text preserves existing selections.
  */
-export function applyContextStory(state: PersonalizeState, raw: string): PersonalizeState {
+export function applyContextStory(
+  state: PersonalizeState,
+  raw: string,
+  locale: Locale = "ro"
+): PersonalizeState {
   const text = trimContextStory(raw);
+  const COPY = getMessages(locale).personalize;
   if (!text) {
     return { ...state, contextStory: limitContextStory(raw), contextNotice: COPY.contextEmpty };
   }
-  const parsed = parseSceneContext(text);
+  const parsed = parseSceneContext(text, locale);
   if (!parsed.recognizedStudio) {
     return {
       ...state,
@@ -650,23 +650,19 @@ export function setRightOpen(state: PersonalizeState, rightOpen: boolean): Perso
   return { ...state, rightOpen, leftOpen: rightOpen ? false : state.leftOpen };
 }
 
-function labelOf<T extends string>(options: { id: T; label: string }[], id: T): string {
-  return options.find((item) => item.id === id)?.label ?? id;
-}
-
 /** Compact summary for live region. */
-export function summarizePersonalize(state: PersonalizeState): string {
+export function summarizePersonalize(state: PersonalizeState, locale: Locale = "ro"): string {
+  const messages = getMessages(locale);
+  const COPY = messages.personalize;
   const parts = [
-    labelOf(STAGES, state.stage),
-    labelOf(TRANSFORM_MODES, state.transformMode),
-    labelOf(STYLE_PRESETS, state.stylePreset),
-    labelOf(ANIMATIONS, state.animation),
-    `variantă ${state.variantIndex + 1}`
+    messages.studio.steps[STAGE_MESSAGE_KEY[state.stage]],
+    COPY.choices.modes[state.transformMode].label,
+    COPY.choices.styles[state.stylePreset].label,
+    COPY.choices.animations[state.animation].label,
+    COPY.variantSummary.replace("{n}", String(state.variantIndex + 1))
   ];
   if (state.decor.length > 0) {
-    parts.push(
-      state.decor.map((item) => labelOf(DECOR_ASSETS, item.id)).join(", ")
-    );
+    parts.push(state.decor.map((item) => COPY.choices.decor[item.id].label).join(", "));
   }
   return parts.join(" · ");
 }

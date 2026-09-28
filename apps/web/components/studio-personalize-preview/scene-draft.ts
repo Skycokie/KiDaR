@@ -13,17 +13,14 @@
  * The current session never requests a camera and never claims AR is available.
  */
 
-import {
-  ANIMATIONS,
-  COPY,
-  DECOR_ASSETS,
-  LIGHTINGS,
-  TRANSFORM_MODES,
-  type AnimationId,
-  type DecorId,
-  type LightingId,
-  type PaletteId,
-  type TransformModeId
+import type { Locale } from "@/i18n/config";
+import { getMessages } from "@/i18n/get-messages";
+import type {
+  AnimationId,
+  DecorId,
+  LightingId,
+  PaletteId,
+  TransformModeId
 } from "./fixtures";
 import type { PersonalizeState } from "./form-state";
 import type { SceneContext } from "./scene-context";
@@ -99,21 +96,19 @@ export function toStudioSceneDraft(state: PersonalizeState, hasSource: boolean):
 
 export type SceneSummaryLine = { label: string; value: string };
 
-function labelOf(options: { id: string; label: string }[], id: string): string {
-  return options.find((item) => item.id === id)?.label ?? id;
-}
-
-export function sceneSummary(draft: StudioSceneDraft): SceneSummaryLine[] {
+export function sceneSummary(draft: StudioSceneDraft, locale: Locale = "ro"): SceneSummaryLine[] {
+  const messages = getMessages(locale);
+  const COPY = messages.personalize;
   const character = draft.characterMode === "figure3d-preview" ? "figurine" : "popout";
   return [
-    { label: "Personaj", value: labelOf(TRANSFORM_MODES, character) },
-    { label: "Mișcare", value: labelOf(ANIMATIONS, draft.motion) },
+    { label: messages.studio.steps.character, value: COPY.choices.modes[character].label },
+    { label: messages.studio.steps.motion, value: COPY.choices.animations[draft.motion].label },
     {
-      label: "Decor",
-      value: draft.decor === "none" ? COPY.noDecor : labelOf(DECOR_ASSETS, draft.decor)
+      label: messages.studio.steps.decor,
+      value: draft.decor === "none" ? COPY.noDecor : COPY.choices.decor[draft.decor].label
     },
-    { label: "Lumină", value: labelOf(LIGHTINGS, draft.lighting) },
-    { label: "Sursă", value: draft.sourceImageId ? "Desenul tău" : COPY.demoPreview }
+    { label: COPY.lightingSection, value: COPY.choices.lightings[draft.lighting].label },
+    { label: COPY.sourceLabel, value: draft.sourceImageId ? COPY.yourDrawing : COPY.demoPreview }
   ];
 }
 

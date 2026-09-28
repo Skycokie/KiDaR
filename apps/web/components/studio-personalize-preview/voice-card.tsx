@@ -6,9 +6,9 @@ import {
   PRIMARY_CHARACTER_ID,
   type CharacterVoiceRole
 } from "@kidar/core";
-import { COPY } from "./fixtures";
+import { useStudioI18n } from "@/components/i18n/studio-i18n";
 import {
-  VOICE_ERROR_COPY,
+  VOICE_ERROR_KEY,
   deleteCharacterVoice,
   readCharacterVoiceStatus,
   saveCharacterVoice,
@@ -17,7 +17,6 @@ import {
   type VoiceStatusView
 } from "./character-voice-client";
 import {
-  VOICE_RECORDER_ERROR_COPY,
   isVoiceRecordingSupported,
   startVoiceRecording,
   type VoiceRecorderError,
@@ -50,6 +49,9 @@ export function VoiceCard({
   const [note, setNote] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sessionRef = useRef<VoiceRecorderSession | null>(null);
+  const { messages } = useStudioI18n();
+  const COPY = messages.personalize;
+  const voiceError = (error: VoiceClientError) => COPY.voiceErrors[VOICE_ERROR_KEY[error]];
 
   useEffect(() => {
     if (!projectId) {
@@ -62,7 +64,7 @@ export function VoiceCard({
       const result = await readCharacterVoiceStatus(projectId, PRIMARY_CHARACTER_ID);
       if (cancelled) return;
       if (!result.ok) {
-        setError(VOICE_ERROR_COPY[result.error]);
+        setError(voiceError(result.error));
         return;
       }
       setStatus(result.status);
@@ -102,7 +104,7 @@ export function VoiceCard({
     const result = await saveCharacterVoice(projectId!, { role, message });
     setBusy(false);
     if (!result.ok) {
-      setError(VOICE_ERROR_COPY[result.error]);
+      setError(voiceError(result.error));
       return;
     }
     setStatus(result.status);
@@ -120,7 +122,7 @@ export function VoiceCard({
       const saved = await saveCharacterVoice(projectId!, { role, message });
       if (!saved.ok) {
         setBusy(false);
-        setError(VOICE_ERROR_COPY[saved.error]);
+        setError(voiceError(saved.error));
         return;
       }
       setStatus(saved.status);
@@ -129,7 +131,7 @@ export function VoiceCard({
     const result = await uploadCharacterVoiceAudioFile(projectId!, file);
     setBusy(false);
     if (!result.ok) {
-      setError(VOICE_ERROR_COPY[result.error]);
+      setError(voiceError(result.error));
       return;
     }
     setStatus(result.status);
@@ -145,7 +147,7 @@ export function VoiceCard({
       const stopped = await sessionRef.current.stop();
       sessionRef.current = null;
       if (!stopped.ok) {
-        setError(VOICE_RECORDER_ERROR_COPY[stopped.error]);
+        setError(COPY.recorderErrors[stopped.error]);
         return;
       }
       await uploadFile(stopped.file);
@@ -153,7 +155,7 @@ export function VoiceCard({
     }
     const started = await startVoiceRecording();
     if (!started.ok) {
-      setError(VOICE_RECORDER_ERROR_COPY[started.error as VoiceRecorderError]);
+      setError(COPY.recorderErrors[started.error as VoiceRecorderError]);
       return;
     }
     sessionRef.current = started.session;
@@ -172,7 +174,7 @@ export function VoiceCard({
     const result = await deleteCharacterVoice(projectId!);
     setBusy(false);
     if (!result.ok) {
-      setError(VOICE_ERROR_COPY[result.error as VoiceClientError]);
+      setError(voiceError(result.error as VoiceClientError));
       return;
     }
     setStatus(result.status);

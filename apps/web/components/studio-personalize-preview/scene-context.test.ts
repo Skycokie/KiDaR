@@ -9,9 +9,10 @@ import {
   setContextStory,
   setDecorSelection
 } from "./form-state";
+import { getMessages } from "@/i18n/get-messages";
 import {
   CONTEXT_STORY_MAX,
-  CONTEXT_SUGGESTIONS,
+  contextSuggestions,
   limitContextStory,
   parseSceneContext,
   trimContextStory
@@ -26,8 +27,8 @@ describe("local Studio Context step", () => {
       decor: [tree],
       palette: "soft" as const
     };
-    const filled = setContextStory(start, CONTEXT_SUGGESTIONS[0]);
-    expect(filled.contextStory).toBe("Într-o grădină magică");
+    const filled = setContextStory(start, contextSuggestions("ro")[0]);
+    expect(filled.contextStory).toBe(getMessages("ro").personalize.contextSuggestions[0]);
     expect(filled.animation).toBe("dance");
     expect(filled.decor).toEqual([tree]);
     expect(filled.palette).toBe("soft");
@@ -136,7 +137,7 @@ describe("local Studio Context step", () => {
   it("shows the story on the local scene as plain text", () => {
     const shell = readFileSync(join(__dirname, "personalize-shell.tsx"), "utf8");
     const stage = readFileSync(join(__dirname, "garden-poster.tsx"), "utf8");
-    expect(shell).toContain("contextPreviewLines(scene.context, state)");
+    expect(shell).toContain("contextPreviewLines(scene.context, state, locale)");
     expect(stage).toContain("state.context.dialogue");
     expect(stage).toContain("spokenMessage");
     expect(stage).toContain("studio-stage__dialogue");

@@ -7,12 +7,6 @@ import { CHARACTER_VOICE_AUDIO_MAX_SECONDS } from "@kidar/core";
 
 export type VoiceRecorderError = "unsupported" | "permission" | "generic";
 
-export const VOICE_RECORDER_ERROR_COPY: Record<VoiceRecorderError, string> = {
-  unsupported: "Browserul nu poate înregistra audio aici. Încarcă un fișier MP3 sau M4A.",
-  permission: "Permite accesul la microfon ca să înregistrezi vocea personajului.",
-  generic: "Nu am putut înregistra. Încearcă din nou sau încarcă un fișier."
-};
-
 export type VoiceRecorderStopResult =
   | { ok: true; file: File; durationMs: number }
   | { ok: false; error: VoiceRecorderError };

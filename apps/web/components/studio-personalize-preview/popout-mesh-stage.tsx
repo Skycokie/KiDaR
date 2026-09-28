@@ -13,7 +13,7 @@ import {
   type DepthScoredPolygon,
   type StickerPolygon
 } from "@kidar/core";
-import { COPY } from "./fixtures";
+import { useStudioI18n } from "@/components/i18n/studio-i18n";
 import { createPreviewCutout } from "./popout-preview-cutout";
 import {
   decidePreviewPopout,
@@ -168,6 +168,8 @@ export function PopoutMeshStage({
   const viewRef = useRef({ yaw, pitch, roll, zoom });
   volumeRef.current = volume;
   viewRef.current = { yaw, pitch, roll, zoom };
+  const { messages } = useStudioI18n();
+  const COPY = messages.personalize;
 
   useEffect(() => {
     let cancelled = false;

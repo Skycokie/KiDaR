@@ -5,7 +5,7 @@ import { useRef } from "react";
 import dynamic from "next/dynamic";
 import { useStudioI18n } from "@/components/i18n/studio-i18n";
 import { DECOR_ASSET_SRC } from "./decor-assets";
-import { COPY, DECOR_ASSETS, type DecorId, type TransformModeId } from "./fixtures";
+import type { DecorId, TransformModeId } from "./fixtures";
 import type { PersonalizeState } from "./form-state";
 import type { InteractionState } from "./interaction-state";
 import {
@@ -346,13 +346,13 @@ export function GardenPoster({
   const playing = Boolean(interaction?.enabled) && !mirror;
   const decorRootRef = useRef<HTMLUListElement>(null);
   const dragRef = useRef<{ key: string; pointerId: number } | null>(null);
-  const decorLabel = (id: DecorId) =>
-    DECOR_ASSETS.find((item) => item.id === id)?.label ?? id;
+  const { messages } = useStudioI18n();
+  const COPY = messages.personalize;
+  const decorLabel = (id: DecorId) => COPY.choices.decor[id].label;
   const contrast = 0.85 + state.details / 250;
   const brightness = 0.72 + state.light / 180;
   const saturate = state.originalColors ? 1 : 0.55 + state.variantIndex * 0.2;
   const extrusion = popoutExtrusionPx(state.volume);
-  const { messages } = useStudioI18n();
   const dialogueText = spokenMessage ?? state.context.dialogue;
 
   return (
@@ -396,7 +396,7 @@ export function GardenPoster({
           "--interact-zoom": String(interaction?.zoom ?? 1)
         } as CSSProperties
       }
-      aria-label={hasDrawing ? "Previzualizare desen pe scenă" : "Previzualizare personaj pe scenă"}
+      aria-label={hasDrawing ? COPY.stageAriaDrawing : COPY.stageAriaCharacter}
     >
       <div className="studio-stage__vignette" aria-hidden="true" />
       <div className="studio-stage__keylight" aria-hidden="true" />
@@ -521,7 +521,7 @@ export function GardenPoster({
         <button
           type="button"
           className="studio-stage__hit"
-          aria-label="Personaj în previzualizare"
+          aria-label={COPY.characterPreviewAria}
           onClick={onCharacterClick}
         />
       ) : null}
