@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { getMessages } from "@/i18n/get-messages";
 import {
-  FIGURINE_ERROR_COPY,
   figurineApiPath,
   interpretFigurineStatus,
   interpretStartFigurineResponse,
@@ -49,7 +49,8 @@ describe("generate-figurine", () => {
       ok: false,
       error: "active"
     });
-    expect(FIGURINE_ERROR_COPY.gated).toMatch(/activată/);
+    expect(getMessages("ro").personalize.figurineErrors.gated).toMatch(/activată/);
+    expect(getMessages("en").personalize.figurineErrors.gated).not.toMatch(/activată/);
   });
 
   it("reads owner preview URLs from the figurine status payload", () => {

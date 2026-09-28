@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { getMessages } from "@/i18n/get-messages";
 import {
-  START_SAVE_COPY,
   buildStartTransformPatch,
   isStartPoseDirty,
   patchStartTransform,
@@ -39,36 +39,38 @@ describe("start transform preview save", () => {
   });
 
   it("describes fixture, dirty, saving, saved, and failed states", () => {
-    expect(startSavePresentation({ hasProject: false, dirty: true, status: "idle" })).toEqual({
-      label: START_SAVE_COPY.unavailable,
+    const copy = getMessages("ro").personalize.startSave;
+    expect(startSavePresentation({ hasProject: false, dirty: true, status: "idle", copy })).toEqual({
+      label: copy.unavailable,
       disabled: true,
       hint: null
     });
-    expect(startSavePresentation({ hasProject: true, dirty: false, status: "idle" })).toEqual({
-      label: START_SAVE_COPY.save,
+    expect(startSavePresentation({ hasProject: true, dirty: false, status: "idle", copy })).toEqual({
+      label: copy.save,
       disabled: true,
       hint: null
     });
-    expect(startSavePresentation({ hasProject: true, dirty: true, status: "idle" })).toEqual({
-      label: START_SAVE_COPY.save,
+    expect(startSavePresentation({ hasProject: true, dirty: true, status: "idle", copy })).toEqual({
+      label: copy.save,
       disabled: false,
       hint: null
     });
-    expect(startSavePresentation({ hasProject: true, dirty: true, status: "saving" })).toEqual({
-      label: START_SAVE_COPY.saving,
+    expect(startSavePresentation({ hasProject: true, dirty: true, status: "saving", copy })).toEqual({
+      label: copy.saving,
       disabled: true,
       hint: null
     });
-    expect(startSavePresentation({ hasProject: true, dirty: false, status: "saved" })).toEqual({
-      label: START_SAVE_COPY.saved,
+    expect(startSavePresentation({ hasProject: true, dirty: false, status: "saved", copy })).toEqual({
+      label: copy.saved,
       disabled: true,
-      hint: START_SAVE_COPY.hint
+      hint: copy.hint
     });
-    expect(startSavePresentation({ hasProject: true, dirty: true, status: "error" })).toEqual({
-      label: START_SAVE_COPY.failed,
+    expect(startSavePresentation({ hasProject: true, dirty: true, status: "error", copy })).toEqual({
+      label: copy.failed,
       disabled: false,
       hint: null
     });
+    expect(getMessages("en").personalize.startSave.save).not.toMatch(/Salvează/);
   });
 
   it("PATCHes only the owned project route and reports failure for retry", async () => {

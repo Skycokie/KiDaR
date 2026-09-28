@@ -36,16 +36,16 @@ export type VoiceStatusView = {
   audioUrl: string | null;
 };
 
-export const VOICE_ERROR_COPY: Record<VoiceClientError, string> = {
-  auth: "Trebuie să fii autentificat ca să salvezi vocea.",
-  "not-found": "Lumea nu mai este disponibilă.",
-  invalid: "Verifică rolul și mesajul, apoi încearcă din nou.",
-  "voice-required": "Salvează întâi rolul și mesajul, apoi încarcă audio-ul.",
-  type: "Folosește MP3, M4A, WebM sau OGG, până la 2 MB.",
-  size: "Audio-ul poate avea cel mult 2 MB (cam 30 de secunde).",
-  generic: "Nu am putut salva vocea. Încearcă din nou.",
-  network: "Nu am putut salva vocea. Verifică conexiunea și încearcă din nou."
-};
+export const VOICE_ERROR_KEY = {
+  auth: "auth",
+  "not-found": "notFound",
+  invalid: "invalid",
+  "voice-required": "voiceRequired",
+  type: "type",
+  size: "size",
+  generic: "generic",
+  network: "network"
+} as const satisfies Record<VoiceClientError, "auth" | "notFound" | "invalid" | "voiceRequired" | "type" | "size" | "generic" | "network">;
 
 function readJson(body: unknown): Record<string, unknown> {
   return body && typeof body === "object" ? (body as Record<string, unknown>) : {};

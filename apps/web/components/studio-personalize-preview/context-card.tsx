@@ -1,12 +1,8 @@
 "use client";
 
-import { COPY } from "./fixtures";
+import { useStudioI18n } from "@/components/i18n/studio-i18n";
 import type { PersonalizeState } from "./form-state";
-import {
-  CONTEXT_STORY_MAX,
-  CONTEXT_SUGGESTIONS,
-  contextPreviewLines
-} from "./scene-context";
+import { CONTEXT_STORY_MAX, contextPreviewLines } from "./scene-context";
 
 export function ContextCard({
   state,
@@ -22,10 +18,10 @@ export function ContextCard({
   onReset: () => void;
 }) {
   const resultId = "studio-context-result";
+  const { locale, messages } = useStudioI18n();
+  const COPY = messages.personalize;
   const preview =
-    !locked && state.context.story
-      ? contextPreviewLines(state.context, state)
-      : [];
+    !locked && state.context.story ? contextPreviewLines(state.context, state, locale) : [];
 
   return (
     <section
@@ -54,10 +50,10 @@ export function ContextCard({
         onChange={(event) => onChange(event.target.value)}
       />
       <p className="studio-context__suggestions-label" id="studio-context-suggestions">
-        {COPY.contextSuggestions}
+        {COPY.contextSuggestionsLabel}
       </p>
       <div className="studio-context__chips" role="group" aria-labelledby="studio-context-suggestions">
-        {CONTEXT_SUGGESTIONS.map((suggestion) => {
+        {COPY.contextSuggestions.map((suggestion) => {
           const selected = state.contextStory === suggestion;
           return (
             <button

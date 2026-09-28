@@ -17,7 +17,7 @@ describe("local Studio idea prompt", () => {
     expect(result.motion).toBe("jump");
     expect(result.decor).toBe("house");
     expect(result.palette).toBe("bright");
-    expect(result.lines).toEqual(["Mișcare: Sare", "Decor: Casă", "Culori: Vii"]);
+    expect(result.lines).toEqual(["Mișcare: Sare", "Decor: Casă", "Culori: Culori vii"]);
   });
 
   it("accepts the suggestion phrases, with and without diacritics", () => {

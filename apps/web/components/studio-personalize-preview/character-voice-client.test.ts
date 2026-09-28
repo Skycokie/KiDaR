@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  VOICE_ERROR_COPY,
-  interpretVoiceStatus,
-  voiceApiPath,
-  voiceAudioApiPath
-} from "./character-voice-client";
+import { getMessages } from "@/i18n/get-messages";
+import { interpretVoiceStatus, voiceApiPath, voiceAudioApiPath } from "./character-voice-client";
 
 describe("character-voice-client", () => {
   it("builds owned voice routes", () => {
@@ -24,7 +20,11 @@ describe("character-voice-client", () => {
   });
 
   it("exposes Romanian error copy", () => {
-    expect(VOICE_ERROR_COPY["voice-required"]).toMatch(/mesajul/);
-    expect(VOICE_ERROR_COPY.size).toMatch(/2 MB/);
+    const ro = getMessages("ro").personalize.voiceErrors;
+    const en = getMessages("en").personalize.voiceErrors;
+    expect(ro.voiceRequired).toMatch(/mesajul/);
+    expect(ro.size).toMatch(/2 MB/);
+    expect(en.voiceRequired).not.toMatch(/mesajul/);
+    expect(en.size).toMatch(/2 MB/);
   });
 });

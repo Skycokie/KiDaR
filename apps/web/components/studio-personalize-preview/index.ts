@@ -2,7 +2,6 @@ export { PersonalizePreviewShell } from "./personalize-shell";
 export { CameraArPreviewShell } from "./camera-ar-shell";
 export { GardenPoster } from "./garden-poster";
 export {
-  COPY,
   FIXTURE_WORLD,
   PERSONALIZE_BACK_HREF,
   PERSONALIZE_CAMERA_HREF,

@@ -45,7 +45,23 @@ describe("i18n coverage", () => {
     "components/creaza-preview/creaza-shell.tsx",
     "components/creaza-preview/fixtures.ts",
     "components/creaza-preview/form-state.ts",
-    "components/creaza-preview/create-project.ts"
+    "components/creaza-preview/create-project.ts",
+    "app/studio-preview/personalizeaza/page.tsx",
+    "components/studio-personalize-preview/personalize-shell.tsx",
+    "components/studio-personalize-preview/fixtures.ts",
+    "components/studio-personalize-preview/idea-prompt-card.tsx",
+    "components/studio-personalize-preview/context-card.tsx",
+    "components/studio-personalize-preview/voice-card.tsx",
+    "components/studio-personalize-preview/figurine-generate-card.tsx",
+    "components/studio-personalize-preview/garden-poster.tsx",
+    "components/studio-personalize-preview/form-state.ts",
+    "components/studio-personalize-preview/generate-figurine.ts",
+    "components/studio-personalize-preview/character-voice-client.ts",
+    "components/studio-personalize-preview/voice-recorder.ts",
+    "components/studio-personalize-preview/save-start-transform.ts",
+    "components/studio-personalize-preview/scene-context.ts",
+    "components/studio-personalize-preview/popout-mesh-stage.tsx",
+    "components/studio-personalize-preview/figurine-live-stage.tsx"
   ])(
     "%s has no hardcoded Romanian UI text",
     (file) => {

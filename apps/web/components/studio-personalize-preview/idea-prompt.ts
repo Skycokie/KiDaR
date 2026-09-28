@@ -3,14 +3,8 @@
  * Recognized words update preview choices. Unrecognized text leaves them alone.
  */
 
-import {
-  ANIMATIONS,
-  DECOR_ASSETS,
-  type AnimationId,
-  type DecorId,
-  type LightingId,
-  type PaletteId
-} from "./fixtures";
+import type { AnimationId, DecorId, LightingId, PaletteId } from "./fixtures";
+import { getMessages } from "@/i18n/get-messages";
 
 export const IDEA_PROMPT_MAX = 240;
 
@@ -31,17 +25,6 @@ export const IDEA_SUGGESTIONS = [
   "Să fie liniștit sub un nor",
   "Să fie într-o lume cu baloane"
 ] as const;
-
-const PALETTE_LINE: Record<PaletteId, string> = {
-  original: "Original",
-  bright: "Vii",
-  soft: "Moi"
-};
-
-const LIGHTING_LINE: Record<LightingId, string> = {
-  warm: "Caldă",
-  studio: "Studio"
-};
 
 export type PromptLanguage = "ro" | "en";
 
@@ -138,21 +121,6 @@ function rulesFor(locale: PromptLanguage): Rule[] {
   return locale === "en" ? ENGLISH_RULES : RULES;
 }
 
-const EN_LINES = {
-  motion: { wave: "Wave", float: "Float", dance: "Dance", jump: "Jump", still: "Still" },
-  decor: {
-    cloud: "Cloud",
-    stars: "Stars",
-    grass: "Grass",
-    tree: "Tree",
-    house: "House",
-    planet: "Planet",
-    balloons: "Balloons"
-  },
-  palette: { original: "Original", bright: "Bright", soft: "Soft" },
-  lighting: { warm: "Warm", studio: "Studio" }
-} as const;
-
 const DIACRITICS: Record<string, string> = {
   ă: "a",
   â: "a",
@@ -168,17 +136,20 @@ const DIACRITICS: Record<string, string> = {
   ú: "u"
 };
 
+export function foldDiacritics(input: string): string {
+  let out = "";
+  for (const char of input) {
+    out += DIACRITICS[char] ?? char;
+  }
+  return out;
+}
+
 export function limitIdeaPrompt(input: string): string {
   return input.replace(/\u0000/g, "").slice(0, IDEA_PROMPT_MAX);
 }
 
 export function normalizeIdeaPrompt(input: string): string {
-  const collapsed = limitIdeaPrompt(input).replace(/\s+/g, " ").trim().toLowerCase();
-  let out = "";
-  for (const char of collapsed) {
-    out += DIACRITICS[char] ?? char;
-  }
-  return out;
+  return foldDiacritics(limitIdeaPrompt(input).replace(/\s+/g, " ").trim().toLowerCase());
 }
 
 function lastPhraseEnd(text: string, phrase: string): number {
@@ -189,10 +160,6 @@ function lastPhraseEnd(text: string, phrase: string): number {
     end = match.index + match[0].length;
   }
   return end;
-}
-
-function labelOf(options: { id: string; label: string }[], id: string): string {
-  return options.find((item) => item.id === id)?.label ?? id;
 }
 
 export function interpretIdeaPrompt(input: string, locale: PromptLanguage = "ro"): IdeaPromptResult {
@@ -219,18 +186,13 @@ export function interpretIdeaPrompt(input: string, locale: PromptLanguage = "ro"
   const palette = best.get("palette")?.value as PaletteId | undefined;
   const lighting = best.get("lighting")?.value as LightingId | undefined;
   const recognized = Boolean(motion || decor || palette || lighting);
+  const messages = getMessages(locale);
+  const COPY = messages.personalize;
   const lines: string[] = [];
-  if (locale === "en") {
-    if (motion) lines.push(`Motion: ${EN_LINES.motion[motion]}`);
-    if (decor) lines.push(`Decor: ${EN_LINES.decor[decor]}`);
-    if (palette) lines.push(`Colors: ${EN_LINES.palette[palette]}`);
-    if (lighting) lines.push(`Light: ${EN_LINES.lighting[lighting]}`);
-  } else {
-    if (motion) lines.push(`Mișcare: ${labelOf(ANIMATIONS, motion)}`);
-    if (decor) lines.push(`Decor: ${labelOf(DECOR_ASSETS, decor)}`);
-    if (palette) lines.push(`Culori: ${PALETTE_LINE[palette]}`);
-    if (lighting) lines.push(`Lumină: ${LIGHTING_LINE[lighting]}`);
-  }
+  if (motion) lines.push(`${messages.studio.steps.motion}: ${COPY.choices.animations[motion].label}`);
+  if (decor) lines.push(`${messages.studio.steps.decor}: ${COPY.choices.decor[decor].label}`);
+  if (palette) lines.push(`${COPY.paletteSection}: ${COPY.choices.palettes[palette].label}`);
+  if (lighting) lines.push(`${COPY.lightingSection}: ${COPY.choices.lightings[lighting].label}`);
 
   return { recognized, text, motion, decor, palette, lighting, lines };
 }

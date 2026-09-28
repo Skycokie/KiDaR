@@ -1,20 +1,15 @@
 /**
  * Local-only scene Context for Studio.
- * Deterministic Romanian story → preview choices. No network, no model, no generation.
+ * Deterministic story → preview choices. No network, no model, no generation.
  *
  * Context can later be the place a full prompt is sent server-side after validation,
  * quality review, and publish eligibility. Not implemented here.
  */
 
-import {
-  ANIMATIONS,
-  DECOR_ASSETS,
-  type AnimationId,
-  type DecorId,
-  type LightingId,
-  type PaletteId
-} from "./fixtures";
-import { interpretIdeaPrompt } from "./idea-prompt";
+import type { Locale } from "@/i18n/config";
+import { getMessages } from "@/i18n/get-messages";
+import type { AnimationId, DecorId, LightingId, PaletteId } from "./fixtures";
+import { foldDiacritics, interpretIdeaPrompt } from "./idea-prompt";
 
 export const CONTEXT_STORY_MAX = 500;
 export const CONTEXT_DIALOGUE_MAX = 80;
@@ -38,13 +33,9 @@ export type SceneContextParse = {
   recognizedStudio: boolean;
 };
 
-export const CONTEXT_SUGGESTIONS = [
-  "Într-o grădină magică",
-  "Printre stele",
-  "Într-o pădure liniștită",
-  "La o casă colorată",
-  "Într-o lume cu baloane"
-] as const;
+export function contextSuggestions(locale: Locale = "ro") {
+  return getMessages(locale).personalize.contextSuggestions;
+}
 
 export function emptySceneContext(): SceneContext {
   return {
@@ -68,29 +59,8 @@ export function trimContextStory(input: string): string {
   return limitContextStory(input).replace(/\s+/g, " ").trim();
 }
 
-const DIACRITICS: Record<string, string> = {
-  ă: "a",
-  â: "a",
-  î: "i",
-  ș: "s",
-  ş: "s",
-  ț: "t",
-  ţ: "t",
-  á: "a",
-  é: "e",
-  í: "i",
-  ó: "o",
-  ú: "u"
-};
-
-/** Same normalize rules as the idea prompt, without the 240-char idea cap. */
 function normalizeForMatch(input: string): string {
-  const collapsed = trimContextStory(input).toLowerCase();
-  let out = "";
-  for (const char of collapsed) {
-    out += DIACRITICS[char] ?? char;
-  }
-  return out;
+  return foldDiacritics(trimContextStory(input).toLowerCase());
 }
 
 type PhraseRule = { value: string; phrases: string[] };
@@ -117,29 +87,38 @@ function pickLast(text: string, rules: PhraseRule[]): string {
   return best?.value ?? "";
 }
 
-const LOCATION_RULES: PhraseRule[] = [
-  { value: "într-o grădină", phrases: ["gradina", "iarba"] },
-  { value: "printre stele", phrases: ["stele", "stea", "spatiu", "cosmos"] },
-  { value: "într-o pădure", phrases: ["padure", "copac"] },
-  { value: "la o casă", phrases: ["casa"] },
-  { value: "într-o lume cu baloane", phrases: ["baloane", "balon"] },
-  { value: "sub un nor", phrases: ["nori", "nor"] },
-  { value: "lângă o planetă", phrases: ["planeta", "luna"] }
-];
+function locationRules(locale: Locale): PhraseRule[] {
+  const loc = getMessages(locale).personalize.contextFields.location;
+  return [
+    { value: loc.garden, phrases: ["gradina", "iarba"] },
+    { value: loc.stars, phrases: ["stele", "stea", "spatiu", "cosmos"] },
+    { value: loc.forest, phrases: ["padure", "copac"] },
+    { value: loc.house, phrases: ["casa"] },
+    { value: loc.balloons, phrases: ["baloane", "balon"] },
+    { value: loc.cloud, phrases: ["nori", "nor"] },
+    { value: loc.planet, phrases: ["planeta", "luna"] }
+  ];
+}
 
-const ACTION_RULES: PhraseRule[] = [
-  { value: "plutește", phrases: ["pluteste", "pluteasca", "zboara", "in aer"] },
-  { value: "salută", phrases: ["saluta", "face cu mana"] },
-  { value: "dansează", phrases: ["danseaza", "danseze"] },
-  { value: "sare", phrases: ["sare", "sara", "salta"] },
-  { value: "stă liniștit", phrases: ["sta linistit", "linistit", "sta"] }
-];
+function actionRules(locale: Locale): PhraseRule[] {
+  const action = getMessages(locale).personalize.contextFields.action;
+  return [
+    { value: action.float, phrases: ["pluteste", "pluteasca", "zboara", "in aer"] },
+    { value: action.wave, phrases: ["saluta", "face cu mana"] },
+    { value: action.dance, phrases: ["danseaza", "danseze"] },
+    { value: action.jump, phrases: ["sare", "sara", "salta"] },
+    { value: action.still, phrases: ["sta linistit", "linistit", "sta"] }
+  ];
+}
 
-const MOOD_RULES: PhraseRule[] = [
-  { value: "magică", phrases: ["magica", "magic", "fermecat", "fermecata"] },
-  { value: "liniștită", phrases: ["linistita", "linistit"] },
-  { value: "colorată", phrases: ["colorata", "colorat", "vesel", "stralucitoare"] }
-];
+function moodRules(locale: Locale): PhraseRule[] {
+  const mood = getMessages(locale).personalize.contextFields.mood;
+  return [
+    { value: mood.magic, phrases: ["magica", "magic", "fermecat", "fermecata"] },
+    { value: mood.calm, phrases: ["linistita", "linistit"] },
+    { value: mood.colorful, phrases: ["colorata", "colorat", "vesel", "stralucitoare"] }
+  ];
+}
 
 function extractDialogue(raw: string): string {
   const patterns = [/«([^»]+)»/u, /„([^”]+)”/u, /"([^"]+)"/u, /'([^']+)'/u];
@@ -156,19 +135,19 @@ function extractDialogue(raw: string): string {
  * Derive SceneContext narrative fields and reuse the idea interpreter for
  * motion / decor / palette / lighting. Unrecognized categories stay unset.
  */
-export function parseSceneContext(input: string): SceneContextParse {
+export function parseSceneContext(input: string, locale: Locale = "ro"): SceneContextParse {
   const story = trimContextStory(input);
   const normalized = normalizeForMatch(story);
-  const idea = interpretIdeaPrompt(story);
+  const idea = interpretIdeaPrompt(story, locale);
+  const COPY = getMessages(locale).personalize;
 
-  const location = pickLast(normalized, LOCATION_RULES);
-  let action = pickLast(normalized, ACTION_RULES);
-  const mood = pickLast(normalized, MOOD_RULES);
+  const location = pickLast(normalized, locationRules(locale));
+  let action = pickLast(normalized, actionRules(locale));
+  const mood = pickLast(normalized, moodRules(locale));
   const dialogue = extractDialogue(story);
 
-  // Prefer explicit action phrases; fall back to motion label when only the interpreter matched.
   if (!action && idea.motion) {
-    action = ANIMATIONS.find((item) => item.id === idea.motion)?.label.toLowerCase() ?? "";
+    action = COPY.choices.animations[idea.motion].label.toLowerCase();
   }
 
   return {
@@ -188,41 +167,40 @@ export function parseSceneContext(input: string): SceneContextParse {
   };
 }
 
-function labelOf(options: { id: string; label: string }[], id: string): string {
-  return options.find((item) => item.id === id)?.label ?? id;
-}
-
 /** Readable local-preview summary for the Context panel. Plain text only. */
 export function contextPreviewLines(
   context: SceneContext,
-  state: { animation: AnimationId; decor: { id: DecorId }[] }
+  state: { animation: AnimationId; decor: { id: DecorId }[] },
+  locale: Locale = "ro"
 ): string[] {
+  const COPY = getMessages(locale).personalize;
+  const preview = COPY.contextPreview;
   const lines: string[] = [];
-  const action = context.action || labelOf(ANIMATIONS, state.animation).toLowerCase();
+  const action = context.action || COPY.choices.animations[state.animation].label.toLowerCase();
   const location =
-    context.location ||
-    (state.decor[0] ? labelOf(DECOR_ASSETS, state.decor[0].id).toLowerCase() : "");
+    context.location || (state.decor[0] ? COPY.choices.decor[state.decor[0].id].label.toLowerCase() : "");
 
   if (action && location) {
-    lines.push(`Personajul tău ${action} ${location}.`);
+    lines.push(preview.actionLocation.replace("{action}", action).replace("{location}", location));
   } else if (action) {
-    lines.push(`Personajul tău ${action}.`);
+    lines.push(preview.actionOnly.replace("{action}", action));
   } else if (location) {
-    lines.push(`Personajul tău este ${location}.`);
+    lines.push(preview.locationOnly.replace("{location}", location));
   } else if (context.story) {
     lines.push(context.story);
   }
 
-  if (context.mood) lines.push(`Atmosferă: ${context.mood}.`);
-  if (context.dialogue) lines.push(`Spune: «${context.dialogue}».`);
-  lines.push(`Mișcare: ${labelOf(ANIMATIONS, state.animation)}.`);
+  if (context.mood) lines.push(preview.mood.replace("{mood}", context.mood));
+  if (context.dialogue) lines.push(preview.dialogue.replace("{dialogue}", context.dialogue));
+  lines.push(preview.motion.replace("{label}", COPY.choices.animations[state.animation].label));
   lines.push(
-    `Decor: ${
+    preview.decor.replace(
+      "{label}",
       state.decor.length > 0
-        ? state.decor.map((item) => labelOf(DECOR_ASSETS, item.id)).join(", ")
-        : "Fără decor"
-    }.`
+        ? state.decor.map((item) => COPY.choices.decor[item.id].label).join(", ")
+        : COPY.noDecor
+    )
   );
-  lines.push("Previzualizare locală — nu este o scenă 3D generată.");
+  lines.push(preview.localNote);
   return lines;
 }

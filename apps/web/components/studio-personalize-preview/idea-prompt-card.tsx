@@ -1,5 +1,4 @@
 import { useStudioI18n } from "@/components/i18n/studio-i18n";
-import { COPY } from "./fixtures";
 import type { PersonalizeState } from "./form-state";
 
 export function IdeaPromptCard({
@@ -26,7 +25,7 @@ export function IdeaPromptCard({
       <h3 id="studio-idea-heading" className="studio-idea__title">
         {prompt.heading}
       </h3>
-      <p className="studio-idea__support">{locked ? COPY.ideaNeedsDrawing : prompt.description}</p>
+      <p className="studio-idea__support">{locked ? prompt.needsDrawing : prompt.description}</p>
       <textarea
         id="studio-idea-prompt"
         className="studio-idea__field"
@@ -39,7 +38,7 @@ export function IdeaPromptCard({
         onChange={(event) => onChange(event.target.value)}
       />
       <p className="studio-idea__suggestions-label" id="studio-idea-suggestions">
-        {COPY.ideaSuggestions}
+        {prompt.suggestionsLabel}
       </p>
       <div className="studio-idea__chips" role="group" aria-labelledby="studio-idea-suggestions">
         {prompt.suggestions.map((suggestion) => {
@@ -80,7 +79,7 @@ export function IdeaPromptCard({
         ) : null}
         {state.ideaResult && !state.ideaResult.recognized ? <p>{prompt.fallback}</p> : null}
       </div>
-      <p className="studio-idea__honest">{COPY.ideaHonest}</p>
+      <p className="studio-idea__honest">{prompt.honest}</p>
     </section>
   );
 }

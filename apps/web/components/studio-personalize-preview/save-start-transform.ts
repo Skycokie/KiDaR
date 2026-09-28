@@ -10,14 +10,14 @@
 
 export type StartSaveStatus = "idle" | "saving" | "saved" | "error";
 
-export const START_SAVE_COPY = {
-  save: "Salvează poziția de start",
-  saving: "Se salvează…",
-  saved: "Poziție salvată ✓",
-  failed: "Nu s-a salvat. Încearcă din nou",
-  unavailable: "Salvarea e disponibilă după ce creezi lumea",
-  hint: "Va fi folosită la următoarea publicare."
-} as const;
+export type StartSaveCopy = {
+  save: string;
+  saving: string;
+  saved: string;
+  failed: string;
+  unavailable: string;
+  hint: string;
+};
 
 export type PreviewProjectContext = {
   projectId: string;
@@ -58,20 +58,22 @@ export function startSavePresentation(input: {
   hasProject: boolean;
   dirty: boolean;
   status: StartSaveStatus;
+  copy: StartSaveCopy;
 }): { label: string; disabled: boolean; hint: string | null } {
+  const copy = input.copy;
   if (!input.hasProject) {
-    return { label: START_SAVE_COPY.unavailable, disabled: true, hint: null };
+    return { label: copy.unavailable, disabled: true, hint: null };
   }
   if (input.status === "saving") {
-    return { label: START_SAVE_COPY.saving, disabled: true, hint: null };
+    return { label: copy.saving, disabled: true, hint: null };
   }
   if (input.status === "error") {
-    return { label: START_SAVE_COPY.failed, disabled: false, hint: null };
+    return { label: copy.failed, disabled: false, hint: null };
   }
   if (!input.dirty && input.status === "saved") {
-    return { label: START_SAVE_COPY.saved, disabled: true, hint: START_SAVE_COPY.hint };
+    return { label: copy.saved, disabled: true, hint: copy.hint };
   }
-  return { label: START_SAVE_COPY.save, disabled: !input.dirty, hint: null };
+  return { label: copy.save, disabled: !input.dirty, hint: null };
 }
 
 export async function patchStartTransform(

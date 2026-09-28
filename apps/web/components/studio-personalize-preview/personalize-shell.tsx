@@ -16,11 +16,11 @@ import { DECOR_ASSET_SRC } from "./decor-assets";
 import {
   ANIMATIONS,
   CAMERA_PRESETS,
-  COPY,
   DECOR_ASSETS,
   LIGHTINGS,
   PALETTES,
   PERSONALIZE_BACK_HREF,
+  STAGE_MESSAGE_KEY,
   STAGES,
   STYLE_PRESETS,
   TRANSFORM_MODES,
@@ -127,7 +127,7 @@ type Action =
   | { type: "applyIdea"; locale?: PromptLanguage }
   | { type: "resetIdea" }
   | { type: "context"; value: string }
-  | { type: "applyContext" }
+  | { type: "applyContext"; locale?: PromptLanguage }
   | { type: "resetContext" }
   | { type: "camera"; id: CameraPresetId }
   | { type: "grid" }
@@ -180,7 +180,7 @@ function reducer(state: PersonalizeState, action: Action): PersonalizeState {
     case "context":
       return setContextStory(state, action.value);
     case "applyContext":
-      return applyContextStory(state, state.contextStory);
+      return applyContextStory(state, state.contextStory, action.locale ?? "ro");
     case "resetContext":
       return resetContextStory(state);
     case "camera":
@@ -221,9 +221,11 @@ function reducer(state: PersonalizeState, action: Action): PersonalizeState {
 
 function SheetChrome({
   title,
+  closeLabel,
   onClose
 }: {
   title: string;
+  closeLabel: string;
   onClose: () => void;
 }) {
   return (
@@ -231,24 +233,13 @@ function SheetChrome({
       <span className="studio-ws__sheet-handle" aria-hidden="true" />
       <div className="studio-ws__sheet-row">
         <p className="studio-ws__sheet-title">{title}</p>
-        <button type="button" className="studio-ws__sheet-close" onClick={onClose} aria-label={COPY.closePanel}>
+        <button type="button" className="studio-ws__sheet-close" onClick={onClose} aria-label={closeLabel}>
           <X size={16} strokeWidth={1.75} aria-hidden />
         </button>
       </div>
     </div>
   );
 }
-
-const STEP_MESSAGE = {
-  desenul: "drawing",
-  personajul: "character",
-  aspect: "appearance",
-  miscare: "motion",
-  decor: "decor",
-  context: "context",
-  vocea: "voice",
-  testeaza: "ar"
-} as const satisfies Record<StudioStageId, keyof ReturnType<typeof useStudioI18n>["messages"]["studio"]["steps"]>;
 
 function StageNav({
   state,
@@ -260,6 +251,7 @@ function StageNav({
   onSelect: (id: StudioStageId) => void;
 }) {
   const { messages } = useStudioI18n();
+  const COPY = messages.personalize;
   return (
     <nav className="studio-ws__stages" aria-label={COPY.sidebarLabel}>
       <p className="studio-ws__stages-label">{COPY.pathLabel}</p>
@@ -285,8 +277,8 @@ function StageNav({
                   )}
                 </span>
                 <span className="studio-ws__stage-copy">
-                  <strong>{messages.studio.steps[STEP_MESSAGE[stage.id]]}</strong>
-                  <span>{messages.studio.stepHints[STEP_MESSAGE[stage.id]]}</span>
+                  <strong>{messages.studio.steps[STAGE_MESSAGE_KEY[stage.id]]}</strong>
+                  <span>{messages.studio.stepHints[STAGE_MESSAGE_KEY[stage.id]]}</span>
                 </span>
               </button>
             </li>
@@ -314,13 +306,18 @@ function ideaCard(
   );
 }
 
-function contextCard(state: PersonalizeState, dispatch: (action: Action) => void, locked: boolean) {
+function contextCard(
+  state: PersonalizeState,
+  dispatch: (action: Action) => void,
+  locked: boolean,
+  locale: PromptLanguage
+) {
   return (
     <ContextCard
       state={state}
       locked={locked}
       onChange={(value) => dispatch({ type: "context", value })}
-      onApply={() => dispatch({ type: "applyContext" })}
+      onApply={() => dispatch({ type: "applyContext", locale })}
       onReset={() => dispatch({ type: "resetContext" })}
     />
   );
@@ -344,6 +341,7 @@ function Inspector({
   onPlayVoice: (url: string) => void;
 }) {
   const { locale, messages } = useStudioI18n();
+  const COPY = messages.personalize;
   const hasDrawing = Boolean(drawingSrc);
   const showIdea =
     state.stage === "personajul" ||
@@ -353,13 +351,13 @@ function Inspector({
   if (state.stage === "desenul") {
     return (
       <div className="studio-ws__inspector-block">
-        <h2>Desen</h2>
+        <h2>{messages.studio.steps.drawing}</h2>
         <p className="studio-ws__muted">{hasDrawing ? COPY.drawingReady : COPY.emptyDrawing}</p>
         {hasDrawing ? null : ideaCard(state, dispatch, true, locale)}
         <div className={`studio-ws__drawing-card${drawingSrc ? " has-photo" : ""}`}>
           {drawingSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={drawingSrc} alt="Desenul salvat" className="studio-ws__drawing-photo" />
+            <img src={drawingSrc} alt={COPY.drawingAlt} className="studio-ws__drawing-photo" />
           ) : (
             <span className="studio-ws__drawing-paper" aria-hidden="true" />
           )}
@@ -371,7 +369,7 @@ function Inspector({
           title={hasDrawing ? undefined : COPY.stepLocked}
           onClick={() => dispatch({ type: "stage", id: "personajul" })}
         >
-          Continuă la personaj
+          {COPY.continueToCharacter}
         </button>
       </div>
     );
@@ -381,11 +379,12 @@ function Inspector({
     return (
       <div className="studio-ws__inspector-block">
         {showIdea ? ideaCard(state, dispatch, !hasDrawing, locale) : null}
-        <h2>Personaj</h2>
+        <h2>{messages.studio.steps.character}</h2>
         <p className="studio-ws__section-label">{COPY.modeSection}</p>
         <div className="studio-ws__mode-cards" role="group" aria-label={COPY.modeSection}>
           {TRANSFORM_MODES.map((mode) => {
             const selected = state.transformMode === mode.id;
+            const copy = COPY.choices.modes[mode.id];
             return (
               <button
                 key={mode.id}
@@ -398,8 +397,8 @@ function Inspector({
                   <span className="studio-ws__mode-blob" />
                 </span>
                 <span className="studio-ws__mode-copy">
-                  <strong>{mode.label}</strong>
-                  {mode.hint ? <span>{mode.hint}</span> : null}
+                  <strong>{copy.label}</strong>
+                  {copy.hint ? <span>{copy.hint}</span> : null}
                 </span>
                 {selected ? (
                   <span className="studio-ws__mode-check" aria-hidden="true">
@@ -495,7 +494,7 @@ function Inspector({
                 onClick={() => dispatch({ type: "palette", id: palette.id })}
               >
                 <span className={`studio-ws__choice-mark studio-ws__choice-mark--${palette.id}`} aria-hidden="true" />
-                {palette.label}
+                {COPY.choices.palettes[palette.id].label}
               </button>
             );
           })}
@@ -514,7 +513,7 @@ function Inspector({
                 onClick={() => dispatch({ type: "lighting", id: lighting.id })}
               >
                 <span className={`studio-ws__choice-mark studio-ws__choice-mark--${lighting.id}`} aria-hidden="true" />
-                {lighting.label}
+                {COPY.choices.lightings[lighting.id].label}
               </button>
             );
           })}
@@ -523,6 +522,7 @@ function Inspector({
         <div className="studio-ws__style-cards" role="radiogroup" aria-label={COPY.styleSection}>
           {STYLE_PRESETS.map((preset) => {
             const selected = state.stylePreset === preset.id;
+            const copy = COPY.choices.styles[preset.id];
             return (
               <button
                 key={preset.id}
@@ -533,8 +533,8 @@ function Inspector({
                 onClick={() => dispatch({ type: "style", id: preset.id })}
               >
                 <span className="studio-ws__style-swatch" aria-hidden="true" />
-                <strong>{preset.label}</strong>
-                {preset.hint ? <span>{preset.hint}</span> : null}
+                <strong>{copy.label}</strong>
+                {copy.hint ? <span>{copy.hint}</span> : null}
               </button>
             );
           })}
@@ -551,7 +551,7 @@ function Inspector({
 
         <label className="studio-ws__slider">
           <span>
-            Lumină
+            {COPY.lightingSection}
             <em>{state.light}</em>
           </span>
           <input
@@ -565,7 +565,7 @@ function Inspector({
 
         <label className="studio-ws__slider">
           <span>
-            Umbră
+            {COPY.shadow}
             <em>{state.shadow}</em>
           </span>
           <input
@@ -603,7 +603,7 @@ function Inspector({
                 >
                   <span />
                 </span>
-                <strong>{anim.label}</strong>
+                <strong>{COPY.choices.animations[anim.id].label}</strong>
               </button>
             );
           })}
@@ -630,18 +630,19 @@ function Inspector({
           </button>
           {DECOR_ASSETS.map((asset) => {
             const count = state.decor.filter((item) => item.id === asset.id).length;
+            const label = COPY.choices.decor[asset.id].label;
             return (
               <button
                 key={asset.id}
                 type="button"
                 className={`studio-ws__asset${count > 0 ? " is-selected" : ""}`}
                 onClick={() => dispatch({ type: "decor", id: asset.id })}
-                aria-label={count > 0 ? `${asset.label}, ${count}` : asset.label}
+                aria-label={count > 0 ? `${label}, ${count}` : label}
               >
                 <span className={`studio-ws__asset-icon studio-ws__asset-icon--${asset.id}`} aria-hidden="true">
                   <img src={DECOR_ASSET_SRC[asset.id]} alt="" width={32} height={32} draggable={false} />
                 </span>
-                <span>{asset.label}</span>
+                <span>{label}</span>
                 {count > 0 ? <span className="studio-ws__asset-count">{count}</span> : null}
               </button>
             );
@@ -654,7 +655,7 @@ function Inspector({
   if (state.stage === "context") {
     return (
       <div className="studio-ws__inspector-block">
-        {contextCard(state, dispatch, !hasDrawing)}
+        {contextCard(state, dispatch, !hasDrawing, locale)}
       </div>
     );
   }
@@ -672,8 +673,8 @@ function Inspector({
   }
 
   const scene = toStudioSceneDraft(state, hasDrawing);
-  const summary = sceneSummary(scene);
-  const storyLines = scene.context.story ? contextPreviewLines(scene.context, state) : [];
+  const summary = sceneSummary(scene, locale);
+  const storyLines = scene.context.story ? contextPreviewLines(scene.context, state, locale) : [];
   return (
     <div className="studio-ws__inspector-block" data-ar-eligible={CURRENT_SCENE_ELIGIBILITY.arEligible ? "yes" : "no"}>
       <h2>{COPY.sceneHeading}</h2>
@@ -759,6 +760,7 @@ function InteractionPanel({
   onReset: () => void;
 }) {
   const { messages } = useStudioI18n();
+  const COPY = messages.personalize;
   const reaction =
     enabled && activeTarget === "character" && reactionNonce > 0
       ? COPY.interactCharacter
@@ -814,6 +816,7 @@ export function PersonalizePreviewShell({
   projectContext?: PreviewProjectContext | null;
 }) {
   const { locale, messages } = useStudioI18n();
+  const COPY = messages.personalize;
   const projectId = projectContext?.projectId ?? null;
   const orbitSeed = {
     hasDrawing: Boolean(drawingSrc),
@@ -848,8 +851,8 @@ export function PersonalizePreviewShell({
   zoomRef.current = state.zoom;
   interactDispatchRef.current = interactDispatch;
   const publishDialogRef = useRef<HTMLDivElement | null>(null);
-  const summary = summarizePersonalize(state);
-  const activeStage = STAGES.find((stage) => stage.id === state.stage);
+  const summary = summarizePersonalize(state, locale);
+  const activeStageLabel = messages.studio.steps[STAGE_MESSAGE_KEY[state.stage]];
   const hasDrawing = Boolean(drawingSrc);
   const startDirty = isStartPoseDirty(
     { yaw: state.orbitYaw, pitch: state.orbitPitch },
@@ -858,7 +861,8 @@ export function PersonalizePreviewShell({
   const startPresentation = startSavePresentation({
     hasProject: Boolean(projectContext),
     dirty: startDirty,
-    status: save.status
+    status: save.status,
+    copy: COPY.startSave
   });
 
   const onSaveStart = async () => {
@@ -1102,7 +1106,7 @@ export function PersonalizePreviewShell({
       type="button"
       className="studio-ws__btn-secondary"
       disabled={!projectId}
-      title={projectId ? COPY.publishPrepareTitle : "Doar previzualizare"}
+      title={projectId ? COPY.publishPrepareTitle : COPY.previewOnlyTitle}
       onClick={() => {
         if (!projectId) return;
         dispatch({ type: "publish", open: true });
@@ -1116,7 +1120,7 @@ export function PersonalizePreviewShell({
     <>
       {variant === "sheet" ? (
       <div className="studio-ws__viewport-bar">
-        <div className="studio-ws__cam-presets" role="group" aria-label="Cameră">
+        <div className="studio-ws__cam-presets" role="group" aria-label={COPY.cameraSection}>
           {CAMERA_PRESETS.map((preset) => {
             const active =
               preset.id === "reset"
@@ -1130,7 +1134,7 @@ export function PersonalizePreviewShell({
                 className={`studio-ws__cam-btn${active ? " is-active" : ""}`}
                 onClick={() => dispatch({ type: "camera", id: preset.id })}
               >
-                {preset.label}
+                {COPY.choices.cameras[preset.id].label}
               </button>
             );
           })}
@@ -1215,6 +1219,7 @@ export function PersonalizePreviewShell({
         >
           <SheetChrome
             title={COPY.pathLabel}
+            closeLabel={COPY.closePanel}
             onClose={() => dispatch({ type: "left", open: false })}
           />
           <StageNav
@@ -1285,12 +1290,12 @@ export function PersonalizePreviewShell({
             </div>
 
             <div className="studio-ws__viewport-overlay">
-              <p className="studio-ws__viewport-step">{activeStage?.label}</p>
+              <p className="studio-ws__viewport-step">{activeStageLabel}</p>
             </div>
 
             <div className="studio-ws__overlay-tools">
             <div className="studio-ws__viewport-bar">
-              <div className="studio-ws__cam-presets" role="group" aria-label="Cameră">
+              <div className="studio-ws__cam-presets" role="group" aria-label={COPY.cameraSection}>
                 {CAMERA_PRESETS.map((preset) => {
                   const active =
                     preset.id === "reset"
@@ -1304,7 +1309,7 @@ export function PersonalizePreviewShell({
                       className={`studio-ws__cam-btn${active ? " is-active" : ""}`}
                       onClick={() => dispatch({ type: "camera", id: preset.id })}
                     >
-                      {preset.label}
+                      {COPY.choices.cameras[preset.id].label}
                     </button>
                   );
                 })}
@@ -1361,7 +1366,8 @@ export function PersonalizePreviewShell({
           aria-label={COPY.rightNavOpen}
         >
           <SheetChrome
-            title={activeStage?.label ?? COPY.rightNavOpen}
+            title={activeStageLabel ?? COPY.rightNavOpen}
+            closeLabel={COPY.closePanel}
             onClose={() => dispatch({ type: "right", open: false })}
           />
           <div className="studio-ws__view-controls studio-ws__view-controls--sheet">

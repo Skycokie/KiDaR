@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { COPY } from "./fixtures";
+import { useStudioI18n } from "@/components/i18n/studio-i18n";
 import { FigurineGlbStage } from "./figurine-glb-stage";
 import {
   readFigurineStatus,
@@ -31,6 +31,8 @@ export function FigurineLiveStage({
   fallback: ReactNode;
 }) {
   const [status, setStatus] = useState<FigurineStatusView | null>(null);
+  const { messages } = useStudioI18n();
+  const COPY = messages.personalize;
 
   useEffect(() => {
     let cancelled = false;

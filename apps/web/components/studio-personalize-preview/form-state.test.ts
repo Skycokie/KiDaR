@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { getMessages } from "@/i18n/get-messages";
 import {
-  COPY,
   FIXTURE_WORLD,
   PERSONALIZE_BACK_HREF,
   PERSONALIZE_CAMERA_HREF,
@@ -55,25 +55,36 @@ function readLocal(file: string): string {
 
 describe("Studio personalize workspace — fixture + local state", () => {
   it("exposes only the documented fixture world (no projectId / sourceUrl)", () => {
-    expect(FIXTURE_WORLD.title).toBe("Grădina de după ploaie");
-    expect(FIXTURE_WORLD.status).toBe("Previzualizare");
-    expect(FIXTURE_WORLD.mode).toBe("Popout");
+    const world = getMessages("ro").personalize.fixtureWorld;
+    expect(world.title).toBe("Grădina de după ploaie");
+    expect(world.status).toBe("Previzualizare");
+    expect(world.mode).toBe("Popout");
     expect(Object.keys(FIXTURE_WORLD)).not.toContain("projectId");
     expect(Object.keys(FIXTURE_WORLD)).not.toContain("sourceUrl");
     expect(Object.keys(FIXTURE_WORLD)).not.toContain("owner");
   });
 
   it("exposes the narrative Studio path labels", () => {
-    expect(STAGES.map((stage) => stage.label)).toEqual([
-      "Desen",
-      "Personaj",
-      "Aspect",
-      "Mișcare",
-      "Decor",
-      "Context",
-      "Vocea",
-      "AR"
+    expect(STAGES.map((stage) => stage.id)).toEqual([
+      "desenul",
+      "personajul",
+      "aspect",
+      "miscare",
+      "decor",
+      "context",
+      "vocea",
+      "testeaza"
     ]);
+    expect(getMessages("ro").studio.steps).toEqual({
+      drawing: "Desen",
+      character: "Personaj",
+      appearance: "Aspect",
+      motion: "Mișcare",
+      decor: "Decor",
+      context: "Context",
+      voice: "Vocea",
+      ar: "AR"
+    });
   });
 
   it("starts on Personaj with Desen already completed", () => {
@@ -297,16 +308,18 @@ describe("Studio personalize workspace — fixture + local state", () => {
       expect(impl.includes(snippet)).toBe(false);
       expect(fixtures.includes(snippet)).toBe(false);
     }
-    expect(fixtures).toContain(COPY.title);
-    expect(fixtures).toContain(COPY.savedLocal);
-    expect(fixtures).toContain(COPY.publish);
-    expect(fixtures).toContain(COPY.seeInAr);
-    expect(fixtures).toContain(COPY.seeInArPreparing);
-    expect(fixtures).toContain(COPY.arCardCaption);
+    const COPY = getMessages("ro").personalize;
+    expect(COPY.title).toBe("Lumea mea");
+    expect(COPY.savedLocal).toBe("Salvat în această sesiune");
+    expect(COPY.publish).toBe("Publică");
+    expect(COPY.seeInAr).toBe("Vezi în AR");
+    expect(COPY.seeInArPreparing).toBe("AR în pregătire");
+    expect(COPY.arCardCaption).toBe("Previzualizare locală");
     expect(shell).toContain("messages.studio.arPreparing");
+    expect(shell).toContain("messages.personalize");
     expect(shell).not.toContain("studio-ws__ar-live");
     expect(shell).not.toContain("Previzualizare AR locală");
-    expect(fixtures).toContain(COPY.regenerate);
+    expect(COPY.regenerate).toContain("previzualizare");
     expect(shell).toContain("PERSONALIZE_BACK_HREF");
     expect(shell).toContain("studio-ws__spin");
     expect(shell).not.toContain("studio-ws__dpad");
@@ -319,10 +332,10 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(shell).toContain("readCharacterVoiceStatus");
     expect(shell).toContain("spokenMessage");
     expect(shell).toContain("VoiceCard");
-    expect(fixtures).toContain(COPY.autoRotateOff);
-    expect(fixtures).toContain(COPY.autoRotateStop);
-    expect(fixtures).toContain(COPY.rollCcw);
-    expect(fixtures).toContain(COPY.rollCw);
+    expect(COPY.autoRotateOff).toBe("360°");
+    expect(COPY.autoRotateStop).toContain("360");
+    expect(COPY.rollCcw).toMatch(/plan/);
+    expect(COPY.rollCw).toMatch(/plan/);
     expect(shell).toContain("setArLive");
     expect(shell).toContain('dispatch({ type: "publish", open: true })');
     expect(shell).toContain("disabled={!projectId}");
@@ -334,9 +347,9 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(shell).toContain("disabled");
     expect(shell).not.toContain("href={`/studio/${projectId}`}");
     expect(shell).not.toContain('from "next/link"');
-    expect(fixtures).toContain(COPY.publishPrepareTitle);
-    expect(fixtures).toContain(COPY.publishInactive);
-    expect(fixtures).toContain(COPY.publishQrLabel);
+    expect(COPY.publishPrepareTitle).toMatch(/publicare/);
+    expect(COPY.publishInactive).toMatch(/activată/);
+    expect(COPY.publishQrLabel).toMatch(/QR/);
     expect(shell).toContain("transformMode={state.transformMode}");
     expect(shell).toContain('dispatch({ type: "variant", index: -1 })');
     expect(shell).not.toMatch(/studio-ws__ghost-btn[^>]*\bdisabled\b/);
@@ -357,8 +370,9 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(poster).not.toContain(removedHint);
     expect(shell).not.toContain(removedHint);
     expect(readLocal("personalize-preview.css")).not.toContain(removedHint);
-    expect(fixtures).toContain("Pregătim Pop-out-ul…");
-    expect(fixtures).toContain(COPY.figurineVolumeHint);
+    expect(COPY.popoutPreparing).toMatch(/Pop-out/);
+    expect(COPY.figurineVolumeHint).toMatch(/Tripo/);
+    expect(fixtures).not.toMatch(/[ăâîșşțţ]/i);
   });
 
   it("maps pointer drag and wheel or pinch onto the same orbit and zoom", () => {
@@ -412,14 +426,15 @@ describe("Studio personalize workspace — fixture + local state", () => {
 
   it("Vezi în AR is disabled until real assets exist and does not open a fake AR overlay", () => {
     const shell = readLocal("personalize-shell.tsx");
-    const fixtures = readLocal("fixtures.ts");
     expect(shell).not.toContain("/studio-preview/personalizeaza/camera");
     expect(shell).not.toContain("PERSONALIZE_CAMERA_HREF");
     expect(shell).toContain("messages.studio.arPreparing");
-    expect(fixtures).toContain("AR în pregătire");
-    expect(fixtures).toContain("Vezi scena în AR");
-    expect(fixtures).toContain("Vezi scena în lumea ta");
-    expect(fixtures).toContain("Previzualizare locală — scena nu este încă disponibilă în AR.");
+    expect(getMessages("ro").personalize.seeInArPreparing).toBe("AR în pregătire");
+    expect(getMessages("ro").personalize.seeSceneInAr).toBe("Vezi scena în AR");
+    expect(getMessages("ro").personalize.sceneHeading).toBe("Vezi scena în lumea ta");
+    expect(getMessages("ro").personalize.sceneLocalLabel).toBe(
+      "Previzualizare locală — scena nu este încă disponibilă în AR."
+    );
     expect(shell).toContain("data-ar-eligible=");
     expect(shell).toContain("mirror");
     expect(shell).not.toMatch(/\brel=["']ar["']/);

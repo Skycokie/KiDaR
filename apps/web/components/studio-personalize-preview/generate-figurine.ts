@@ -25,15 +25,6 @@ export type FigurineStatusView = {
   job: FigurineJobView | null;
 };
 
-export const FIGURINE_ERROR_COPY: Record<FigurineClientError, string> = {
-  auth: "Trebuie să fii autentificat ca să generezi figurina.",
-  gated: "Generarea 3D nu este activată încă pe acest mediu.",
-  source: "Pentru Figurină 3D, alege sau decupează un singur personaj, animal ori obiect.",
-  active: "O generare Figurină 3D este deja în curs pentru acest proiect.",
-  generic: "Nu am putut porni Figurină 3D. Încearcă din nou.",
-  network: "Nu am putut porni Figurină 3D. Verifică conexiunea și încearcă din nou."
-};
-
 export function pickFigurineModelUrl(body: {
   figurineModelUrl?: string | null;
   job?: { publicUrl?: string | null } | null;
@@ -97,7 +88,7 @@ export function interpretStartFigurineResponse(
   const data = readJson(body);
   const error = typeof data.error === "string" ? data.error : "";
   if (status === 200 || status === 201) {
-    return { ok: true, label: typeof data.label === "string" ? data.label : "În pregătire" };
+    return { ok: true, label: typeof data.label === "string" ? data.label : "" };
   }
   if (status === 401) return { ok: false, error: "auth" };
   if (status === 409 || error === "active_job") return { ok: false, error: "active" };
