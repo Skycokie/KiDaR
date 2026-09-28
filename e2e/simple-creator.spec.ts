@@ -185,5 +185,5 @@ test("/dashboard redirects to Studio hub", async ({ page }) => {
 test("anonymous /ar slug is 404 without a public mapping", async ({ page }) => {
   const response = await page.goto("/ar/no-public-mapping-yet");
   expect(response?.status()).toBe(404);
-  await expect(page.getByText(/experiența nu este publică încă/i)).toBeVisible();
+  await expect(page.getByText(/experiența nu este publică încă|experience is not public yet/i)).toBeVisible();
 });

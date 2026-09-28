@@ -581,5 +581,34 @@ export const ro: Messages = {
       decor: "Decor: {label}.",
       localNote: "Previzualizare locală — nu este o scenă 3D generată."
     }
+  },
+  cameraAr: {
+    metaTitle: "Cameră AR — previzualizare",
+    metaDescription: "Previzualizare statică Cameră AR. Doar stări simulate — fără cameră și fără urmărire.",
+    noscript: "Activează JavaScript pentru previzualizarea Cameră AR. Camera dispozitivului nu este folosită pe acest ecran.",
+    kicker: "Cameră AR",
+    badge: "Previzualizare — camera nu pornește încă",
+    introTitle: "Privește poza prin cameră. Observă cum prinde viață.",
+    introLead: "Aceasta este o previzualizare statică. Nu cerem acces la cameră.",
+    tryPreview: "Încearcă previzualizarea",
+    preparing: "Pregătim privirea.",
+    continue: "Continuă",
+    searching: "Caută poza în fața ta.",
+    simulateFound: "Simulează: poza găsită",
+    found: "Am găsit poza.",
+    simulateLost: "Simulează: poza pierdută",
+    lost: "Nu mai văd poza.",
+    showAgain: "Arată-mi poza din nou",
+    unavailable: "Camera nu este disponibilă.",
+    incompatible: "Această previzualizare funcționează cel mai bine pe telefon.",
+    backStudio: "Înapoi la Studio",
+    demoLabel: "Simulează alte stări",
+    demoUnavailable: "Cameră indisponibilă",
+    demoIncompatible: "Browser necompatibil",
+    fixtureTitle: "Grădina de după ploaie",
+    worldHint: "Lume fixture · Fluture · Stele · Apus"
+  },
+  ar: {
+    notPublic: "Experiența nu este publică încă."
   }
 };

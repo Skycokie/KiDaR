@@ -541,4 +541,33 @@ export type Messages = {
       localNote: string;
     };
   };
+  cameraAr: {
+    metaTitle: string;
+    metaDescription: string;
+    noscript: string;
+    kicker: string;
+    badge: string;
+    introTitle: string;
+    introLead: string;
+    tryPreview: string;
+    preparing: string;
+    continue: string;
+    searching: string;
+    simulateFound: string;
+    found: string;
+    simulateLost: string;
+    lost: string;
+    showAgain: string;
+    unavailable: string;
+    incompatible: string;
+    backStudio: string;
+    demoLabel: string;
+    demoUnavailable: string;
+    demoIncompatible: string;
+    fixtureTitle: string;
+    worldHint: string;
+  };
+  ar: {
+    notPublic: string;
+  };
 };
