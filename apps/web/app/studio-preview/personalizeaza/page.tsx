@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 import { DM_Sans, Syne } from "next/font/google";
+import {
+  creativeIdeaPrompt,
+  parseCreativeStartingPoint,
+  parseCreativeSuggestionIndex
+} from "@/components/creaza-preview/starting-point";
 import { StudioI18nProvider } from "@/components/i18n/studio-i18n";
 import { PersonalizePreviewShell } from "@/components/studio-personalize-preview";
+import type { PreviewProjectContext } from "@/components/studio-personalize-preview/save-start-transform";
 import { getMessages } from "@/i18n/get-messages";
 import { getRequestLocale } from "@/i18n/get-request-locale";
-import type { PreviewProjectContext } from "@/components/studio-personalize-preview/save-start-transform";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import { getProjectForOwner } from "@/lib/appwrite/db";
 import { createSignedSourceUrl } from "@/lib/appwrite/storage";
@@ -27,7 +32,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 type PageProps = {
-  searchParams?: { projectId?: string | string[] };
+  searchParams?: { projectId?: string | string[]; from?: string | string[]; hint?: string | string[] };
 };
 
 async function loadOwnedPreview(projectId: string | undefined): Promise<{
@@ -66,6 +71,9 @@ export default async function StudioPersonalizePreviewPage({ searchParams }: Pag
   const projectId = typeof raw === "string" ? raw.trim() : Array.isArray(raw) ? raw[0]?.trim() : "";
   const { drawingSrc, projectContext } = await loadOwnedPreview(projectId || undefined);
   const locale = getRequestLocale();
+  const from = parseCreativeStartingPoint(searchParams?.from);
+  const hint = parseCreativeSuggestionIndex(searchParams?.hint);
+  const initialIdeaPrompt = from ? creativeIdeaPrompt(getMessages(locale).creaza.preset, from, hint) : "";
 
   return (
     <div className={`${display.variable} ${body.variable}`}>
@@ -73,7 +81,11 @@ export default async function StudioPersonalizePreviewPage({ searchParams }: Pag
         <p style={{ margin: "1rem", color: "#9aa3b5" }}>{getMessages(locale).personalize.noscript}</p>
       </noscript>
       <StudioI18nProvider locale={locale}>
-        <PersonalizePreviewShell drawingSrc={drawingSrc} projectContext={projectContext} />
+        <PersonalizePreviewShell
+          drawingSrc={drawingSrc}
+          projectContext={projectContext}
+          initialIdeaPrompt={initialIdeaPrompt}
+        />
       </StudioI18nProvider>
     </div>
   );

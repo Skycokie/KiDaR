@@ -208,29 +208,53 @@ export const ro: Messages = {
       confirmare: "Lume"
     },
     preset: {
-      title: "Cu ce începe lumea?",
-      lead: "Alegi un tip de desen. Apoi aduci o poză pe masă și îi dai o scenă.",
-      cta: "Începe lumea",
+      title: "În ce se va transforma povestea ta?",
+      lead: "Începe cu un desen. Dă-i o lume.",
+      choose: "Alege ce vrei să descoperi mai întâi.",
+      cta: "Continuă",
       ctaBusy: "Pregătim surpriza…",
+      chooseCta: "Alege această idee",
       doorsLabel: "Punct de pornire",
+      selectedLabel: "Începi cu: {option}",
+      addDrawing: "Acum adaugă desenul.",
+      selectedStatus: "Ai ales {option}.",
       doors: {
-        coloring: {
-          title: "Un desen colorat",
-          detail: "Personaje, obiecte, pagini din caiet — orice linie care vrea să iasă din hârtie."
+        character: {
+          eyebrow: "CINE?",
+          title: "Dă viață unui personaj.",
+          detail: "Începe cu un om, un animal sau o creatură din desenul tău.",
+          option: "Personaj",
+          suggestions: ["Un explorator curajos", "Un dragon prietenos", "Un cocoș misterios"],
+          suggestionsLabel: "Exemple de personaje"
         },
         story: {
-          title: "O pagină de poveste",
-          detail: "Ilustrații din cărți și scene care pot deveni o poartă."
+          eyebrow: "CE?",
+          title: "Transformă desenul într-o poveste.",
+          detail: "Adaugă un mister, o aventură sau un moment pe cale să se întâmple.",
+          option: "Poveste",
+          suggestions: ["Găsește cocoșul dispărut", "Deschide ușa secretă", "Urmează indiciile luminoase"],
+          suggestionsLabel: "Exemple de povești"
         },
-        mission: {
-          title: "O misiune",
-          detail: "Indicii, chei și provocări pentru jocuri și clase."
+        world: {
+          eyebrow: "UNDE?",
+          title: "Construiește o lume în jurul lui.",
+          detail: "Pune desenul într-o cameră, într-o grădină sau într-o aventură magică.",
+          option: "Lume",
+          suggestions: ["O casă secretă", "O pădure luminată de lună", "O cameră de detectivi"],
+          suggestionsLabel: "Exemple de lumi"
         }
+      },
+      seeds: {
+        character: "Dă viață personajului din acest desen.",
+        story: "Transformă acest desen într-o poveste. Ce se întâmplă mai departe?",
+        world: "Construiește o lume în jurul acestui desen. Unde începe povestea?"
       }
     },
     foto: {
       title: "Așază poza pe masă",
       lead: "O fotografie clară a hârtiei. Fără ecrane, fără umbre grele.",
+      uploadDrawing: "Încarcă desenul",
+      useCamera: "Folosește camera",
       dropEmpty: "Așază poza aici",
       dropHint: "JPG sau PNG · până la 10 MB",
       dropSelected: "Poza ta e pe masă",
@@ -278,7 +302,7 @@ export const ro: Messages = {
     },
     errors: {
       preset: {
-        select: "Alege cu ce începe lumea.",
+        select: "Alege ce vrei să descoperi mai întâi.",
         auth: "Trebuie să fii autentificat ca să începi lumea.",
         quota: "Ai folosit surprizele din planul gratuit. Poți folosi Studio pentru proiectele existente.",
         generic: "Nu am putut începe lumea. Încearcă din nou.",
@@ -287,7 +311,7 @@ export const ro: Messages = {
       },
       photoInvalid: "Putem folosi doar fotografii JPG sau PNG, până la 10 MB.",
       upload: {
-        missingProject: "Lumea nu este pregătită încă. Întoarce-te și apasă „Începe lumea”.",
+        missingProject: "Lumea nu este pregătită încă. Întoarce-te și apasă „Continuă”.",
         missingPhoto: "Alege mai întâi o poză JPG sau PNG.",
         auth: "Trebuie să fii autentificat ca să salvezi poza.",
         notFound: "Lumea nu mai este disponibilă.",
@@ -295,7 +319,7 @@ export const ro: Messages = {
         network: "Nu am putut salva poza. Verifică conexiunea și încearcă din nou."
       },
       scene: {
-        missingProject: "Lumea nu este pregătită încă. Întoarce-te și apasă „Începe lumea”.",
+        missingProject: "Lumea nu este pregătită încă. Întoarce-te și apasă „Continuă”.",
         invalidScene: "Alege Popout ca să continui. Figurină vine în curând.",
         auth: "Trebuie să fii autentificat ca să salvezi scena.",
         notFound: "Lumea nu mai este disponibilă.",

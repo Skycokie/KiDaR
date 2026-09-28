@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, Syne } from "next/font/google";
 import { redirect } from "next/navigation";
 import { CreazaPreviewShell } from "@/components/creaza-preview";
+import { StudioI18nProvider } from "@/components/i18n/studio-i18n";
 import { getMessages } from "@/i18n/get-messages";
 import { getRequestLocale } from "@/i18n/get-request-locale";
 import { hrefForLocale } from "@/i18n/locale";
@@ -31,7 +32,9 @@ export default async function CreazaPage() {
 
   return (
     <div className={`${display.variable} ${body.variable}`}>
-      <CreazaPreviewShell locale={locale} />
+      <StudioI18nProvider locale={locale}>
+        <CreazaPreviewShell />
+      </StudioI18nProvider>
     </div>
   );
 }

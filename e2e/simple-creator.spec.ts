@@ -60,39 +60,61 @@ test("Romanian entry has a visible email label and status copy", async ({ page }
   await minHeight(page.getByRole("button", { name: "Trimite legătura de intrare" }));
 });
 
-test("authenticated /creaza shows Atelier 4-step shell and creates a world", async ({ page }) => {
-  await signIn(page);
-  await page.goto("/creaza");
-  await expect(page.getByRole("heading", { name: "Cu ce începe lumea?" })).toBeVisible();
-  await expect(page.getByRole("list", { name: /Progres/i })).toBeVisible();
-  await expect(page.getByText("1 / 4").first()).toBeVisible();
+async function chooseCharacter(page: import("@playwright/test").Page) {
+  const card = page.getByRole("article", { name: /Dă viață unui personaj/i });
+  const choose = card.getByRole("button", { name: "Alege această idee" });
+  await choose.click();
+  await expect(choose).toHaveAttribute("aria-pressed", "true");
+}
 
-  const coloring = page.getByRole("option", { name: /desen colorat/i });
-  await coloring.click();
-  await expect(coloring).toHaveAttribute("aria-selected", "true");
-  await minHeight(page.getByRole("button", { name: "Începe lumea" }));
-
+async function continueFromStart(page: import("@playwright/test").Page) {
   const createdResponse = page.waitForResponse(
     (response) =>
       response.url().includes("/api/projects") &&
       response.request().method() === "POST" &&
       response.ok()
   );
-  await page.getByRole("button", { name: "Începe lumea" }).click();
+  await page.getByRole("button", { name: "Continuă" }).click();
   expect((await createdResponse).ok()).toBeTruthy();
   await expect(page.getByRole("heading", { name: "Așază poza pe masă" })).toBeVisible({
     timeout: 20_000
   });
+}
+
+async function hasHorizontalOverflow(page: import("@playwright/test").Page) {
+  return page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+}
+
+test("authenticated /creaza shows WHO WHAT WHERE cards and creates a world", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/creaza");
+  await expect(page.getByRole("heading", { name: "În ce se va transforma povestea ta?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Dă viață unui personaj." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Transformă desenul într-o poveste." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Construiește o lume în jurul lui." })).toBeVisible();
+  await expect(page.getByRole("list", { name: /Progres/i })).toBeVisible();
+  await expect(page.getByText("1 / 4").first()).toBeVisible();
+
+  await chooseCharacter(page);
+  await expect(page.getByText("Începi cu: Personaj")).toBeVisible();
+  await minHeight(page.getByRole("button", { name: "Continuă" }));
+  await continueFromStart(page);
+});
+
+test("starting-point cards stay inside the viewport", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/creaza");
+  for (const width of [320, 390, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await hasHorizontalOverflow(page), `${width}px overflow`).toBeFalsy();
+  }
 });
 
 test("Atelier foto step uploads JPG and continues to scene", async ({ page }) => {
   await signIn(page);
   await page.goto("/creaza");
-  await page.getByRole("option", { name: /desen colorat/i }).click();
-  await page.getByRole("button", { name: "Începe lumea" }).click();
-  await expect(page.getByRole("heading", { name: "Așază poza pe masă" })).toBeVisible({
-    timeout: 20_000
-  });
+  await chooseCharacter(page);
+  await continueFromStart(page);
 
   const fileInput = page.locator('input[type="file"]').first();
   await fileInput.setInputFiles(photoFixture);
@@ -105,11 +127,8 @@ test("Atelier foto step uploads JPG and continues to scene", async ({ page }) =>
 test("Atelier scene save reaches confirmation and Studio link", async ({ page }) => {
   await signIn(page);
   await page.goto("/creaza");
-  await page.getByRole("option", { name: /desen colorat/i }).click();
-  await page.getByRole("button", { name: "Începe lumea" }).click();
-  await expect(page.getByRole("heading", { name: "Așază poza pe masă" })).toBeVisible({
-    timeout: 20_000
-  });
+  await chooseCharacter(page);
+  await continueFromStart(page);
   await page.locator('input[type="file"]').first().setInputFiles(photoFixture);
   await page.getByRole("button", { name: /Salvează poza/i }).click();
   await expect(page.getByRole("heading", { name: "Cum vrei să prindă viață?" })).toBeVisible({
@@ -124,7 +143,7 @@ test("Atelier scene save reaches confirmation and Studio link", async ({ page })
   await expect(studioLink).toBeVisible();
   await expect(studioLink).toHaveAttribute(
     "href",
-    /\/studio-preview\/personalizeaza\?projectId=/
+    /\/studio-preview\/personalizeaza\?projectId=.+&from=character/
   );
 });
 
@@ -145,7 +164,7 @@ test("authenticated /intra continues to /creaza; /login goes to Studio hub", asy
   await signIn(page);
   await page.goto("/intra");
   await expect(page).toHaveURL(/\/creaza$/, { timeout: 20_000 });
-  await expect(page.getByRole("heading", { name: "Cu ce începe lumea?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "În ce se va transforma povestea ta?" })).toBeVisible();
 
   await page.goto("/login");
   await expect(page).toHaveURL(/\/studio$/, { timeout: 20_000 });

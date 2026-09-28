@@ -1,3 +1,12 @@
+export type CreazaStartingDoorCopy = {
+  eyebrow: string;
+  title: string;
+  detail: string;
+  option: string;
+  suggestions: readonly [string, string, string];
+  suggestionsLabel: string;
+};
+
 export type Messages = {
   brand: {
     playWith: string;
@@ -202,18 +211,31 @@ export type Messages = {
     preset: {
       title: string;
       lead: string;
+      choose: string;
       cta: string;
       ctaBusy: string;
+      chooseCta: string;
       doorsLabel: string;
+      /** `{option}` is replaced with the selected card’s short name. */
+      selectedLabel: string;
+      addDrawing: string;
+      selectedStatus: string;
       doors: {
-        coloring: { title: string; detail: string };
-        story: { title: string; detail: string };
-        mission: { title: string; detail: string };
+        character: CreazaStartingDoorCopy;
+        story: CreazaStartingDoorCopy;
+        world: CreazaStartingDoorCopy;
+      };
+      seeds: {
+        character: string;
+        story: string;
+        world: string;
       };
     };
     foto: {
       title: string;
       lead: string;
+      uploadDrawing: string;
+      useCamera: string;
       dropEmpty: string;
       dropHint: string;
       dropSelected: string;

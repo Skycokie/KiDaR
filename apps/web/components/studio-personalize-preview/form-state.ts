@@ -105,6 +105,7 @@ export function createWorkspaceState(seed: {
   hasDrawing: boolean;
   yaw: number | null;
   pitch: number | null;
+  ideaPrompt?: string;
 }): PersonalizeState {
   const next = createInitialPersonalizeState();
   const placed =
@@ -115,8 +116,11 @@ export function createWorkspaceState(seed: {
           orbitYaw: seed.yaw ?? next.orbitYaw,
           orbitPitch: seed.pitch ?? next.orbitPitch
         };
-  if (seed.hasDrawing) return placed;
-  return { ...placed, stage: "desenul", completedStages: [] };
+  const withIdea = seed.ideaPrompt
+    ? { ...placed, ideaPrompt: limitIdeaPrompt(seed.ideaPrompt) }
+    : placed;
+  if (seed.hasDrawing) return withIdea;
+  return { ...withIdea, stage: "desenul", completedStages: [] };
 }
 
 export function createInitialPersonalizeState(): PersonalizeState {

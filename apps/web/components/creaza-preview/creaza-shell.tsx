@@ -1,17 +1,16 @@
 "use client";
 
 import { useEffect, useId, useMemo, useReducer, useRef } from "react";
-import { SOURCE_ACCEPT, type SimpleCreatorPreset } from "@/lib/simple-creator";
+import { useStudioI18n } from "@/components/i18n/studio-i18n";
+import { SOURCE_ACCEPT } from "@/lib/simple-creator";
 import { CreazaArt } from "./art";
 import { buildCreateProjectPayload, postCreateProject } from "./create-project";
-import type { Locale } from "@/i18n/config";
-import { getMessages } from "@/i18n/get-messages";
 import { hrefForLocale } from "@/i18n/locale";
 import {
   CREAZA_STEPS,
   EXPERIENCE_DOORS,
   FOTO_FIXTURE_STATES,
-  PRESET_DOORS,
+  STARTING_POINT_DOORS,
   TOTAL_STEPS,
   type FotoFixtureState
 } from "./fixtures";
@@ -39,7 +38,7 @@ import {
   resumeExistingDraft,
   sceneErrorText,
   selectExperience,
-  selectPreset,
+  selectStartingPoint,
   setFotoDragOver,
   setLocalSourceFailure,
   setLocalSourceSuccess,
@@ -55,11 +54,20 @@ import {
 } from "./local-source";
 import { SiteHeader } from "@/components/site-nav";
 import { patchSceneMode } from "./save-scene";
+import {
+  creazaPersonalizeHref,
+  type CreativeStartingPoint,
+  type CreativeSuggestionIndex
+} from "./starting-point";
 import { postSourceUpload } from "./upload-source";
 import "./creaza-preview.css";
 
 type Action =
-  | { type: "select-preset"; preset: SimpleCreatorPreset }
+  | {
+      type: "select-starting-point";
+      kind: CreativeStartingPoint;
+      suggestionIndex?: CreativeSuggestionIndex | null;
+    }
   | { type: "begin-create" }
   | { type: "resume-draft" }
   | { type: "complete-create"; projectId: string }
@@ -81,8 +89,8 @@ type Action =
 
 function reducer(state: CreazaLocalFormState, action: Action): CreazaLocalFormState {
   switch (action.type) {
-    case "select-preset":
-      return selectPreset(state, action.preset);
+    case "select-starting-point":
+      return selectStartingPoint(state, action.kind, action.suggestionIndex ?? null);
     case "begin-create":
       return beginPresetCreate(state);
     case "resume-draft":
@@ -128,12 +136,14 @@ function reducer(state: CreazaLocalFormState, action: Action): CreazaLocalFormSt
  * Atelier preview: Create Go B + Source Go B + Scene Go B.
  * Publish remains blocked. Scene PATCH is `{ mode: "popout" }` only.
  */
-export function CreazaPreviewShell({ locale = "ro" }: { locale?: Locale }) {
-  const messages = getMessages(locale);
+export function CreazaPreviewShell() {
+  const { locale, messages } = useStudioI18n();
   const t = messages.creaza;
   const [state, dispatch] = useReducer(reducer, undefined, createInitialCreazaFormState);
   const fileInputId = useId();
+  const cameraInputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const createInFlightRef = useRef(false);
   const uploadInFlightRef = useRef(false);
   const sceneInFlightRef = useRef(false);
@@ -236,6 +246,18 @@ export function CreazaPreviewShell({ locale = "ro" }: { locale?: Locale }) {
       : null;
   const sceneAlert = state.sceneError ? sceneErrorText(t.errors, state.sceneError) : null;
   const previewAlt = (name: string) => t.foto.previewAlt.replace("{name}", name);
+  const selectedDoor = state.startingPoint ? t.preset.doors[state.startingPoint] : null;
+  const selectedLabel = selectedDoor
+    ? t.preset.selectedLabel.replace("{option}", selectedDoor.option)
+    : "";
+  const selectedStatus = selectedDoor
+    ? t.preset.selectedStatus.replace("{option}", selectedDoor.option)
+    : "";
+
+  function pickImage(files: FileList | null) {
+    const file = pickFirstImageFile(files);
+    void ingestFile(file);
+  }
 
   return (
     <div className="creaza-preview" data-creaza-mode="scene-go-b">
@@ -286,28 +308,78 @@ export function CreazaPreviewShell({ locale = "ro" }: { locale?: Locale }) {
               {t.preset.title}
             </h1>
             <p className="creaza-lead">{t.preset.lead}</p>
+            <p className="creaza-lead creaza-lead--choose">{t.preset.choose}</p>
 
-            <div className="creaza-doors" role="listbox" aria-label={t.preset.doorsLabel}>
-              {PRESET_DOORS.map((door) => (
-                <button
-                  key={door.id}
-                  type="button"
-                  role="option"
-                  aria-selected={state.preset === door.id}
-                  className={`creaza-door${state.preset === door.id ? " is-selected" : ""}`}
-                  disabled={state.presetBusy}
-                  onClick={() => dispatch({ type: "select-preset", preset: door.id })}
-                >
-                  <span className="creaza-door__art">
-                    <CreazaArt kind={door.art} />
-                  </span>
-                  <span className="creaza-door__copy">
-                    <strong>{t.preset.doors[door.id].title}</strong>
-                    <em>{t.preset.doors[door.id].detail}</em>
-                  </span>
-                </button>
-              ))}
+            <div className="creaza-doors" role="list" aria-label={t.preset.doorsLabel}>
+              {STARTING_POINT_DOORS.map((door) => {
+                const copy = t.preset.doors[door.id];
+                const selected = state.startingPoint === door.id;
+                const titleId = `creaza-door-${door.id}-title`;
+                return (
+                  <article
+                    key={door.id}
+                    className={`creaza-door${selected ? " is-selected" : ""}`}
+                    aria-labelledby={titleId}
+                  >
+                    <span className="creaza-door__art">
+                      <CreazaArt kind={door.art} />
+                      {selected ? (
+                        <span className="creaza-door__check" aria-hidden="true">
+                          ✓
+                        </span>
+                      ) : null}
+                    </span>
+                    <div className="creaza-door__copy">
+                      <p className="creaza-door__eyebrow">{copy.eyebrow}</p>
+                      <h2 id={titleId} className="creaza-door__title">
+                        {copy.title}
+                      </h2>
+                      <p className="creaza-door__detail">{copy.detail}</p>
+                      <div className="creaza-door__chips" role="group" aria-label={copy.suggestionsLabel}>
+                        {copy.suggestions.map((suggestion, index) => {
+                          const hint = index as 0 | 1 | 2;
+                          const chipSelected = selected && state.suggestionIndex === hint;
+                          return (
+                            <button
+                              key={suggestion}
+                              type="button"
+                              className={`creaza-chip${chipSelected ? " is-selected" : ""}`}
+                              disabled={state.presetBusy}
+                              aria-pressed={chipSelected}
+                              onClick={() =>
+                                dispatch({
+                                  type: "select-starting-point",
+                                  kind: door.id,
+                                  suggestionIndex: hint
+                                })
+                              }
+                            >
+                              {suggestion}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        type="button"
+                        className="creaza-door__cta"
+                        disabled={state.presetBusy}
+                        aria-pressed={selected}
+                        onClick={() => dispatch({ type: "select-starting-point", kind: door.id })}
+                      >
+                        {t.preset.chooseCta}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
+
+            {state.startingPoint && selectedDoor ? (
+              <div className="creaza-confirm" role="status" aria-live="polite" aria-label={selectedStatus}>
+                <p className="creaza-confirm__choice">{selectedLabel}</p>
+                <p className="creaza-confirm__next">{t.preset.addDrawing}</p>
+              </div>
+            ) : null}
 
             {state.presetError ? (
               <p className="creaza-inline-error" role="alert">
@@ -323,7 +395,7 @@ export function CreazaPreviewShell({ locale = "ro" }: { locale?: Locale }) {
               <button
                 type="button"
                 className="creaza-cta"
-                disabled={state.presetBusy}
+                disabled={state.presetBusy || !state.startingPoint}
                 onClick={() => void startWorld()}
               >
                 {state.presetBusy ? t.preset.ctaBusy : t.preset.cta}
@@ -338,7 +410,8 @@ export function CreazaPreviewShell({ locale = "ro" }: { locale?: Locale }) {
             <h1 id="creaza-foto-title" className="creaza-title">
               {t.foto.title}
             </h1>
-            <p className="creaza-lead">{t.foto.lead}</p>
+            <p className="creaza-lead">{selectedLabel || t.foto.lead}</p>
+            {selectedDoor ? <p className="creaza-lead creaza-lead--choose">{t.preset.addDrawing}</p> : null}
 
             <input
               ref={fileInputRef}
@@ -348,8 +421,20 @@ export function CreazaPreviewShell({ locale = "ro" }: { locale?: Locale }) {
               accept={SOURCE_ACCEPT}
               disabled={dropLocked}
               onChange={(event) => {
-                const file = pickFirstImageFile(event.target.files);
-                void ingestFile(file);
+                pickImage(event.target.files);
+                event.target.value = "";
+              }}
+            />
+            <input
+              ref={cameraInputRef}
+              id={cameraInputId}
+              className="creaza-file-input"
+              type="file"
+              accept={SOURCE_ACCEPT}
+              capture="environment"
+              disabled={dropLocked}
+              onChange={(event) => {
+                pickImage(event.target.files);
                 event.target.value = "";
               }}
             />
@@ -451,6 +536,25 @@ export function CreazaPreviewShell({ locale = "ro" }: { locale?: Locale }) {
                   <li key={tip}>{tip}</li>
                 ))}
               </ul>
+            </div>
+
+            <div className="creaza-source-actions">
+              <button
+                type="button"
+                className="creaza-ghost"
+                disabled={dropLocked}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {t.foto.uploadDrawing}
+              </button>
+              <button
+                type="button"
+                className="creaza-ghost"
+                disabled={dropLocked}
+                onClick={() => cameraInputRef.current?.click()}
+              >
+                {t.foto.useCamera}
+              </button>
             </div>
 
             {fotoAlert ? (
@@ -591,7 +695,7 @@ export function CreazaPreviewShell({ locale = "ro" }: { locale?: Locale }) {
               <dl>
                 <div>
                   <dt>{t.confirmare.summaryPreset}</dt>
-                  <dd>{state.preset ? t.preset.doors[state.preset].title : "—"}</dd>
+                  <dd>{selectedDoor ? selectedDoor.option : t.confirmare.notChosen}</dd>
                 </div>
                 <div>
                   <dt>{t.confirmare.summaryFoto}</dt>
@@ -614,7 +718,12 @@ export function CreazaPreviewShell({ locale = "ro" }: { locale?: Locale }) {
                 className="creaza-ghost"
                 href={
                   state.projectId
-                    ? `${hrefForLocale("/studio-preview/personalizeaza", locale)}?projectId=${encodeURIComponent(state.projectId)}`
+                    ? creazaPersonalizeHref(
+                        state.projectId,
+                        locale,
+                        state.startingPoint,
+                        state.suggestionIndex
+                      )
                     : hrefForLocale("/studio-preview/personalizeaza", locale)
                 }
               >

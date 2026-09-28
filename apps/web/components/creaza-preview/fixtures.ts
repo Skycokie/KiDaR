@@ -24,11 +24,11 @@ export const CREAZA_STEPS: { id: CreazaPreviewStep; index: number }[] = [
 
 export const TOTAL_STEPS = CREAZA_STEPS.length;
 
-export const PRESET_DOORS = [
-  { id: "coloring" as const, art: "whale" as const },
+export const STARTING_POINT_DOORS = [
+  { id: "character" as const, art: "whale" as const },
   { id: "story" as const, art: "garden" as const },
-  { id: "mission" as const, art: "kite" as const }
-];
+  { id: "world" as const, art: "kite" as const }
+] as const;
 
 export const EXPERIENCE_DOORS: { id: ExperienceChoice; soon: boolean }[] = [
   { id: "popout", soon: false },
