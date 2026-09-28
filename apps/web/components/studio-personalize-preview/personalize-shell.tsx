@@ -20,7 +20,7 @@ import {
   DECOR_ASSETS,
   LIGHTINGS,
   PALETTES,
-  PERSONALIZE_STUDIO_HREF,
+  PERSONALIZE_BACK_HREF,
   STAGES,
   STYLE_PRESETS,
   TRANSFORM_MODES,
@@ -1181,8 +1181,8 @@ export function PersonalizePreviewShell({
       </a>
 
       <SiteHeader
-        brandHref={PERSONALIZE_STUDIO_HREF}
-        studioHref={PERSONALIZE_STUDIO_HREF}
+        brandHref={PERSONALIZE_BACK_HREF}
+        studioHref={PERSONALIZE_BACK_HREF}
         locale={locale}
         menuLabel={messages.accessibility.menu}
         languageLabel={messages.accessibility.languageSelector}

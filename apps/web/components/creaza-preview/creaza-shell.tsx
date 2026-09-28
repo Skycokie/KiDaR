@@ -245,7 +245,7 @@ export function CreazaPreviewShell({ locale = "ro" }: { locale?: Locale }) {
 
       <SiteHeader
         brandHref="/studio"
-        studioHref="/studio-preview/personalizeaza"
+        studioHref="/studio"
         locale={locale}
         menuLabel={messages.accessibility.menu}
         languageLabel={messages.accessibility.languageSelector}

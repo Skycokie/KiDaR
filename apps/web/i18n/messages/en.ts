@@ -110,7 +110,7 @@ export const en: Messages = {
     close: "Close"
   },
   worlds: {
-    metaDescription: "Your worlds — an editorial studio for AR surprises made from drawings.",
+    metaDescription: "Continue a world or start a new idea.",
     noscript: "Turn on JavaScript to use Studio.",
     nav: {
       main: "Main",
@@ -121,12 +121,12 @@ export const en: Messages = {
       profile: "Profile"
     },
     atelier: {
-      kicker: "Atelier",
-      titleLine1: "Any picture can",
-      titleLine2: "become a world.",
-      lead: "Add a picture, choose what comes to life, and see it in AR.",
-      startWithPhoto: "Start with a picture",
-      seeWorlds: "See your worlds →",
+      kicker: "Studio",
+      titleLine1: "Continue a world",
+      titleLine2: "or start a new idea.",
+      lead: "Pick a poster to return to the idea, or start a new world from a picture.",
+      startWithPhoto: "Start a new idea",
+      seeWorlds: "Continue a world →",
       stepsLabel: "How it starts",
       stepPhoto: "Your picture",
       stepWorld: "Your world",
@@ -135,13 +135,13 @@ export const en: Messages = {
     },
     gallery: {
       title: "Your worlds",
-      lead: "Not a list of files — posters and covers made from your pictures.",
-      startNew: "Start a new world →",
+      lead: "Open a world to continue the idea — motion, decor, voice, figure.",
+      startNew: "Start a new idea →",
       loading: "Gathering your worlds…",
       error: "We couldn’t open your worlds right now. Try again.",
       retry: "Try again →",
       emptyTitle: "No worlds yet.",
-      emptyBody: "Start with a picture — it will show up here as a poster, not a file.",
+      emptyBody: "Start a new idea from a picture — it will show up here as a poster.",
       quote: "“The picture becomes a gate.”",
       untitled: "Untitled world",
       updatedToday: "updated today",

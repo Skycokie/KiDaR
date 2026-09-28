@@ -37,7 +37,7 @@ export default async function HomePage() {
   const copy = getMessages(locale).landing;
   const user = await getLoggedInUser();
   const discoverHref = hrefForLocale(user ? "/creaza" : "/intra", locale);
-  const studioHref = hrefForLocale(user ? "/studio-preview/personalizeaza" : "/login", locale);
+  const studioHref = hrefForLocale(user ? "/studio" : "/login", locale);
   const steps = [
     { title: copy.draw, body: copy.drawBody },
     { title: copy.photograph, body: copy.photographBody },
