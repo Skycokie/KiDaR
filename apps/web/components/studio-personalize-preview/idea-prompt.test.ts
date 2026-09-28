@@ -90,6 +90,13 @@ describe("local Studio idea prompt", () => {
     expect(ready.completedStages).toContain("desenul");
     expect(ready.orbitYaw).toBe(12);
     expect(ready.orbitPitch).toBe(4);
+    const seeded = createWorkspaceState({
+      hasDrawing: true,
+      yaw: null,
+      pitch: null,
+      ideaPrompt: "Dă viață personajului din acest desen."
+    });
+    expect(seeded.ideaPrompt).toBe("Dă viață personajului din acest desen.");
   });
 
   it("limits length and does not call the network", () => {

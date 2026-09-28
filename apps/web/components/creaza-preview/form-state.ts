@@ -16,6 +16,11 @@ import type { CreateProjectClientError } from "./create-project";
 import type { CreazaPreviewStep, FotoFixtureState } from "./fixtures";
 import type { LocalSourceImage } from "./local-source";
 import { isProjectPatchPath, isWritableScene, type SceneSaveClientError } from "./save-scene";
+import {
+  TECHNICAL_CREATE_PRESET,
+  type CreativeStartingPoint,
+  type CreativeSuggestionIndex
+} from "./starting-point";
 import { isSourceUploadPath, type SourceUploadClientError } from "./upload-source";
 
 export type PresetError = "" | CreateProjectClientError;
@@ -43,6 +48,8 @@ export const FOTO_MOCK_FILES: Record<FotoFixtureState, MockFileDescriptor | null
 
 export type CreazaLocalFormState = {
   step: CreazaPreviewStep;
+  startingPoint: CreativeStartingPoint | null;
+  suggestionIndex: CreativeSuggestionIndex | null;
   preset: SimpleCreatorPreset | null;
   presetError: PresetError;
   presetBusy: boolean;
@@ -113,6 +120,8 @@ export function sceneErrorText(t: ErrorCopy, error: Exclude<SceneError, "">): st
 export function createInitialCreazaFormState(): CreazaLocalFormState {
   return {
     step: "preset",
+    startingPoint: null,
+    suggestionIndex: null,
     preset: null,
     presetError: "",
     presetBusy: false,
@@ -141,6 +150,27 @@ export function selectPreset(
 ): CreazaLocalFormState {
   if (anyBusy(state)) return state;
   return { ...state, preset, presetError: "" };
+}
+
+/**
+ * Local creative intent. Does not fetch. Sets the technical create preset so
+ * all three cards share `POST /api/projects` with `settings.preset: coloring`.
+ */
+export function selectStartingPoint(
+  state: CreazaLocalFormState,
+  kind: CreativeStartingPoint,
+  suggestionIndex: CreativeSuggestionIndex | null = null
+): CreazaLocalFormState {
+  if (anyBusy(state)) return state;
+  const keepHint =
+    suggestionIndex != null ? suggestionIndex : state.startingPoint === kind ? state.suggestionIndex : null;
+  return {
+    ...state,
+    startingPoint: kind,
+    suggestionIndex: keepHint,
+    preset: TECHNICAL_CREATE_PRESET,
+    presetError: ""
+  };
 }
 
 /**

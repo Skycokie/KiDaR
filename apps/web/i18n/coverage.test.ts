@@ -46,6 +46,7 @@ describe("i18n coverage", () => {
     "components/creaza-preview/fixtures.ts",
     "components/creaza-preview/form-state.ts",
     "components/creaza-preview/create-project.ts",
+    "components/creaza-preview/starting-point.ts",
     "app/studio-preview/personalizeaza/page.tsx",
     "components/studio-personalize-preview/personalize-shell.tsx",
     "components/studio-personalize-preview/fixtures.ts",

@@ -810,10 +810,12 @@ function InteractionPanel({
 
 export function PersonalizePreviewShell({
   drawingSrc = null,
-  projectContext = null
+  projectContext = null,
+  initialIdeaPrompt = ""
 }: {
   drawingSrc?: string | null;
   projectContext?: PreviewProjectContext | null;
+  initialIdeaPrompt?: string;
 }) {
   const { locale, messages } = useStudioI18n();
   const COPY = messages.personalize;
@@ -821,7 +823,8 @@ export function PersonalizePreviewShell({
   const orbitSeed = {
     hasDrawing: Boolean(drawingSrc),
     yaw: projectContext?.startYaw ?? null,
-    pitch: projectContext?.startPitch ?? null
+    pitch: projectContext?.startPitch ?? null,
+    ideaPrompt: initialIdeaPrompt
   };
   const [state, dispatch] = useReducer(reducer, createWorkspaceState(orbitSeed));
   const [interaction, interactDispatch] = useReducer(reduceInteraction, createInteractionState());

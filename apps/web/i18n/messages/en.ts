@@ -208,29 +208,53 @@ export const en: Messages = {
       confirmare: "World"
     },
     preset: {
-      title: "What does the world start with?",
-      lead: "Choose a kind of drawing. Then put a picture on the table and give it a scene.",
-      cta: "Start the world",
+      title: "What will your story become?",
+      lead: "Start with a drawing. Give it a world.",
+      choose: "Choose what you want to explore first.",
+      cta: "Continue",
       ctaBusy: "Preparing the surprise…",
+      chooseCta: "Choose this idea",
       doorsLabel: "Starting point",
+      selectedLabel: "You’re starting with: {option}",
+      addDrawing: "Now add your drawing.",
+      selectedStatus: "You chose {option}.",
       doors: {
-        coloring: {
-          title: "A colored drawing",
-          detail: "Characters, objects, notebook pages — any line that wants to step off the paper."
+        character: {
+          eyebrow: "WHO?",
+          title: "Bring a character to life.",
+          detail: "Start with a person, animal, or creature from your drawing.",
+          option: "Character",
+          suggestions: ["A brave explorer", "A friendly dragon", "A mysterious rooster"],
+          suggestionsLabel: "Character examples"
         },
         story: {
-          title: "A story page",
-          detail: "Book illustrations and scenes that can become a gate."
+          eyebrow: "WHAT?",
+          title: "Turn a drawing into a story.",
+          detail: "Add a mystery, an adventure, or a moment waiting to happen.",
+          option: "Story",
+          suggestions: ["Find the missing rooster", "Open the secret door", "Follow the glowing clues"],
+          suggestionsLabel: "Story examples"
         },
-        mission: {
-          title: "A mission",
-          detail: "Clues, keys, and challenges for games and classrooms."
+        world: {
+          eyebrow: "WHERE?",
+          title: "Build a world around it.",
+          detail: "Place your drawing in a room, a garden, or a magical adventure.",
+          option: "World",
+          suggestions: ["A secret house", "A moonlit forest", "A detective room"],
+          suggestionsLabel: "World examples"
         }
+      },
+      seeds: {
+        character: "Bring the character in this drawing to life.",
+        story: "Turn this drawing into a story. What happens next?",
+        world: "Build a world around this drawing. Where does the story begin?"
       }
     },
     foto: {
       title: "Put the picture on the table",
       lead: "A clear photo of the paper. No screens, no heavy shadows.",
+      uploadDrawing: "Upload drawing",
+      useCamera: "Use camera",
       dropEmpty: "Place the picture here",
       dropHint: "JPG or PNG · up to 10 MB",
       dropSelected: "Your picture is on the table",
@@ -278,7 +302,7 @@ export const en: Messages = {
     },
     errors: {
       preset: {
-        select: "Choose what the world starts with.",
+        select: "Choose what you want to explore first.",
         auth: "You need to be signed in to start the world.",
         quota: "You’ve used the surprises in the free plan. You can still use Studio for existing projects.",
         generic: "We couldn’t start the world. Try again.",
@@ -287,7 +311,7 @@ export const en: Messages = {
       },
       photoInvalid: "We can only use JPG or PNG photos, up to 10 MB.",
       upload: {
-        missingProject: "The world isn’t ready yet. Go back and press “Start the world”.",
+        missingProject: "The world isn’t ready yet. Go back and press “Continue”.",
         missingPhoto: "Choose a JPG or PNG picture first.",
         auth: "You need to be signed in to save the picture.",
         notFound: "This world is no longer available.",
@@ -295,7 +319,7 @@ export const en: Messages = {
         network: "We couldn’t save the picture. Check your connection and try again."
       },
       scene: {
-        missingProject: "The world isn’t ready yet. Go back and press “Start the world”.",
+        missingProject: "The world isn’t ready yet. Go back and press “Continue”.",
         invalidScene: "Choose Pop-out to continue. Figure is coming soon.",
         auth: "You need to be signed in to save the scene.",
         notFound: "This world is no longer available.",
