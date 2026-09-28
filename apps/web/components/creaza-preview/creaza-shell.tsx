@@ -321,7 +321,7 @@ export function CreazaPreviewShell() {
                     className={`creaza-door${selected ? " is-selected" : ""}`}
                     aria-labelledby={titleId}
                   >
-                    <span className="creaza-door__art">
+                    <span className="creaza-door__art" data-art={door.art}>
                       <CreazaArt kind={door.art} />
                       {selected ? (
                         <span className="creaza-door__check" aria-hidden="true">
