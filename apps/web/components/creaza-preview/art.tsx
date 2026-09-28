@@ -1,12 +1,13 @@
-/** Preset cards use Meshy stills. The photo-drop paper stays local SVG. */
+/** Starting-point cards use approved story stills. The photo-drop paper stays local SVG. */
 
-type ArtKind = "whale" | "garden" | "kite" | "paper";
+import Image from "next/image";
+import { STARTING_POINT_ART, type StartingPointArtKind } from "./art-assets";
 
-const PRESET_ART: Record<Exclude<ArtKind, "paper">, { src: string; width: number; height: number }> = {
-  whale: { src: "/demo/creaza/coloring-whale.jpg", width: 1024, height: 1024 },
-  garden: { src: "/demo/creaza/story-gate.jpg", width: 1376, height: 768 },
-  kite: { src: "/demo/creaza/mission-key.jpg", width: 1024, height: 1024 }
-};
+export { STARTING_POINT_ART, type StartingPointArtKind } from "./art-assets";
+
+type ArtKind = StartingPointArtKind | "paper";
+
+const STARTING_POINT_SIZES = "(max-width: 768px) 92vw, (max-width: 1280px) 30vw, 360px";
 
 export function CreazaArt({ kind }: { kind: ArtKind }) {
   if (kind === "paper") {
@@ -31,14 +32,13 @@ export function CreazaArt({ kind }: { kind: ArtKind }) {
     );
   }
 
-  const art = PRESET_ART[kind];
+  const art = STARTING_POINT_ART[kind];
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- static public stills for preset cards
-    <img
+    <Image
       src={art.src}
       alt=""
-      width={art.width}
-      height={art.height}
+      fill
+      sizes={STARTING_POINT_SIZES}
       className="creaza-art"
       draggable={false}
     />

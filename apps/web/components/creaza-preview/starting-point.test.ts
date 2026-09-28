@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { getMessages } from "@/i18n/get-messages";
+import { STARTING_POINT_ART } from "./art-assets";
+import { STARTING_POINT_DOORS } from "./fixtures";
 import {
   beginPresetCreate,
   createInitialCreazaFormState,
@@ -104,6 +106,16 @@ describe("creative starting points", () => {
     expect(parseCreativeStartingPoint("coloring")).toBeNull();
     expect(parseCreativeSuggestionIndex("2")).toBe(2);
     expect(parseCreativeSuggestionIndex("9")).toBeNull();
+  });
+
+  it("keeps WHO WHAT WHERE image refs on the shared selectable cards", () => {
+    expect(STARTING_POINT_DOORS.map((door) => door.id)).toEqual([...CREATIVE_STARTING_POINTS]);
+    expect(STARTING_POINT_ART.who.src).toContain("who-story-card.webp");
+    expect(STARTING_POINT_ART.what.src).toContain("what-story-card.webp");
+    expect(STARTING_POINT_ART.where.src).toContain("where-story-card.webp");
+    expect(shellSource).toMatch(/data-art=\{door\.art\}/);
+    expect(shellSource).toMatch(/aria-pressed=\{chipSelected\}/);
+    expect(shellSource).toMatch(/aria-pressed=\{selected\}/);
   });
 
   it("does not fetch, generate, open AR, or publish on card selection", () => {
