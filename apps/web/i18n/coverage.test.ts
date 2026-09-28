@@ -61,7 +61,13 @@ describe("i18n coverage", () => {
     "components/studio-personalize-preview/save-start-transform.ts",
     "components/studio-personalize-preview/scene-context.ts",
     "components/studio-personalize-preview/popout-mesh-stage.tsx",
-    "components/studio-personalize-preview/figurine-live-stage.tsx"
+    "components/studio-personalize-preview/figurine-live-stage.tsx",
+    "app/studio-preview/personalizeaza/camera/page.tsx",
+    "components/studio-personalize-preview/camera-ar-shell.tsx",
+    "components/studio-personalize-preview/camera-ar-scene.tsx",
+    "components/studio-personalize-preview/camera-ar-state.ts",
+    "components/studio-personalize-preview/camera-ar-fixtures.ts",
+    "app/ar/[slug]/route.ts"
   ])(
     "%s has no hardcoded Romanian UI text",
     (file) => {

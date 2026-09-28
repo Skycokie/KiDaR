@@ -581,5 +581,34 @@ export const en: Messages = {
       decor: "Decor: {label}.",
       localNote: "Local preview — this is not a generated 3D scene."
     }
+  },
+  cameraAr: {
+    metaTitle: "AR camera — preview",
+    metaDescription: "Static AR camera preview. Simulated states only — no device camera or tracking.",
+    noscript: "Turn on JavaScript for the AR camera preview. This screen does not use the device camera.",
+    kicker: "AR camera",
+    badge: "Preview — the camera does not start yet",
+    introTitle: "Look at the picture through the camera. Watch it come to life.",
+    introLead: "This is a static preview. We do not ask for camera access.",
+    tryPreview: "Try the preview",
+    preparing: "Getting the view ready.",
+    continue: "Continue",
+    searching: "Look for the picture in front of you.",
+    simulateFound: "Simulate: picture found",
+    found: "We found the picture.",
+    simulateLost: "Simulate: picture lost",
+    lost: "I can’t see the picture anymore.",
+    showAgain: "Show me the picture again",
+    unavailable: "The camera is not available.",
+    incompatible: "This preview works best on a phone.",
+    backStudio: "Back to Studio",
+    demoLabel: "Simulate other states",
+    demoUnavailable: "Camera unavailable",
+    demoIncompatible: "Incompatible browser",
+    fixtureTitle: "The garden after rain",
+    worldHint: "Fixture world · Butterfly · Stars · Sunset"
+  },
+  ar: {
+    notPublic: "This experience is not public yet."
   }
 };

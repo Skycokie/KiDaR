@@ -1,11 +1,11 @@
 import type { CameraArPhase } from "./camera-ar-fixtures";
-import { CAMERA_AR_COPY, CAMERA_AR_FIXTURE_OVERLAY } from "./camera-ar-fixtures";
+import { CAMERA_AR_FIXTURE_OVERLAY } from "./camera-ar-fixtures";
 import { showsGuideFrame, showsWorldOverlay, worldOverlayDimmed } from "./camera-ar-state";
 
 /**
  * Decorative AR frame — CSS/SVG only. No video, canvas, or device camera.
  */
-export function CameraArScene({ phase }: { phase: CameraArPhase }) {
+export function CameraArScene({ phase, fixtureTitle }: { phase: CameraArPhase; fixtureTitle: string }) {
   const guide = showsGuideFrame(phase);
   const world = showsWorldOverlay(phase);
   const dimmed = worldOverlayDimmed(phase);
@@ -32,7 +32,7 @@ export function CameraArScene({ phase }: { phase: CameraArPhase }) {
           <ellipse cx="120" cy="250" rx="140" ry="60" fill="#3d6b4f" />
           <circle cx="180" cy="70" r="22" fill="#f2d08a" />
           <text x="120" y="160" textAnchor="middle" fill="#efe4cf" fontSize="11" opacity="0.85">
-            {CAMERA_AR_COPY.fixtureTitle}
+            {fixtureTitle}
           </text>
         </svg>
       </div>

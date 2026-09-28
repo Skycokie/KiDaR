@@ -1,9 +1,9 @@
 /**
- * Local-only Cameră AR Preview state machine. Button-driven; no timers, no network.
+ * Local-only AR camera preview state machine. Button-driven; no timers, no network.
  */
 
+import type { Messages } from "@/i18n/types";
 import type { CameraArPhase } from "./camera-ar-fixtures";
-import { CAMERA_AR_COPY } from "./camera-ar-fixtures";
 
 export type CameraArState = {
   phase: CameraArPhase;
@@ -51,22 +51,22 @@ export function resetToIntro(): CameraArState {
 }
 
 /** Message announced via aria-live for the current phase. */
-export function cameraArStatusMessage(phase: CameraArPhase): string {
+export function cameraArStatusMessage(phase: CameraArPhase, copy: Messages["cameraAr"]): string {
   switch (phase) {
     case "intro":
-      return CAMERA_AR_COPY.introTitle;
+      return copy.introTitle;
     case "preparing":
-      return CAMERA_AR_COPY.preparing;
+      return copy.preparing;
     case "searching":
-      return CAMERA_AR_COPY.searching;
+      return copy.searching;
     case "found":
-      return CAMERA_AR_COPY.found;
+      return copy.found;
     case "lost":
-      return CAMERA_AR_COPY.lost;
+      return copy.lost;
     case "unavailable":
-      return CAMERA_AR_COPY.unavailable;
+      return copy.unavailable;
     case "incompatible":
-      return CAMERA_AR_COPY.incompatible;
+      return copy.incompatible;
   }
 }
 
