@@ -275,7 +275,7 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(isPersonalizeWriteBlocked("/api/projects/x/voices/primary")).toBe(false);
     expect(isPersonalizeWriteBlocked("/api/projects/x/asset")).toBe(true);
     expect(isPersonalizeWriteBlocked("/api/publish")).toBe(true);
-    expect(PERSONALIZE_BACK_HREF).toBe("/studio-preview");
+    expect(PERSONALIZE_BACK_HREF).toBe("/studio");
     expect(PERSONALIZE_STUDIO_HREF).toBe("/studio-preview/personalizeaza");
     expect(PERSONALIZE_CAMERA_HREF).toBe("/studio-preview/personalizeaza/camera");
   });
@@ -307,7 +307,7 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(shell).not.toContain("studio-ws__ar-live");
     expect(shell).not.toContain("Previzualizare AR locală");
     expect(fixtures).toContain(COPY.regenerate);
-    expect(shell).toContain("PERSONALIZE_STUDIO_HREF");
+    expect(shell).toContain("PERSONALIZE_BACK_HREF");
     expect(shell).toContain("studio-ws__spin");
     expect(shell).not.toContain("studio-ws__dpad");
     expect(shell).not.toContain("studio-ws__roll");

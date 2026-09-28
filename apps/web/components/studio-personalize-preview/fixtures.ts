@@ -3,7 +3,7 @@
  * No ProjectRecord, projectId, sourceUrl, or private assets.
  */
 
-export const PERSONALIZE_BACK_HREF = "/studio-preview";
+export const PERSONALIZE_BACK_HREF = "/studio";
 export const PERSONALIZE_CAMERA_HREF = "/studio-preview/personalizeaza/camera";
 export const PERSONALIZE_STUDIO_HREF = "/studio-preview/personalizeaza";
 

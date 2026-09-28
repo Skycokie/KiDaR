@@ -110,7 +110,7 @@ export const ro: Messages = {
     close: "Închide"
   },
   worlds: {
-    metaDescription: "Lumile tale — Atelier editorial pentru surprize AR din desene.",
+    metaDescription: "Continuă o lume sau începe o idee nouă.",
     noscript: "Activează JavaScript pentru Studio.",
     nav: {
       main: "Principal",
@@ -121,12 +121,12 @@ export const ro: Messages = {
       profile: "Profil"
     },
     atelier: {
-      kicker: "Atelier",
-      titleLine1: "Orice poză poate",
-      titleLine2: "deveni o lume.",
-      lead: "Adaugă o poză, alege ce prinde viață și vezi-l în AR.",
-      startWithPhoto: "Începe cu o poză",
-      seeWorlds: "Vezi lumile tale →",
+      kicker: "Studio",
+      titleLine1: "Continuă o lume",
+      titleLine2: "sau începe o idee nouă.",
+      lead: "Alege un afiș ca să revii la idee, sau pornește o lume nouă dintr-o poză.",
+      startWithPhoto: "Începe o idee nouă",
+      seeWorlds: "Continuă o lume →",
       stepsLabel: "Cum începe",
       stepPhoto: "Poza ta",
       stepWorld: "Lumea ta",
@@ -135,13 +135,13 @@ export const ro: Messages = {
     },
     gallery: {
       title: "Lumile tale",
-      lead: "Nu o listă de fișiere — afișe, coperți, postere din pozele tale.",
-      startNew: "Începe o lume nouă →",
+      lead: "Apasă o lume ca să continui ideea — mișcare, decor, voce, figurină.",
+      startNew: "Începe o idee nouă →",
       loading: "Îți adunăm lumile…",
       error: "Nu am putut deschide lumile tale acum. Reîncearcă.",
       retry: "Reîncearcă →",
       emptyTitle: "Nicio lume încă.",
-      emptyBody: "Începe cu o poză — aici va apărea ca un afiș, nu ca un fișier.",
+      emptyBody: "Începe o idee nouă dintr-o poză — aici va apărea ca un afiș.",
       quote: "„Poza devine poartă.”",
       untitled: "Lume fără nume",
       updatedToday: "actualizat azi",

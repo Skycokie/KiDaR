@@ -44,15 +44,12 @@ test("editorial homepage is Romanian with auth-aware CTAs for guests", async ({ 
   await minHeight(page.getByRole("link", { name: "Descoperă kidAR" }));
 });
 
-test("editorial homepage sends signed-in users to Atelier and Studio preview", async ({ page }) => {
+test("editorial homepage sends signed-in users to Atelier and Studio hub", async ({ page }) => {
   await signIn(page);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Desenul tău prinde viață." })).toBeVisible();
   await expect(page.getByRole("link", { name: "Descoperă kidAR" })).toHaveAttribute("href", "/creaza");
-  await expect(page.getByRole("link", { name: "Intră în Studio" })).toHaveAttribute(
-    "href",
-    "/studio-preview/personalizeaza"
-  );
+  await expect(page.getByRole("link", { name: "Intră în Studio" })).toHaveAttribute("href", "/studio");
 });
 
 test("Romanian entry has a visible email label and status copy", async ({ page }) => {

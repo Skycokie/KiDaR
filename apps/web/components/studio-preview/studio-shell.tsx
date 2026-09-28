@@ -77,6 +77,7 @@ export function StudioShell({
 
       <SiteHeader
         brandHref="/studio"
+        studioHref="/studio"
         locale={locale}
         menuLabel={messages.accessibility.menu}
         languageLabel={messages.accessibility.languageSelector}

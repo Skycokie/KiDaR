@@ -17,7 +17,7 @@ function barePath(pathname: string) {
 
 export function SiteHeader({
   brandHref = "/studio",
-  studioHref = "/studio-preview/personalizeaza",
+  studioHref = "/studio",
   trailing,
   mobileExtra,
   locale = "ro",
@@ -26,7 +26,7 @@ export function SiteHeader({
   navLabel = "Principal"
 }: {
   brandHref?: string;
-  /** Studio workspace entry (preview prototype or hub). */
+  /** Studio door: continue a world or start a new idea. */
   studioHref?: string;
   /** Desktop-only actions (right side). */
   trailing?: ReactNode;
