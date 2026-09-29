@@ -5,9 +5,11 @@ import { getMessages } from "@/i18n/get-messages";
 import {
   buildStartTransformPatch,
   isStartPoseDirty,
+  parseArAnchorMode,
   patchStartTransform,
   startSavePresentation
 } from "./save-start-transform";
+import { createWorkspaceState } from "./form-state";
 
 describe("start transform preview save", () => {
   it("maps pitch/yaw onto model rotation and keeps persisted offset and scale", () => {
@@ -20,6 +22,7 @@ describe("start transform preview save", () => {
     expect(body).toEqual({
       settings: {
         scene: {
+          arAnchorMode: "marker",
           startTransform: {
             rotation: { x: 8, y: -32, z: 180 },
             position: { x: 0.2, y: -0.1, z: 0.4 },
@@ -32,10 +35,77 @@ describe("start transform preview save", () => {
     expect(Object.keys(body.settings)).toEqual(["scene"]);
   });
 
-  it("is dirty only after yaw or pitch moves", () => {
-    expect(isStartPoseDirty({ yaw: -32, pitch: 8 }, { yaw: -32, pitch: 8 })).toBe(false);
-    expect(isStartPoseDirty({ yaw: -17, pitch: 8 }, { yaw: -32, pitch: 8 })).toBe(true);
-    expect(isStartPoseDirty({ yaw: -32, pitch: 18 }, { yaw: -32, pitch: 8 })).toBe(true);
+  it("persists follow and marker arAnchorMode with the start pose patch", () => {
+    const follow = buildStartTransformPatch({
+      yaw: 0,
+      pitch: 0,
+      offset: { x: 0, y: 0, z: 0 },
+      scale: 1,
+      arAnchorMode: "follow"
+    });
+    expect(follow.settings.scene.arAnchorMode).toBe("follow");
+    const marker = buildStartTransformPatch({
+      yaw: 0,
+      pitch: 0,
+      offset: { x: 0, y: 0, z: 0 },
+      scale: 1,
+      arAnchorMode: "marker"
+    });
+    expect(marker.settings.scene.arAnchorMode).toBe("marker");
+  });
+
+  it("parses invalid or missing arAnchorMode as marker", () => {
+    expect(parseArAnchorMode("follow")).toBe("follow");
+    expect(parseArAnchorMode("marker")).toBe("marker");
+    expect(parseArAnchorMode(undefined)).toBe("marker");
+    expect(parseArAnchorMode(null)).toBe("marker");
+    expect(parseArAnchorMode("orbit")).toBe("marker");
+    expect(parseArAnchorMode(1)).toBe("marker");
+  });
+
+  it("is dirty after yaw, pitch, or arAnchorMode changes; clean after matching save baseline", () => {
+    const baseline = { yaw: -32, pitch: 8, arAnchorMode: "marker" as const };
+    expect(isStartPoseDirty(baseline, baseline)).toBe(false);
+    expect(isStartPoseDirty({ ...baseline, yaw: -17 }, baseline)).toBe(true);
+    expect(isStartPoseDirty({ ...baseline, pitch: 18 }, baseline)).toBe(true);
+    expect(isStartPoseDirty({ ...baseline, arAnchorMode: "follow" }, baseline)).toBe(true);
+    expect(
+      isStartPoseDirty(
+        { yaw: -32, pitch: 8, arAnchorMode: "follow" },
+        { yaw: -32, pitch: 8, arAnchorMode: "follow" }
+      )
+    ).toBe(false);
+  });
+
+  it("hydrates arAnchorMode from project seed without leaking across workspaces", () => {
+    const follow = createWorkspaceState({
+      hasDrawing: true,
+      yaw: 10,
+      pitch: 4,
+      arAnchorMode: "follow"
+    });
+    expect(follow).toMatchObject({
+      orbitYaw: 10,
+      orbitPitch: 4,
+      arAnchorMode: "follow",
+      animation: "follow"
+    });
+    const marker = createWorkspaceState({
+      hasDrawing: true,
+      yaw: null,
+      pitch: null,
+      arAnchorMode: "marker"
+    });
+    expect(marker.arAnchorMode).toBe("marker");
+    expect(marker.animation).toBe("still");
+    const missing = createWorkspaceState({
+      hasDrawing: true,
+      yaw: null,
+      pitch: null,
+      arAnchorMode: null
+    });
+    expect(missing.arAnchorMode).toBe("marker");
+    expect(missing.animation).toBe("still");
   });
 
   it("describes fixture, dirty, saving, saved, and failed states", () => {
@@ -97,9 +167,15 @@ describe("start transform preview save", () => {
     const root = join(__dirname);
     const shell = readFileSync(join(root, "personalize-shell.tsx"), "utf8");
     const writer = readFileSync(join(root, "save-start-transform.ts"), "utf8");
+    const page = readFileSync(join(root, "../../app/studio-preview/personalizeaza/page.tsx"), "utf8");
     expect(shell).not.toMatch(/\bfetch\s*\(/);
     expect(shell).toContain("patchStartTransform");
     expect(shell).toContain("buildStartTransformPatch");
+    expect(shell).toContain("ANIMATIONS.map");
+    expect(shell).toContain('type: "animation"');
+    expect(shell).toContain("baselineArAnchorMode");
+    expect(page).toContain("parseArAnchorMode");
+    expect(page).toContain("arAnchorMode:");
     expect(writer).toContain('method: "PATCH"');
     expect(writer).not.toMatch(/\b(POST|PUT|DELETE)\b/);
     expect(writer).not.toMatch(/\/api\/publish|getUserMedia|FormData/);

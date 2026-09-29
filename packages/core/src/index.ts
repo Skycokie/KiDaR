@@ -358,6 +358,11 @@ export interface StartTransform {
 
 export interface SceneSettings {
   startTransform?: StartTransform;
+  /**
+   * After MindAR detects the drawing: keep the model on the marker (`marker`)
+   * or reparent it to the phone camera so it stays on screen (`follow`).
+   */
+  arAnchorMode?: "marker" | "follow";
 }
 
 export type StartTransformPatch = {
@@ -368,6 +373,7 @@ export type StartTransformPatch = {
 
 export type SceneSettingsPatch = {
   startTransform?: StartTransformPatch;
+  arAnchorMode?: "marker" | "follow";
 };
 
 export interface ProjectSettings {
@@ -477,6 +483,10 @@ function mergeScene(
     ...(startTransform ? { startTransform } : {})
   } as SceneSettings;
   if (!startTransform) delete scene.startTransform;
+  if (scene.arAnchorMode !== "marker" && scene.arAnchorMode !== "follow") {
+    delete scene.arAnchorMode;
+  }
+  if (!scene.startTransform && !scene.arAnchorMode) return undefined;
   return scene;
 }
 
@@ -536,6 +546,11 @@ function validateVec3Patch(
 export function validateSceneSettingsPatch(scene: unknown): string | null {
   if (scene === undefined) return null;
   if (!isPlainObject(scene)) return "settings.scene must be an object";
+  if ("arAnchorMode" in scene && scene.arAnchorMode !== undefined) {
+    if (scene.arAnchorMode !== "marker" && scene.arAnchorMode !== "follow") {
+      return 'settings.scene.arAnchorMode must be "marker" or "follow"';
+    }
+  }
   if (!("startTransform" in scene) || scene.startTransform === undefined) return null;
   const start = scene.startTransform;
   if (!isPlainObject(start)) return "settings.scene.startTransform must be an object";

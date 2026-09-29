@@ -50,7 +50,7 @@ export function arRuntimeScriptUrls(publicAssetOrigin: string): { aframe: string
  * Included in the page_render input hash so a new template writes a new
  * immutable `pages/<projectId>/<hash>/` namespace instead of overwriting.
  */
-export const AR_PAGE_TEMPLATE_VERSION = "ar-page-debug-v8";
+export const AR_PAGE_TEMPLATE_VERSION = "ar-page-follow-v1";
 
 export const DEFAULT_AR_INSTRUCTIONS_RO =
   "Îndreaptă camera spre desenul tipărit pentru a vedea modelul 3D.";
@@ -281,6 +281,11 @@ export interface ArPageConfig {
   assetOrigins?: string[];
   /** Allow http(s) localhost / 127.0.0.1 / ::1 for unit tests. */
   allowLocalOrigins?: boolean;
+  /**
+   * After image detect: stay glued to the printed drawing (`marker`) or
+   * reparent onto the phone camera (`follow`). Default marker.
+   */
+  arAnchorMode?: "marker" | "follow";
 }
 
 export interface NormalizedArPageConfig {
@@ -299,6 +304,7 @@ export interface NormalizedArPageConfig {
   showWatermark: boolean;
   assetOrigins: string[];
   allowLocalOrigins: boolean;
+  arAnchorMode: "marker" | "follow";
 }
 
 function finiteNumber(value: unknown, label: string, fallback: number): number {
@@ -433,6 +439,8 @@ export function normalizeArPageConfig(config: ArPageConfig): NormalizedArPageCon
   // MindAR image-target plane: Pop-out GLB needs 180° about Z so artwork matches the marker.
   const rotation = normalizeVec3(config.transform?.rotation, "rotation", { x: 0, y: 0, z: 180 });
 
+  const arAnchorMode = config.arAnchorMode === "follow" ? "follow" : "marker";
+
   const assetOrigins: string[] = [];
   if (config.assetOrigins) {
     for (const origin of config.assetOrigins) {
@@ -468,7 +476,8 @@ export function normalizeArPageConfig(config: ArPageConfig): NormalizedArPageCon
     scale,
     showWatermark: Boolean(config.showWatermark),
     assetOrigins,
-    allowLocalOrigins
+    allowLocalOrigins,
+    arAnchorMode
   };
 }
 
@@ -584,6 +593,8 @@ export function renderArPage(config: ArPageConfig): string {
   var sceneEl = document.querySelector("a-scene");
   var targetEl = document.getElementById("kidar-target");
   var audioUrl = ${audioSrcJs};
+  var arAnchorMode = ${JSON.stringify(normalized.arAnchorMode)};
+  var followAttached = false;
   var audio = null;
   var debugEnabled = /(?:^|[?&])debug=1(?:&|$)/.test(location.search || "");
   var startClickRan = false;
@@ -808,7 +819,22 @@ export function renderArPage(config: ArPageConfig): string {
     restoreRetry();
   }
 
+  function attachModelToCamera() {
+    if (followAttached || arAnchorMode !== "follow") return;
+    var model = document.getElementById("kidar-model");
+    var camera = document.querySelector("a-camera");
+    if (!model || !camera) return;
+    // Screen-space companion: fixed offset in front of the lens after first detect.
+    model.setAttribute("position", "0 -0.12 -1.4");
+    model.setAttribute("rotation", "0 180 0");
+    camera.appendChild(model);
+    followAttached = true;
+    try { model.setAttribute("visible", true); } catch (e) {}
+    noteMindar("followAttached");
+  }
+
   function onTargetFound() {
+    if (arAnchorMode === "follow") attachModelToCamera();
     if (audio) {
       var playResult = audio.play();
       if (playResult && typeof playResult.catch === "function") {
@@ -818,6 +844,8 @@ export function renderArPage(config: ArPageConfig): string {
   }
 
   function onTargetLost() {
+    // Sticky follow stays on the camera HUD after the first detect.
+    if (arAnchorMode === "follow" && followAttached) return;
     if (audio) {
       audio.pause();
       try { audio.currentTime = 0; } catch (e) {}
@@ -1116,6 +1144,7 @@ document.addEventListener("securitypolicyviolation", function (event) {
 
     <a-scene
       mindar-image="imageTargetSrc: ${targetUrl}; autoStart: false; uiScanning: no; uiLoading: no; uiError: no"
+      data-ar-anchor="${normalized.arAnchorMode}"
       embedded
       loading-screen="enabled: false"
       color-space="sRGB"
@@ -1126,6 +1155,7 @@ document.addEventListener("securitypolicyviolation", function (event) {
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
       <a-entity id="kidar-target" mindar-image-target="targetIndex: 0">
         <a-gltf-model
+          id="kidar-model"
           src="${modelUrl}"
           position="${position}"
           rotation="${rotation}"

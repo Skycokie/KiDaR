@@ -67,7 +67,6 @@ export type Messages = {
     steps: {
       drawing: string;
       character: string;
-      appearance: string;
       motion: string;
       decor: string;
       context: string;
@@ -77,7 +76,6 @@ export type Messages = {
     stepHints: {
       drawing: string;
       character: string;
-      appearance: string;
       motion: string;
       decor: string;
       context: string;
@@ -367,6 +365,7 @@ export type Messages = {
     voiceLimits: string;
     noDecor: string;
     decorHint: string;
+    decorPropHint: string;
     paletteSection: string;
     lightingSection: string;
     shadow: string;
@@ -435,7 +434,6 @@ export type Messages = {
     figurineVolumeHint: string;
     volume: string;
     details: string;
-    aspect: string;
     giveLife: string;
     placeInWorld: string;
     preserveOutline: string;
@@ -473,6 +471,7 @@ export type Messages = {
         dance: { label: string };
         jump: { label: string };
         still: { label: string };
+        follow: { label: string; hint: string };
       };
       decor: {
         cloud: { label: string };
@@ -482,6 +481,12 @@ export type Messages = {
         house: { label: string };
         planet: { label: string };
         balloons: { label: string };
+        figureWave: { label: string };
+        figureFloat: { label: string };
+        figureDance: { label: string };
+        figureJump: { label: string };
+        figureStill: { label: string };
+        figureFollow: { label: string };
       };
       palettes: {
         original: { label: string };
@@ -549,6 +554,7 @@ export type Messages = {
         dance: string;
         jump: string;
         still: string;
+        follow: string;
       };
       mood: { magic: string; calm: string; colorful: string };
     };

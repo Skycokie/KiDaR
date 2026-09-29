@@ -19,6 +19,8 @@ export type StartSaveCopy = {
   hint: string;
 };
 
+export type ArAnchorModeValue = "marker" | "follow";
+
 export type PreviewProjectContext = {
   projectId: string;
   scale: number;
@@ -26,17 +28,26 @@ export type PreviewProjectContext = {
   /** Model rotation.y / rotation.x. Stored z is ignored by the orbit UI. */
   startYaw: number | null;
   startPitch: number | null;
+  /** Persisted AR anchor after image detect. Missing/invalid → marker. */
+  arAnchorMode: ArAnchorModeValue;
 };
+
+/** Safe parse for project settings.scene.arAnchorMode. Never throws. */
+export function parseArAnchorMode(value: unknown): ArAnchorModeValue {
+  return value === "follow" ? "follow" : "marker";
+}
 
 export function buildStartTransformPatch(input: {
   yaw: number;
   pitch: number;
   offset: { x: number; y: number; z: number };
   scale: number;
+  arAnchorMode?: ArAnchorModeValue;
 }) {
   return {
     settings: {
       scene: {
+        arAnchorMode: parseArAnchorMode(input.arAnchorMode),
         startTransform: {
           rotation: { x: input.pitch, y: input.yaw, z: 180 as const },
           position: { x: input.offset.x, y: input.offset.y, z: input.offset.z },
@@ -48,10 +59,14 @@ export function buildStartTransformPatch(input: {
 }
 
 export function isStartPoseDirty(
-  current: { yaw: number; pitch: number },
-  baseline: { yaw: number; pitch: number }
+  current: { yaw: number; pitch: number; arAnchorMode: ArAnchorModeValue },
+  baseline: { yaw: number; pitch: number; arAnchorMode: ArAnchorModeValue }
 ): boolean {
-  return Math.abs(current.yaw - baseline.yaw) > 1e-4 || Math.abs(current.pitch - baseline.pitch) > 1e-4;
+  return (
+    Math.abs(current.yaw - baseline.yaw) > 1e-4 ||
+    Math.abs(current.pitch - baseline.pitch) > 1e-4 ||
+    current.arAnchorMode !== baseline.arAnchorMode
+  );
 }
 
 export function startSavePresentation(input: {

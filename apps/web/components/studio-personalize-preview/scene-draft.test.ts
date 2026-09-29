@@ -52,10 +52,17 @@ describe("local Studio scene draft", () => {
     expect(sceneSummary(draft).map((line) => `${line.label}: ${line.value}`)).toEqual([
       "Personaj: Pop-out din desen",
       "Mișcare: Plutește",
-      "Decor: Stele",
+      "Decor: Stea",
       "Lumină: Lumină de studio",
       "Sursă: Desenul tău"
     ]);
+  });
+
+  it("carries follow motion as AR camera-follow anchor mode", () => {
+    const state = { ...createInitialPersonalizeState(), animation: "follow" as const, arAnchorMode: "follow" as const };
+    const draft = toStudioSceneDraft(state, true);
+    expect(draft.motion).toBe("follow");
+    expect(draft.arAnchorMode).toBe("follow");
   });
 
   it("carries an applied story into the same preview-only scene", () => {

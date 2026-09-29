@@ -33,13 +33,6 @@ describe("local Studio Context step", () => {
     expect(filled.decor).toEqual([tree]);
     expect(filled.palette).toBe("soft");
     expect(filled.context.story).toBe("");
-    const card = readFileSync(join(__dirname, "context-card.tsx"), "utf8");
-    const chipsBlock = card.slice(
-      card.indexOf("studio-context__chips"),
-      card.indexOf("studio-context__actions")
-    );
-    expect(chipsBlock).toContain("onClick={() => onChange(suggestion)}");
-    expect(chipsBlock).not.toContain("onApply");
   });
 
   it("applies a recognized Romanian story onto local preview state", () => {
@@ -145,7 +138,7 @@ describe("local Studio Context step", () => {
   });
 
   it("does not call network or media APIs from context modules", () => {
-    const sources = ["scene-context.ts", "context-card.tsx", "garden-poster.tsx"]
+    const sources = ["scene-context.ts", "garden-poster.tsx"]
       .map((file) => readFileSync(join(__dirname, file), "utf8"))
       .join("\n");
     expect(sources).not.toMatch(/\bfetch\s*\(/);

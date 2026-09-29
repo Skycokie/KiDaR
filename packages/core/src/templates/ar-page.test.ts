@@ -482,6 +482,26 @@ describe("AR start gate and error classification", () => {
       "permission"
     );
   });
+
+  it("keeps marker anchor by default and sticky-follow only when arAnchorMode is follow", () => {
+    const markerHtml = renderArPage(baseConfig());
+    expect(markerHtml).toContain('data-ar-anchor="marker"');
+    expect(markerHtml).toContain('id="kidar-model"');
+    expect(markerHtml).toContain('var arAnchorMode = "marker"');
+    expect(markerHtml).toContain("attachModelToCamera");
+    expect(markerHtml).toContain('if (arAnchorMode === "follow") attachModelToCamera()');
+    expect(markerHtml).toContain('arAnchorMode === "follow" && followAttached');
+
+    const followHtml = renderArPage({ ...baseConfig(), arAnchorMode: "follow" });
+    expect(followHtml).toContain('data-ar-anchor="follow"');
+    expect(followHtml).toContain('var arAnchorMode = "follow"');
+    expect(followHtml).toContain("camera.appendChild(model)");
+    expect(followHtml).toContain('getElementById("kidar-model")');
+    expect(normalizeArPageConfig({ ...baseConfig(), arAnchorMode: "follow" }).arAnchorMode).toBe(
+      "follow"
+    );
+    expect(normalizeArPageConfig(baseConfig()).arAnchorMode).toBe("marker");
+  });
 });
 
 function extractFunction(html: string, name: string): string {

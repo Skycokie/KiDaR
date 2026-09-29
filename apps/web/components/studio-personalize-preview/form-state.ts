@@ -7,13 +7,15 @@ import { getMessages } from "@/i18n/get-messages";
 import {
   STAGE_MESSAGE_KEY,
   type AnimationId,
+  type ArAnchorMode,
   type CameraPresetId,
   type DecorId,
   type LightingId,
   type PaletteId,
   type StudioStageId,
   type StylePresetId,
-  type TransformModeId
+  type TransformModeId,
+  arAnchorModeFromAnimation
 } from "./fixtures";
 import { interpretIdeaPrompt, limitIdeaPrompt, type IdeaPromptResult, type PromptLanguage } from "./idea-prompt";
 import {
@@ -31,6 +33,10 @@ export type DecorInstance = {
   x: number;
   /** Vertical position on the stage, 0–100. */
   y: number;
+  /** Local GLB orbit yaw (radians). */
+  yaw: number;
+  /** Local GLB orbit pitch (radians). */
+  pitch: number;
 };
 
 export type PersonalizeState = {
@@ -47,6 +53,8 @@ export type PersonalizeState = {
   light: number;
   shadow: number;
   animation: AnimationId;
+  /** AR page anchor after image detect. Derived from animation; persisted on scene save. */
+  arAnchorMode: ArAnchorMode;
   decor: DecorInstance[];
   cameraPreset: CameraPresetId;
   gridOn: boolean;
@@ -105,6 +113,7 @@ export function createWorkspaceState(seed: {
   hasDrawing: boolean;
   yaw: number | null;
   pitch: number | null;
+  arAnchorMode?: "marker" | "follow" | null;
   ideaPrompt?: string;
 }): PersonalizeState {
   const next = createInitialPersonalizeState();
@@ -116,9 +125,25 @@ export function createWorkspaceState(seed: {
           orbitYaw: seed.yaw ?? next.orbitYaw,
           orbitPitch: seed.pitch ?? next.orbitPitch
         };
+  const anchor: ArAnchorMode | null =
+    seed.arAnchorMode === "follow" ? "follow" : seed.arAnchorMode === "marker" ? "marker" : null;
+  const withAnchor: PersonalizeState =
+    anchor == null
+      ? placed
+      : {
+          ...placed,
+          arAnchorMode: anchor,
+          // Keep animation in sync so follow UI and AR anchor stay consistent after reload.
+          animation:
+            anchor === "follow"
+              ? "follow"
+              : placed.animation === "follow"
+                ? "still"
+                : placed.animation
+        };
   const withIdea = seed.ideaPrompt
-    ? { ...placed, ideaPrompt: limitIdeaPrompt(seed.ideaPrompt) }
-    : placed;
+    ? { ...withAnchor, ideaPrompt: limitIdeaPrompt(seed.ideaPrompt) }
+    : withAnchor;
   if (seed.hasDrawing) return withIdea;
   return { ...withIdea, stage: "desenul", completedStages: [] };
 }
@@ -138,6 +163,7 @@ export function createInitialPersonalizeState(): PersonalizeState {
     light: 58,
     shadow: 36,
     animation: "still",
+    arAnchorMode: "marker",
     decor: [],
     cameraPreset: "threequarter",
     gridOn: true,
@@ -174,7 +200,13 @@ const DECOR_HOME: Record<DecorId, { x: number; y: number }> = {
   tree: { x: 78, y: 68 },
   house: { x: 18, y: 64 },
   planet: { x: 50, y: 20 },
-  balloons: { x: 82, y: 30 }
+  balloons: { x: 82, y: 30 },
+  figureWave: { x: 38, y: 58 },
+  figureFloat: { x: 58, y: 42 },
+  figureDance: { x: 48, y: 62 },
+  figureJump: { x: 62, y: 52 },
+  figureStill: { x: 42, y: 70 },
+  figureFollow: { x: 68, y: 48 }
 };
 
 let decorKeyCounter = 0;
@@ -187,7 +219,9 @@ export function createDecorInstance(id: DecorId, index = 0): DecorInstance {
     key: `decor-${decorKeyCounter}`,
     id,
     x: clamp(home.x + drift * 7 + (index > 4 ? 4 : 0), 8, 92),
-    y: clamp(home.y + (drift % 3) * 6 - (index > 4 ? 4 : 0), 8, 90)
+    y: clamp(home.y + (drift % 3) * 6 - (index > 4 ? 4 : 0), 8, 90),
+    yaw: 0,
+    pitch: 0
   };
 }
 
@@ -209,6 +243,22 @@ export function moveDecorInstance(
       item.key === key ? { ...item, x: clamp(x, 4, 96), y: clamp(y, 4, 96) } : item
     )
   };
+}
+
+export function orbitDecorInstance(
+  state: PersonalizeState,
+  key: string,
+  yaw: number,
+  pitch: number
+): PersonalizeState {
+  return {
+    ...state,
+    decor: state.decor.map((item) => (item.key === key ? { ...item, yaw, pitch } : item))
+  };
+}
+
+export function removeDecorInstance(state: PersonalizeState, key: string): PersonalizeState {
+  return { ...state, decor: state.decor.filter((item) => item.key !== key) };
 }
 
 export function clearDecor(state: PersonalizeState): PersonalizeState {
@@ -292,7 +342,7 @@ export function setShadow(state: PersonalizeState, shadow: number): PersonalizeS
 }
 
 export function setAnimation(state: PersonalizeState, animation: AnimationId): PersonalizeState {
-  return { ...state, animation };
+  return { ...state, animation, arAnchorMode: arAnchorModeFromAnimation(animation) };
 }
 
 export function setPalette(state: PersonalizeState, palette: PaletteId): PersonalizeState {
@@ -338,6 +388,7 @@ export function applyIdeaPrompt(
     ideaResult,
     ideaNotice: null,
     animation: ideaResult.motion ?? state.animation,
+    arAnchorMode: arAnchorModeFromAnimation(ideaResult.motion ?? state.animation),
     decor: ideaResult.decor ? [createDecorInstance(ideaResult.decor)] : state.decor,
     palette: ideaResult.palette ?? state.palette,
     lighting: ideaResult.lighting ?? state.lighting,
@@ -384,6 +435,7 @@ export function applyContextStory(
     context: parsed.context,
     contextNotice: null,
     animation: parsed.motion ?? state.animation,
+    arAnchorMode: arAnchorModeFromAnimation(parsed.motion ?? state.animation),
     decor: parsed.decor ? [createDecorInstance(parsed.decor)] : state.decor,
     palette: parsed.palette ?? state.palette,
     lighting: parsed.lighting ?? state.lighting,
@@ -583,15 +635,17 @@ export function setAutoRotate(state: PersonalizeState, autoRotate: boolean): Per
 export function setVariantIndex(state: PersonalizeState, index: number): PersonalizeState {
   const next = ((index % STYLE_CYCLE.length) + STYLE_CYCLE.length) % STYLE_CYCLE.length;
   const stylePreset = STYLE_CYCLE[next] ?? "preserve";
+  const palette = (["original", "soft", "bright"] as const)[next] ?? "original";
   return {
     ...state,
     variantIndex: next,
     stylePreset,
+    palette,
     originalColors: stylePreset === "preserve",
-    volume: clamp(55 + next * 12),
-    details: clamp(40 + next * 18),
-    light: clamp(50 + next * 10),
-    shadow: clamp(30 + next * 8)
+    volume: clamp(48 + next * 22),
+    details: clamp(32 + next * 28),
+    light: clamp(42 + next * 22),
+    shadow: clamp(24 + next * 22)
   };
 }
 

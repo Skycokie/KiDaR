@@ -163,6 +163,8 @@ export interface PageRenderHashParts {
     rotation: { x: number; y: number; z: number };
     scale: number;
   } | null;
+  /** AR sticky-follow vs marker; pages with follow must rebuild when this flips. */
+  arAnchorMode?: "marker" | "follow" | null;
 }
 
 function originIdentity(raw: string | null | undefined): string | null {
@@ -196,7 +198,8 @@ export function buildPageRenderInputDocument(parts: PageRenderHashParts): Record
     publicAppOrigin: originIdentity(parts.publicAppOrigin),
     publicAssetOrigin: originIdentity(parts.publicAssetOrigin),
     showWatermark: Boolean(parts.showWatermark),
-    startTransform: startTransformIdentity(parts.startTransform ?? null)
+    startTransform: startTransformIdentity(parts.startTransform ?? null),
+    arAnchorMode: parts.arAnchorMode === "follow" ? "follow" : "marker"
   };
 }
 

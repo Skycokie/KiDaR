@@ -60,7 +60,6 @@ export const en: Messages = {
     steps: {
       drawing: "Drawing",
       character: "Character",
-      appearance: "Look",
       motion: "Motion",
       decor: "Decor",
       context: "Context",
@@ -70,7 +69,6 @@ export const en: Messages = {
     stepHints: {
       drawing: "Starting paper",
       character: "Lift the shape",
-      appearance: "Light and color",
       motion: "Bring it to life",
       decor: "Place it in the world",
       context: "Build the story",
@@ -398,7 +396,9 @@ export const en: Messages = {
     voiceHonest: "In this version the voice is heard only in Studio, on stage.",
     voiceLimits: "MP3, M4A, WebM, or OGG · up to 2 MB · about 30 seconds",
     noDecor: "No decor",
-    decorHint: "Press again for another one. Drag on stage to move it.",
+    decorHint:
+      "Press a card to add. Drag a prop to rotate. Hold, then drag to move. Tap to remove.",
+    decorPropHint: "Drag to rotate. Hold, then drag to move. Tap to remove.",
     paletteSection: "Colors",
     lightingSection: "Light",
     shadow: "Shadow",
@@ -467,7 +467,6 @@ export const en: Messages = {
     figurineVolumeHint: "3D figure from the drawing, generated with Tripo.",
     volume: "Volume",
     details: "Detail",
-    aspect: "Look",
     giveLife: "Bring it to life",
     placeInWorld: "Place in the world",
     preserveOutline: "Keep the drawing outline",
@@ -504,16 +503,23 @@ export const en: Messages = {
         float: { label: "Float" },
         dance: { label: "Dance" },
         jump: { label: "Jump" },
-        still: { label: "Stay still" }
+        still: { label: "Stay still" },
+        follow: { label: "With you", hint: "Appears when the drawing is detected, then stays on screen with you" }
       },
       decor: {
         cloud: { label: "Cloud" },
-        stars: { label: "Stars" },
+        stars: { label: "Star" },
         grass: { label: "Grass" },
         tree: { label: "Tree" },
         house: { label: "House" },
         planet: { label: "Planet" },
-        balloons: { label: "Balloons" }
+        balloons: { label: "Balloons" },
+        figureWave: { label: "Wave" },
+        figureFloat: { label: "Float" },
+        figureDance: { label: "Dance" },
+        figureJump: { label: "Jump" },
+        figureStill: { label: "Still" },
+        figureFollow: { label: "With you" }
       },
       palettes: {
         original: { label: "Original" },
@@ -591,7 +597,8 @@ export const en: Messages = {
         wave: "waves",
         dance: "dances",
         jump: "jumps",
-        still: "stays still"
+        still: "stays still",
+        follow: "stays with you"
       },
       mood: { magic: "magical", calm: "calm", colorful: "colorful" }
     },

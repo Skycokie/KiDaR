@@ -22,7 +22,7 @@ export const IDEA_SUGGESTIONS = [
   "Să plutească printre stele",
   "Să danseze într-o grădină",
   "Să sară lângă o casă colorată",
-  "Să fie liniștit sub un nor",
+  "Să fie liniștit lângă un copac",
   "Să fie într-o lume cu baloane"
 ] as const;
 
@@ -48,11 +48,9 @@ const RULES: Rule[] = [
   { category: "motion", value: "wave", phrases: ["saluta", "face cu mana"] },
   { category: "motion", value: "still", phrases: ["linistit", "sta"] },
   { category: "decor", value: "stars", phrases: ["stele", "stea", "spatiu", "cosmos"] },
-  { category: "decor", value: "cloud", phrases: ["nori", "nor"] },
   { category: "decor", value: "grass", phrases: ["iarba", "gradina"] },
   { category: "decor", value: "tree", phrases: ["copac", "padure"] },
   { category: "decor", value: "house", phrases: ["casa"] },
-  { category: "decor", value: "planet", phrases: ["planeta", "luna"] },
   { category: "decor", value: "balloons", phrases: ["baloane", "balon"] },
   {
     category: "palette",
@@ -76,11 +74,9 @@ const ENGLISH_RULES: Rule[] = [
   { category: "motion", value: "wave", phrases: ["wave"] },
   { category: "motion", value: "still", phrases: ["still", "calm"] },
   { category: "decor", value: "stars", phrases: ["stars", "space"] },
-  { category: "decor", value: "cloud", phrases: ["cloud"] },
   { category: "decor", value: "grass", phrases: ["garden", "grass"] },
   { category: "decor", value: "tree", phrases: ["tree"] },
   { category: "decor", value: "house", phrases: ["house"] },
-  { category: "decor", value: "planet", phrases: ["planet"] },
   { category: "decor", value: "balloons", phrases: ["balloons", "balloon"] },
   { category: "palette", value: "bright", phrases: ["colorful", "bright"] },
   { category: "palette", value: "soft", phrases: ["soft", "pastel"] },

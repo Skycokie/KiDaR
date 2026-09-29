@@ -280,7 +280,7 @@ export interface MapArPageInput {
   settings: HashableProjectSettings & {
     logoUrl?: string;
     soundUrl?: string;
-    scene?: { startTransform?: unknown } | null;
+    scene?: { startTransform?: unknown; arAnchorMode?: unknown } | null;
   };
   modelUrl: string;
   targetUrl: string;
@@ -309,6 +309,12 @@ export function selectClickableCta(input: {
 export function mapSettingsToArPageConfig(input: MapArPageInput): NormalizedArPageConfig {
   const cta = selectClickableCta(input.settings);
   const transform = resolveEffectiveArTransform(input.settings);
+  const arAnchorMode =
+    input.settings.scene &&
+    typeof input.settings.scene === "object" &&
+    (input.settings.scene as { arAnchorMode?: unknown }).arAnchorMode === "follow"
+      ? "follow"
+      : "marker";
   const config: ArPageConfig = {
     title: input.settings.title?.trim() || "Surpriza kidAR",
     theme: input.settings.theme || "#6d5dfc",
@@ -324,7 +330,8 @@ export function mapSettingsToArPageConfig(input: MapArPageInput): NormalizedArPa
       scale: transform.scale
     },
     showWatermark: input.showWatermark,
-    allowLocalOrigins: input.allowLocalOrigins
+    allowLocalOrigins: input.allowLocalOrigins,
+    arAnchorMode
   };
   try {
     return normalizeArPageConfig(config);

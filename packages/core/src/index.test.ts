@@ -120,6 +120,28 @@ describe("core policies", () => {
     expect(validateSceneSettingsPatch({ startTransform: { scale: 0 } })).toMatch(/\(0, 10\]/);
     expect(validateSceneSettingsPatch({ startTransform: { scale: 11 } })).toMatch(/\(0, 10\]/);
     expect(validateSceneSettingsPatch({ startTransform: "nope" })).toMatch(/object/);
+    expect(validateSceneSettingsPatch({ arAnchorMode: "follow" })).toBeNull();
+    expect(validateSceneSettingsPatch({ arAnchorMode: "marker" })).toBeNull();
+    expect(validateSceneSettingsPatch({ arAnchorMode: "orbit" })).toMatch(/arAnchorMode/);
+  });
+
+  it("merges arAnchorMode onto scene without dropping startTransform", () => {
+    const current = {
+      title: "T",
+      theme: "#000000",
+      scale: 1,
+      offset: { x: 0, y: 0, z: 0 },
+      scene: {
+        startTransform: {
+          rotation: { x: 0, y: 0, z: 180 },
+          position: { x: 0, y: 0, z: 0 },
+          scale: 1
+        }
+      }
+    } as ProjectSettings;
+    const result = mergeSettings(current, { scene: { arAnchorMode: "follow" } });
+    expect(result.scene?.arAnchorMode).toBe("follow");
+    expect(result.scene?.startTransform?.scale).toBe(1);
   });
 
   it("creates stable URL slugs", () => {
