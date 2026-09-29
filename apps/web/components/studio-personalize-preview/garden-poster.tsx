@@ -4,10 +4,11 @@ import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { useRef } from "react";
 import dynamic from "next/dynamic";
 import { useStudioI18n } from "@/components/i18n/studio-i18n";
-import { DECOR_ASSET_SRC } from "./decor-assets";
+import { DECOR_GLB_SRC, decorGlbAvailable } from "./decor-assets";
 import type { DecorId, TransformModeId } from "./fixtures";
 import type { PersonalizeState } from "./form-state";
 import type { InteractionState } from "./interaction-state";
+import { GLB_ORBIT_DRAG_PX, clampGlbOrbitPitch, glbOrbitFromPointer } from "@/components/landing/glb-orbit";
 import {
   FIXTURE_POPOUT_PARTS,
   POPOUT_EDGE_COLORS,
@@ -24,6 +25,11 @@ const PopoutMeshStage = dynamic(
 
 const FigurineLiveStage = dynamic(
   () => import("./figurine-live-stage").then((mod) => mod.FigurineLiveStage),
+  { ssr: false }
+);
+
+const StageGlbProp = dynamic(
+  () => import("./stage-glb-prop").then((mod) => mod.StageGlbProp),
   { ssr: false }
 );
 
@@ -320,7 +326,9 @@ export function GardenPoster({
   spokenMessage = null,
   onCharacterClick,
   onDecorActivate,
-  onDecorMove
+  onDecorMove,
+  onDecorOrbit,
+  onDecorRemove
 }: {
   state: PersonalizeState;
   transformMode: TransformModeId;
@@ -334,6 +342,8 @@ export function GardenPoster({
   onCharacterClick?: () => void;
   onDecorActivate?: () => void;
   onDecorMove?: (key: string, x: number, y: number) => void;
+  onDecorOrbit?: (key: string, yaw: number, pitch: number) => void;
+  onDecorRemove?: (key: string) => void;
 }) {
   const scale = state.zoom / 100;
   const isFigurine = transformMode === "figurine";
@@ -345,13 +355,31 @@ export function GardenPoster({
   const hasDrawing = Boolean(drawingSrc);
   const playing = Boolean(interaction?.enabled) && !mirror;
   const decorRootRef = useRef<HTMLUListElement>(null);
-  const dragRef = useRef<{ key: string; pointerId: number } | null>(null);
+  const dragRef = useRef<{
+    key: string;
+    pointerId: number;
+    startX: number;
+    startY: number;
+    lastX: number;
+    lastY: number;
+    moved: boolean;
+    mode: "orbit" | "move";
+    yaw: number;
+    pitch: number;
+    longPressTimer: ReturnType<typeof setTimeout> | null;
+  } | null>(null);
   const { messages } = useStudioI18n();
   const COPY = messages.personalize;
   const decorLabel = (id: DecorId) => COPY.choices.decor[id].label;
   const contrast = 0.85 + state.details / 250;
   const brightness = 0.72 + state.light / 180;
-  const saturate = state.originalColors ? 1 : 0.55 + state.variantIndex * 0.2;
+  // Style-led saturation so Variante reads clearly (preserve / clay / painted).
+  const saturate =
+    state.stylePreset === "preserve"
+      ? 1
+      : state.stylePreset === "clay"
+        ? 0.62
+        : 1.55;
   const extrusion = popoutExtrusionPx(state.volume);
   const dialogueText = spokenMessage ?? state.context.dialogue;
 
@@ -468,7 +496,7 @@ export function GardenPoster({
 
       {state.decor.length > 0 ? (
         <ul className="studio-stage__decor" ref={decorRootRef} aria-hidden={playing ? undefined : true}>
-          {state.decor.map((item) => (
+          {state.decor.filter((item) => decorGlbAvailable(item.id)).map((item) => (
             <li
               key={item.key}
               className={`studio-stage__prop studio-stage__prop--${item.id}${playing && interaction?.activeTarget === "decor" ? " is-highlight" : ""}`}
@@ -481,18 +509,82 @@ export function GardenPoster({
             >
               <button
                 type="button"
+                className="studio-stage__prop-hit"
                 aria-label={decorLabel(item.id)}
+                title={COPY.decorPropHint}
+                onContextMenu={(event) => event.preventDefault()}
                 onPointerDown={(event) => {
-                  if (event.button !== 0) return;
+                  if (event.button !== 0 && event.button !== 2) return;
                   event.stopPropagation();
-                  dragRef.current = { key: item.key, pointerId: event.pointerId };
+                  event.preventDefault();
+                  const existing = dragRef.current;
+                  // Second finger / right-click / Shift → move instead of rotate.
+                  if (
+                    existing &&
+                    existing.key === item.key &&
+                    existing.pointerId !== event.pointerId
+                  ) {
+                    if (existing.longPressTimer) clearTimeout(existing.longPressTimer);
+                    existing.longPressTimer = null;
+                    existing.mode = "move";
+                    existing.pointerId = event.pointerId;
+                    existing.startX = event.clientX;
+                    existing.startY = event.clientY;
+                    existing.lastX = event.clientX;
+                    existing.lastY = event.clientY;
+                    existing.moved = true;
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    return;
+                  }
+                  const forceMove =
+                    event.button === 2 || event.shiftKey || event.altKey || event.metaKey;
+                  const drag = {
+                    key: item.key,
+                    pointerId: event.pointerId,
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    lastX: event.clientX,
+                    lastY: event.clientY,
+                    moved: false,
+                    mode: (forceMove ? "move" : "orbit") as "orbit" | "move",
+                    yaw: item.yaw,
+                    pitch: item.pitch,
+                    longPressTimer: null as ReturnType<typeof setTimeout> | null
+                  };
+                  // Hold briefly, then drag → move (kids / touch, no modifier keys).
+                  if (!forceMove) {
+                    drag.longPressTimer = setTimeout(() => {
+                      if (dragRef.current === drag) drag.mode = "move";
+                    }, 320);
+                  }
+                  dragRef.current = drag;
                   event.currentTarget.setPointerCapture(event.pointerId);
                   onDecorActivate?.();
                 }}
                 onPointerMove={(event) => {
                   const drag = dragRef.current;
                   const root = decorRootRef.current;
-                  if (!drag || drag.pointerId !== event.pointerId || !root || !onDecorMove) return;
+                  if (!drag || drag.pointerId !== event.pointerId || !root) return;
+                  const totalDx = event.clientX - drag.startX;
+                  const totalDy = event.clientY - drag.startY;
+                  if (!drag.moved && Math.hypot(totalDx, totalDy) < GLB_ORBIT_DRAG_PX) return;
+                  if (drag.longPressTimer) {
+                    clearTimeout(drag.longPressTimer);
+                    drag.longPressTimer = null;
+                  }
+                  drag.moved = true;
+                  if (drag.mode === "orbit") {
+                    const dx = event.clientX - drag.lastX;
+                    const dy = event.clientY - drag.lastY;
+                    drag.lastX = event.clientX;
+                    drag.lastY = event.clientY;
+                    const delta = glbOrbitFromPointer(dx, dy);
+                    drag.yaw += delta.yaw;
+                    drag.pitch = clampGlbOrbitPitch(drag.pitch + delta.pitch);
+                    onDecorOrbit?.(drag.key, drag.yaw, drag.pitch);
+                    return;
+                  }
+                  if (!onDecorMove) return;
                   const rect = root.getBoundingClientRect();
                   if (rect.width < 1 || rect.height < 1) return;
                   const x = ((event.clientX - rect.left) / rect.width) * 100;
@@ -500,17 +592,25 @@ export function GardenPoster({
                   onDecorMove(drag.key, x, y);
                 }}
                 onPointerUp={(event) => {
-                  if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
+                  const drag = dragRef.current;
+                  if (!drag || drag.pointerId !== event.pointerId) return;
+                  if (drag.longPressTimer) clearTimeout(drag.longPressTimer);
+                  dragRef.current = null;
+                  if (!drag.moved) onDecorRemove?.(drag.key);
                 }}
                 onPointerCancel={(event) => {
-                  if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
-                }}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onDecorActivate?.();
+                  const drag = dragRef.current;
+                  if (!drag || drag.pointerId !== event.pointerId) return;
+                  if (drag.longPressTimer) clearTimeout(drag.longPressTimer);
+                  dragRef.current = null;
                 }}
               >
-                <img src={DECOR_ASSET_SRC[item.id]} alt="" width={128} height={128} draggable={false} />
+                <StageGlbProp
+                  modelUrl={DECOR_GLB_SRC[item.id]}
+                  variant="decor"
+                  yaw={item.yaw}
+                  pitch={item.pitch}
+                />
               </button>
             </li>
           ))}

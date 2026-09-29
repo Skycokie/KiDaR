@@ -78,6 +78,38 @@ function canvasToJpeg(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
+/**
+ * Pre-cut PNG/WebP (alpha already removed). Same silhouette → polygon path as Studio
+ * pop-out, without @imgly. Used for Cum apare demo thumbs.
+ */
+export async function createPreviewCutoutFromAlpha(
+  sourceUrl: string,
+  maxEdge = 768
+): Promise<PreviewCutout> {
+  const sourceResponse = await fetch(sourceUrl);
+  if (!sourceResponse.ok) throw new Error("Could not load cutout drawing");
+  const sourceBlob = await sourceResponse.blob();
+  const bitmap = await createImageBitmap(sourceBlob, { imageOrientation: "from-image" });
+  const cutoutCanvas = drawFitted(bitmap, maxEdge);
+  const context = cutoutCanvas.getContext("2d");
+  if (!context) throw new Error("Canvas 2D context is unavailable");
+  const imageData = context.getImageData(0, 0, cutoutCanvas.width, cutoutCanvas.height);
+  const mask = alphaMaskFromRgba(cutoutCanvas.width, cutoutCanvas.height, imageData.data);
+  const polygons = extractSilhouettePolygons(mask, {
+    cleanupRadius: Math.max(1, Math.round(Math.min(cutoutCanvas.width, cutoutCanvas.height) / 700)),
+    simplifyEpsilon: 0.0035,
+    minComponentPixels: Math.max(10, Math.floor(cutoutCanvas.width * cutoutCanvas.height * 0.00012))
+  });
+  const stats = getSilhouetteStats(mask, polygons);
+  return {
+    sourceCanvas: cutoutCanvas,
+    cutoutCanvas,
+    rgba: imageData.data,
+    polygons,
+    stats
+  };
+}
+
 export async function createPreviewCutout(sourceUrl: string): Promise<PreviewCutout> {
   const ort = (await import("onnxruntime-web")) as {
     env: { wasm: { wasmPaths: string } };

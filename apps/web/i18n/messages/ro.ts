@@ -60,7 +60,6 @@ export const ro: Messages = {
     steps: {
       drawing: "Desen",
       character: "Personaj",
-      appearance: "Aspect",
       motion: "Mișcare",
       decor: "Decor",
       context: "Context",
@@ -70,7 +69,6 @@ export const ro: Messages = {
     stepHints: {
       drawing: "Hârtia de start",
       character: "Ridică forma",
-      appearance: "Lumină și culoare",
       motion: "Dă viață",
       decor: "Așază în lume",
       context: "Construiește povestea",
@@ -398,7 +396,9 @@ export const ro: Messages = {
     voiceHonest: "În această versiune vocea se aude doar în Studio, pe scenă.",
     voiceLimits: "MP3, M4A, WebM sau OGG · până la 2 MB · cam 30 de secunde",
     noDecor: "Fără decor",
-    decorHint: "Apasă din nou pentru încă unul. Trage pe scenă ca să-l muți.",
+    decorHint:
+      "Apasă pe card ca să adaugi. Trage pe prop ca să rotești. Ține apăsat, apoi trage ca să muți. Apasă ca să scoți.",
+    decorPropHint: "Trage ca să rotești. Ține apăsat, apoi trage ca să muți. Apasă ca să scoți.",
     paletteSection: "Culori",
     lightingSection: "Lumină",
     shadow: "Umbră",
@@ -467,7 +467,6 @@ export const ro: Messages = {
     figurineVolumeHint: "Figurină 3D din desen, generată cu Tripo.",
     volume: "Volum",
     details: "Detalii",
-    aspect: "Aspect",
     giveLife: "Dă viață",
     placeInWorld: "Așază în lume",
     preserveOutline: "Păstrează conturul desenului",
@@ -504,16 +503,23 @@ export const ro: Messages = {
         float: { label: "Plutește" },
         dance: { label: "Dansează" },
         jump: { label: "Sare" },
-        still: { label: "Stă liniștit" }
+        still: { label: "Stă liniștit" },
+        follow: { label: "Cu tine", hint: "Apare la detectarea desenului și te urmează pe ecran" }
       },
       decor: {
         cloud: { label: "Nor" },
-        stars: { label: "Stele" },
+        stars: { label: "Stea" },
         grass: { label: "Iarbă" },
         tree: { label: "Copac" },
         house: { label: "Casă" },
         planet: { label: "Planetă" },
-        balloons: { label: "Baloane" }
+        balloons: { label: "Baloane" },
+        figureWave: { label: "Salută" },
+        figureFloat: { label: "Plutește" },
+        figureDance: { label: "Dansează" },
+        figureJump: { label: "Sare" },
+        figureStill: { label: "Stă liniștit" },
+        figureFollow: { label: "Cu tine" }
       },
       palettes: {
         original: { label: "Original" },
@@ -591,7 +597,8 @@ export const ro: Messages = {
         wave: "salută",
         dance: "dansează",
         jump: "sare",
-        still: "stă liniștit"
+        still: "stă liniștit",
+        follow: "vine cu tine"
       },
       mood: { magic: "magică", calm: "liniștită", colorful: "colorată" }
     },

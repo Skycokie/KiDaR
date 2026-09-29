@@ -22,6 +22,7 @@ import type {
   PaletteId,
   TransformModeId
 } from "./fixtures";
+import { arAnchorModeFromAnimation } from "./fixtures";
 import type { PersonalizeState } from "./form-state";
 import type { SceneContext } from "./scene-context";
 import { emptySceneContext } from "./scene-context";
@@ -35,6 +36,8 @@ export type StudioSceneDraft = {
   palette: PaletteId;
   lighting: LightingId;
   motion: AnimationId;
+  /** AR page: marker lock vs follow-camera after image detect. */
+  arAnchorMode: "marker" | "follow";
   decor: "none" | DecorId;
   prompt: string;
   context: SceneContext;
@@ -80,6 +83,7 @@ export function toStudioSceneDraft(state: PersonalizeState, hasSource: boolean):
     palette: state.palette,
     lighting: state.lighting,
     motion: state.animation,
+    arAnchorMode: state.arAnchorMode ?? arAnchorModeFromAnimation(state.animation),
     decor: decor ?? "none",
     prompt: state.ideaPrompt,
     context: {

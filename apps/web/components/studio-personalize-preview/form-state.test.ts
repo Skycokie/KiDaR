@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { getMessages } from "@/i18n/get-messages";
 import {
+  ANIMATIONS,
   FIXTURE_WORLD,
   PERSONALIZE_BACK_HREF,
   PERSONALIZE_CAMERA_HREF,
@@ -33,10 +34,12 @@ import {
   setStage,
   setStylePreset,
   setTransformMode,
+  setVariantIndex,
   setVolume,
   setArLive,
-  addDecorInstance,
+  removeDecorInstance,
   moveDecorInstance,
+  orbitDecorInstance,
   setDecorSelection,
   summarizePersonalize,
   toggleDecor,
@@ -68,17 +71,13 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(STAGES.map((stage) => stage.id)).toEqual([
       "desenul",
       "personajul",
-      "aspect",
-      "miscare",
       "decor",
-      "context",
       "vocea",
       "testeaza"
     ]);
     expect(getMessages("ro").studio.steps).toEqual({
       drawing: "Desen",
       character: "Personaj",
-      appearance: "Aspect",
       motion: "Mișcare",
       decor: "Decor",
       context: "Context",
@@ -100,16 +99,16 @@ describe("Studio personalize workspace — fixture + local state", () => {
 
   it("updates stage, transform, style, animation, decor, and camera in memory only", () => {
     let state = createInitialPersonalizeState();
-    state = setStage(state, "aspect");
+    state = setStage(state, "decor");
     state = setTransformMode(state, "figurine");
     state = setStylePreset(state, "clay");
     state = setAnimation(state, "wave");
-    state = toggleDecor(state, "stars");
+    state = toggleDecor(state, "grass");
     state = setCameraPreset(state, "top");
     state = setVolume(state, 80);
     state = toggleGrid(state);
     expect(state).toMatchObject({
-      stage: "aspect",
+      stage: "decor",
       transformMode: "figurine",
       stylePreset: "clay",
       animation: "wave",
@@ -117,20 +116,70 @@ describe("Studio personalize workspace — fixture + local state", () => {
       volume: 80,
       gridOn: false
     });
-    expect(state.decor.map((item) => item.id)).toEqual(["stars"]);
+    expect(state.decor.map((item) => item.id)).toEqual(["grass"]);
     expect(state.decor[0]).toMatchObject({ x: expect.any(Number), y: expect.any(Number) });
     expect(state.completedStages).toContain("personajul");
     expect(summarizePersonalize(state)).toContain("Lut colorat");
   });
 
-  it("stacks decor on each click and moves instances on the stage", () => {
-    let state = setDecorSelection(createInitialPersonalizeState(), "cloud");
-    state = addDecorInstance(state, "cloud");
-    state = addDecorInstance(state, "grass");
-    expect(state.decor.map((item) => item.id)).toEqual(["cloud", "cloud", "grass"]);
+  it("sets follow animation to AR camera-follow anchor mode", () => {
+    const start = createInitialPersonalizeState();
+    expect(start.arAnchorMode).toBe("marker");
+    const follow = setAnimation(start, "follow");
+    expect(follow).toMatchObject({ animation: "follow", arAnchorMode: "follow" });
+    expect(setAnimation(follow, "wave")).toMatchObject({
+      animation: "wave",
+      arAnchorMode: "marker"
+    });
+    expect(ANIMATIONS.some((item) => item.id === "follow")).toBe(true);
+    expect(getMessages("ro").personalize.choices.animations.follow.label).toBe("Cu tine");
+  });
+
+  it("makes Variante switch style and palette so color reads clearly", () => {
+    const start = createInitialPersonalizeState();
+    const preserve = setVariantIndex(start, 0);
+    const clay = setVariantIndex(start, 1);
+    const painted = setVariantIndex(start, 2);
+    expect(preserve).toMatchObject({
+      stylePreset: "preserve",
+      palette: "original",
+      originalColors: true,
+      variantIndex: 0
+    });
+    expect(clay).toMatchObject({
+      stylePreset: "clay",
+      palette: "soft",
+      originalColors: false,
+      variantIndex: 1
+    });
+    expect(painted).toMatchObject({
+      stylePreset: "painted",
+      palette: "bright",
+      originalColors: false,
+      variantIndex: 2
+    });
+    expect(painted.details).toBeGreaterThan(clay.details);
+    expect(clay.details).toBeGreaterThan(preserve.details);
+    const css = readFileSync(join(root, "personalize-preview.css"), "utf8");
+    expect(css).toMatch(/\.studio-stage--clay \.studio-stage__popout-live/);
+    expect(css).toMatch(/\.studio-stage--painted \.studio-stage__popout-live/);
+    expect(css).not.toMatch(/\.studio-stage\[data-colors="styled"\] \.studio-stage__drawing-img/);
+  });
+
+  it("stacks decor on each card click, moves on stage, and removes by key", () => {
+    let state = setDecorSelection(createInitialPersonalizeState(), "stars");
+    expect(state.decor.map((item) => item.id)).toEqual(["stars"]);
+    state = setDecorSelection(state, "stars");
+    expect(state.decor.map((item) => item.id)).toEqual(["stars", "stars"]);
+    state = setDecorSelection(state, "grass");
+    expect(state.decor.map((item) => item.id)).toEqual(["stars", "stars", "grass"]);
     const key = state.decor[0]!.key;
     state = moveDecorInstance(state, key, 40, 55);
     expect(state.decor[0]).toMatchObject({ key, x: 40, y: 55 });
+    state = removeDecorInstance(state, key);
+    expect(state.decor.map((item) => item.id)).toEqual(["stars", "grass"]);
+    state = orbitDecorInstance(state, state.decor[0]!.key, 0.4, -0.1);
+    expect(state.decor[0]).toMatchObject({ yaw: 0.4, pitch: -0.1 });
     state = setDecorSelection(state, "none");
     expect(state.decor).toEqual([]);
   });
@@ -271,7 +320,7 @@ describe("Studio personalize workspace — fixture + local state", () => {
     state = setArLive(state, true);
     expect(state.stage).toBe("testeaza");
     expect(state.arLive).toBe(true);
-    state = setStage(state, "aspect");
+    state = setStage(state, "decor");
     expect(state.arLive).toBe(false);
     expect(state.publishOpen).toBe(false);
     const open = setPublishOpen(state, true);
@@ -352,6 +401,10 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(COPY.publishQrLabel).toMatch(/QR/);
     expect(shell).toContain("transformMode={state.transformMode}");
     expect(shell).toContain('dispatch({ type: "variant", index: -1 })');
+    expect(shell).toContain("studio-ws__variant");
+    expect(shell).toContain("STYLE_PRESETS.map");
+    expect(shell).toContain("studio-ws__variant-photo");
+    expect(shell).toContain("COPY.choices.styles[preset.id]");
     expect(shell).not.toMatch(/studio-ws__ghost-btn[^>]*\bdisabled\b/);
     expect(poster).toContain("transformMode");
     expect(poster).toContain("data-mode={transformMode}");

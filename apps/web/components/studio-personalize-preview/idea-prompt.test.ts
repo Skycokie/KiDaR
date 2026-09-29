@@ -32,7 +32,7 @@ describe("local Studio idea prompt", () => {
       decor: "house",
       palette: "bright"
     });
-    expect(interpretIdeaPrompt(IDEA_SUGGESTIONS[3])).toMatchObject({ motion: "still", decor: "cloud" });
+    expect(interpretIdeaPrompt(IDEA_SUGGESTIONS[3])).toMatchObject({ motion: "still", decor: "tree" });
     expect(interpretIdeaPrompt(IDEA_SUGGESTIONS[4])).toMatchObject({ decor: "balloons" });
     expect(interpretIdeaPrompt("vreau sa zboara in aer, lumina de studio")).toMatchObject({
       motion: "float",
@@ -107,20 +107,28 @@ describe("local Studio idea prompt", () => {
       .join("\n");
     expect(sources).not.toMatch(/\bfetch\s*\(/);
     expect(sources).not.toMatch(/XMLHttpRequest|WebSocket|tripo|openai|anthropic/i);
+    expect(readFileSync(join(__dirname, "idea-prompt-card.tsx"), "utf8")).not.toMatch(
+      /suggestionsLabel|studio-idea__chip/
+    );
   });
 
   it("maps English terms without changing Romanian defaults", () => {
     expect(PROMPT_MAPPINGS.ro.terms.motion.pluteste).toBe("float");
     expect(PROMPT_MAPPINGS.ro.terms.motion.danseaza).toBe("dance");
     expect(PROMPT_MAPPINGS.ro.terms.decor.stele).toBe("stars");
-    expect(PROMPT_MAPPINGS.ro.terms.decor.nor).toBe("cloud");
+    expect(PROMPT_MAPPINGS.ro.terms.decor.copac).toBe("tree");
+    expect(PROMPT_MAPPINGS.ro.terms.decor.nor).toBeUndefined();
     expect(PROMPT_MAPPINGS.en.terms.motion.float).toBe("float");
     expect(PROMPT_MAPPINGS.en.terms.motion.fly).toBe("float");
     expect(PROMPT_MAPPINGS.en.terms.motion["in the air"]).toBe("float");
     expect(PROMPT_MAPPINGS.en.terms.motion.dance).toBe("dance");
     expect(PROMPT_MAPPINGS.en.terms.decor.stars).toBe("stars");
     expect(PROMPT_MAPPINGS.en.terms.decor.space).toBe("stars");
-    expect(PROMPT_MAPPINGS.en.terms.decor.cloud).toBe("cloud");
+    expect(PROMPT_MAPPINGS.en.terms.decor.cloud).toBeUndefined();
+    expect(PROMPT_MAPPINGS.en.terms.decor.planet).toBeUndefined();
+
+    expect(interpretIdeaPrompt("nor și planetă").decor).toBeUndefined();
+    expect(interpretIdeaPrompt("cloud and planet", "en").decor).toBeUndefined();
 
     expect(interpretIdeaPrompt("Float among the stars", "en")).toMatchObject({
       motion: "float",

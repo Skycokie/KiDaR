@@ -55,7 +55,8 @@ describe("page artifact keys", () => {
       showWatermark: true
     };
     const pageHash = computePageRenderInputHash(demoPage);
-    expect(pageHash).toBe("3b2af8d0cb4cb106d65bff31b92eba6a03d8cab08da7e3ed552affe84487acc2");
+    expect(pageHash).toBe("3527ccad4accbcff68fd2b70156903ecc305039c26ad1c8ec93bfe83e8bedeb0");
+    expect(pageHash).not.toBe("3b2af8d0cb4cb106d65bff31b92eba6a03d8cab08da7e3ed552affe84487acc2");
     expect(pageHash).not.toBe("6fc29bcdf0bac65c8f55317b155264c695364760562573edb45339747de9d8bc");
     expect(pageHash).not.toBe("da985e5f064af51b2eb2c76ee7cc2ce5f66e74f55aa497855c0cee1561122fe3");
     expect(pageHash).not.toBe("d867c9ccb235b01c93cb9597a9c3a08ab6d1f247b9cf32b7f0271b1278b1b805");
@@ -86,9 +87,16 @@ describe("page artifact keys", () => {
         slug: "other-slug"
       })
     ).not.toBe(pageHash);
+    expect(
+      computePageRenderInputHash({
+        ...demoPage,
+        arAnchorMode: "follow"
+      })
+    ).not.toBe(pageHash);
     expect(buildPageRenderInputDocument(demoPage).arPageTemplateVersion).toBe(
       AR_PAGE_TEMPLATE_VERSION
     );
+    expect(buildPageRenderInputDocument(demoPage).arAnchorMode).toBe("marker");
     expect(buildPageRenderInputDocument(demoPage).publicAppOrigin).toBe(
       "https://kidar-studio.vercel.app"
     );
@@ -272,6 +280,25 @@ describe("settings to AR page mapping", () => {
         }
       })
     ).toThrow(/private or signed/i);
+  });
+
+  it("maps scene.arAnchorMode follow into the AR page config", () => {
+    const modelUrl = "https://cdn.example.com/models/p/abc/popout.glb";
+    const targetUrl = "https://cdn.example.com/targets/p/abc/targets.mind";
+    const marker = mapSettingsToArPageConfig({
+      settings: settings(),
+      modelUrl,
+      targetUrl
+    });
+    expect(marker.arAnchorMode).toBe("marker");
+
+    const follow = mapSettingsToArPageConfig({
+      settings: { ...settings(), scene: { arAnchorMode: "follow" } },
+      modelUrl,
+      targetUrl
+    });
+    expect(follow.arAnchorMode).toBe("follow");
+    expect(renderArPage(follow)).toContain('data-ar-anchor="follow"');
   });
 });
 

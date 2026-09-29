@@ -82,7 +82,9 @@ export async function POST(request: Request) {
       publicAppOrigin: publicOrigin(process.env.NEXT_PUBLIC_APP_URL),
       publicAssetOrigin: publicOrigin(process.env.R2_PUBLIC_BASE_URL),
       showWatermark: true,
-      startTransform: resolveEffectiveArTransform(project.settings)
+      startTransform: resolveEffectiveArTransform(project.settings),
+      arAnchorMode:
+        project.settings?.scene?.arAnchorMode === "follow" ? ("follow" as const) : ("marker" as const)
     };
 
     const jobs = [];
