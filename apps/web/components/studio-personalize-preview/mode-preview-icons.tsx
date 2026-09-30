@@ -12,11 +12,8 @@ const ModePopoutThumb = dynamic(
 export const MODE_PREVIEW_ASSETS = {
   /** Pre-cut drawing — extruded with the same Studio pop-out pipeline. */
   popoutDrawing: "/demo/studio/mode-popout-drawing.png",
-  /**
-   * Optional local figurine GLB path. Not bundled in Git until compressed/CDN-approved.
-   * The UI uses the CSS figurine placeholder so deploys do not depend on WHO.glb.
-   */
-  figurine: "/demo/glb/WHO.glb"
+  /** Still render of the figurine demo. The source GLB stays out of Git. */
+  figurine: "/demo/studio/mode-figurine.webp"
 } as const;
 
 /** @deprecated Prefer MODE_PREVIEW_ASSETS. Kept for older imports. */
@@ -30,7 +27,9 @@ export function ModePreviewIcon({ mode }: { mode: TransformModeId }) {
   if (mode === "figurine") {
     return (
       <span className="studio-ws__mode-icon studio-ws__mode-icon--figurine">
-        <span className="studio-ws__mode-icon-float" aria-hidden="true" />
+        <span className="studio-ws__mode-icon-float" aria-hidden="true">
+          <img src={MODE_PREVIEW_ASSETS.figurine} alt="" aria-hidden="true" />
+        </span>
         <span className="studio-ws__mode-icon-shadow" aria-hidden="true" />
       </span>
     );

@@ -1,30 +1,43 @@
-/** Local GLB paths for Studio decor props (Meshy). */
-import type { DecorId } from "./fixtures";
-
-export const DECOR_GLB_SRC: Record<DecorId, string> = {
-  cloud: "/demo/glb/decor/cloud.glb",
-  stars: "/demo/glb/decor/stars.glb",
-  grass: "/demo/glb/decor/grass.glb",
-  tree: "/demo/glb/decor/tree.glb",
-  house: "/demo/glb/decor/house.glb",
-  planet: "/demo/glb/decor/planet.glb",
-  balloons: "/demo/glb/decor/balloons.glb",
-  /** Pose figurines from the former Mișcare set (3 characters × poses). */
-  figureWave: "/demo/glb/motion/wave.glb",
-  figureFloat: "/demo/glb/motion/float.glb",
-  figureDance: "/demo/glb/motion/dance.glb",
-  figureJump: "/demo/glb/motion/jump.glb",
-  figureStill: "/demo/glb/motion/still.glb",
-  figureFollow: "/demo/glb/motion/follow.glb"
-};
-
 /**
- * Decor ids that ship a Meshy GLB in this deploy bundle.
- * Empty until compressed/CDN-approved binaries are committed or hosted.
- * Missing files must not be advertised as available.
+ * Studio decor props (Meshy), derived from the manifest that ships in public/.
+ *
+ * The manifest is the single source of truth: the file the browser can fetch at
+ * /demo/decor/manifest.json is the same file compiled in here, so the advertised
+ * props and the shipped binaries cannot drift apart. Ids missing from it have no
+ * binary and must never be offered.
  */
-export const DECOR_GLB_AVAILABLE = new Set<DecorId>([]);
+import type { DecorId } from "./fixtures";
+import manifest from "@/public/demo/decor/manifest.json";
+
+export interface DecorManifestEntry {
+  id: string;
+  label: string;
+  src: string;
+}
+
+export interface DecorManifest {
+  version: number;
+  credit: string;
+  assets: DecorManifestEntry[];
+}
+
+export const DECOR_MANIFEST = manifest as DecorManifest;
+
+const SHIPPED = new Map<string, string>(DECOR_MANIFEST.assets.map((a) => [a.id, a.src]));
+
+/** GLB path per decor id. Absent ids ship no binary. */
+export const DECOR_GLB_SRC: Partial<Record<DecorId, string>> = Object.fromEntries(SHIPPED);
+
+/** Decor ids that ship a GLB in this deploy bundle. */
+export const DECOR_GLB_AVAILABLE: ReadonlySet<DecorId> = new Set(
+  DECOR_MANIFEST.assets.map((a) => a.id as DecorId)
+);
 
 export function decorGlbAvailable(id: DecorId): boolean {
   return DECOR_GLB_AVAILABLE.has(id);
+}
+
+/** Resolved GLB path, or null when the prop ships no binary. */
+export function decorGlbSrc(id: DecorId): string | null {
+  return SHIPPED.get(id) ?? null;
 }

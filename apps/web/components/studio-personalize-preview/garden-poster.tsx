@@ -4,7 +4,7 @@ import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { useRef } from "react";
 import dynamic from "next/dynamic";
 import { useStudioI18n } from "@/components/i18n/studio-i18n";
-import { DECOR_GLB_SRC, decorGlbAvailable } from "./decor-assets";
+import { decorGlbSrc } from "./decor-assets";
 import type { DecorId, TransformModeId } from "./fixtures";
 import type { PersonalizeState } from "./form-state";
 import type { InteractionState } from "./interaction-state";
@@ -354,6 +354,12 @@ export function GardenPoster({
     : 0.72 + state.volume / 180;
   const hasDrawing = Boolean(drawingSrc);
   const playing = Boolean(interaction?.enabled) && !mirror;
+  // Props whose GLB ships. Anything else stays off the stage rather than
+  // mounting a loader against a path that resolves to nothing.
+  const decorProps = state.decor.flatMap((item) => {
+    const modelUrl = decorGlbSrc(item.id);
+    return modelUrl ? [{ item, modelUrl }] : [];
+  });
   const decorRootRef = useRef<HTMLUListElement>(null);
   const dragRef = useRef<{
     key: string;
@@ -494,9 +500,9 @@ export function GardenPoster({
         </div>
       </div>
 
-      {state.decor.length > 0 ? (
+      {decorProps.length > 0 ? (
         <ul className="studio-stage__decor" ref={decorRootRef} aria-hidden={playing ? undefined : true}>
-          {state.decor.filter((item) => decorGlbAvailable(item.id)).map((item) => (
+          {decorProps.map(({ item, modelUrl }) => (
             <li
               key={item.key}
               className={`studio-stage__prop studio-stage__prop--${item.id}${playing && interaction?.activeTarget === "decor" ? " is-highlight" : ""}`}
@@ -606,7 +612,7 @@ export function GardenPoster({
                 }}
               >
                 <StageGlbProp
-                  modelUrl={DECOR_GLB_SRC[item.id]}
+                  modelUrl={modelUrl}
                   variant="decor"
                   yaw={item.yaw}
                   pitch={item.pitch}
