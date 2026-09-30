@@ -298,7 +298,17 @@ describe("settings to AR page mapping", () => {
       targetUrl
     });
     expect(follow.arAnchorMode).toBe("follow");
-    expect(renderArPage(follow)).toContain('data-ar-anchor="follow"');
+    // renderArPage takes the unnormalized shape, so rebuild it rather than
+    // feeding the normalized config back in.
+    expect(
+      renderArPage({
+        title: follow.title,
+        theme: follow.theme,
+        modelUrl: follow.modelUrl,
+        targetUrl: follow.targetUrl,
+        arAnchorMode: follow.arAnchorMode
+      })
+    ).toContain('data-ar-anchor="follow"');
   });
 });
 
