@@ -1,3 +1,7 @@
+import { HeroStageFilm } from "./hero-phone";
+
+export { STUDIO_HERO_FILM } from "./hero-phone";
+
 type ArtId = "aurora" | "garden" | "kite" | "whale" | "fox" | "dragon" | "chime" | "sticker";
 
 export function Artwork({ id, kind }: { id: string; kind: ArtId }) {
@@ -162,117 +166,11 @@ function Sticker() {
   );
 }
 
-/** Hero: cream sketch paper — thick pencil dragon, color splash, folded corner. */
-function HeroPaper() {
-  return (
-    <svg viewBox="0 0 280 340" className="studio-art" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
-      {/* imperfect cream sheet */}
-      <path
-        d="M18 28 C22 14 48 10 72 12 L248 22 C264 24 272 38 270 54 L258 300 C256 318 238 330 218 328 L42 308 C24 304 14 288 16 270 Z"
-        fill="#f6ecd8"
-      />
-      <path
-        d="M24 36 C28 22 52 18 74 20 L244 30 C258 32 264 44 262 58 L252 292 C250 308 236 318 220 316 L48 298 C30 294 22 280 24 264 Z"
-        fill="#fff8ec"
-        opacity="0.55"
-      />
-      {/* folded / torn corner */}
-      <path d="M218 328 L258 300 L248 328 Z" fill="#e2d2b4" />
-      <path d="M218 328 L248 328 L238 312 Z" fill="#cbb896" opacity="0.85" />
-      {/* lively color splash under the drawing */}
-      <ellipse cx="118" cy="168" rx="54" ry="38" fill="#e36b4e" opacity="0.28" />
-      <ellipse cx="168" cy="148" rx="28" ry="22" fill="#5b4fe0" opacity="0.22" />
-      {/* thick marker / pencil dragon sketch — head + body readable as character */}
-      <g fill="none" stroke="#2a241c" strokeLinecap="round" strokeLinejoin="round">
-        <path
-          d="M58 228 C52 176 78 132 118 118 C148 108 168 128 172 156 C176 186 156 214 124 228 C96 240 66 246 58 228 Z"
-          strokeWidth="3.4"
-        />
-        <path d="M118 118 C132 86 156 68 186 62" strokeWidth="2.6" />
-        <path d="M172 156 C198 148 218 136 232 118" strokeWidth="2.4" />
-        <path d="M148 98 L158 72 L168 100" strokeWidth="2.2" />
-        <path d="M92 198 C104 186 122 184 136 194" strokeWidth="2" />
-        <path d="M78 236 l6 16 M96 240 l5 14" strokeWidth="2.2" />
-      </g>
-      <circle cx="138" cy="142" r="3.6" fill="#2a241c" />
-      <path
-        d="M186 72 C198 64 212 62 224 66"
-        fill="none"
-        stroke="#e36b4e"
-        strokeWidth="3.2"
-        strokeLinecap="round"
-      />
-      <circle cx="198" cy="128" r="8" fill="#5b4fe0" opacity="0.5" />
-      <ellipse cx="112" cy="176" rx="22" ry="16" fill="#e36b4e" opacity="0.22" />
-    </svg>
-  );
-}
-
-/** Hero: stylized sculptural dragon lifting off the page — no card frame. */
-function HeroEmergence() {
-  return (
-    <svg viewBox="0 0 200 240" className="studio-art studio-art--emergence" aria-hidden="true">
-      <defs>
-        <linearGradient id="hero-emerge-body" x1="0.15" y1="0.1" x2="0.9" y2="0.95">
-          <stop offset="0%" stopColor="#8b7cf5" />
-          <stop offset="45%" stopColor="#5b4fe0" />
-          <stop offset="100%" stopColor="#2f2868" />
-        </linearGradient>
-        <linearGradient id="hero-emerge-wing" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#f0b27a" />
-          <stop offset="100%" stopColor="#e36b4e" />
-        </linearGradient>
-      </defs>
-      <ellipse cx="96" cy="214" rx="48" ry="10" fill="#000" opacity="0.28" />
-      {/* wing flare — reads as lift-off, not a second card */}
-      <path
-        d="M102 128 C146 86 176 78 186 108 C172 118 152 140 126 158 C114 146 104 136 102 128 Z"
-        fill="url(#hero-emerge-wing)"
-        opacity="0.92"
-      />
-      {/* body echoes the pencil silhouette on paper */}
-      <path
-        d="M48 188 C42 140 68 92 112 82 C146 74 164 98 166 128 C168 160 148 188 114 200 C84 210 54 210 48 188 Z"
-        fill="url(#hero-emerge-body)"
-      />
-      <path d="M112 82 C128 54 150 40 176 36" fill="none" stroke="#1b1630" strokeWidth="2.4" strokeLinecap="round" />
-      <path d="M166 128 C188 120 204 106 214 88" fill="none" stroke="#1b1630" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="128" cy="108" r="4.2" fill="#f6efe2" />
-      <circle cx="129.5" cy="107.5" r="1.7" fill="#1b1630" />
-      <path d="M108 78 L118 52 L128 80" fill="#f0b27a" />
-      <path d="M72 196 l6 14 M88 200 l5 12" stroke="#1b1630" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 export function HeroStage({ label }: { label: string }) {
   return (
     <div className="atelier-stage" aria-hidden="true">
       <div className="atelier-stage__wash" />
-      <svg className="atelier-stage__thread" viewBox="0 0 420 360" preserveAspectRatio="none">
-        <path
-          className="atelier-stage__thread-line"
-          d="M0 210 C72 198 120 168 168 148 C210 130 248 128 290 142"
-          fill="none"
-          stroke="#c4b49a"
-          strokeWidth="1.6"
-          strokeLinecap="round"
-          strokeDasharray="3 7"
-        />
-        <circle className="atelier-stage__ink" cx="96" cy="188" r="3.2" fill="#e36b4e" opacity="0.75" />
-        <circle className="atelier-stage__ink" cx="148" cy="158" r="2.2" fill="#5b4fe0" opacity="0.7" />
-        <circle className="atelier-stage__ink" cx="198" cy="140" r="4" fill="#e36b4e" opacity="0.45" />
-        <circle className="atelier-stage__ink" cx="236" cy="132" r="2" fill="#f0b27a" opacity="0.8" />
-      </svg>
-      <div className="atelier-stage__paper">
-        <HeroPaper />
-        <span className="atelier-stage__tape atelier-stage__tape--a" />
-        <span className="atelier-stage__tape atelier-stage__tape--b" />
-        <span className="atelier-stage__halo" />
-      </div>
-      <div className="atelier-stage__cutout">
-        <HeroEmergence />
-      </div>
+      <HeroStageFilm />
       <p className="atelier-stage__label">{label}</p>
     </div>
   );
