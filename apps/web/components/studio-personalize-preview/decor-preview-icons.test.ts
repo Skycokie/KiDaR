@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DECOR_ASSETS } from "./fixtures";
@@ -18,6 +18,14 @@ const MAX_DECOR_GLB_BYTES = 1_500_000;
 
 /** Ids with no binary anywhere. They must stay out of the manifest. */
 const UNAVAILABLE = ["cloud", "planet"] as const;
+
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) return entry.name === "node_modules" ? [] : sourceFiles(full);
+    return /\.tsx?$/.test(entry.name) ? [full] : [];
+  });
+}
 
 describe("Studio Decor Meshy GLB", () => {
   it("derives availability from the manifest that ships in public/", () => {
@@ -64,14 +72,27 @@ describe("Studio Decor Meshy GLB", () => {
     }
   });
 
-  it("ships the Draco decoder the GLB loaders point at", () => {
-    const stageSource = readFileSync(join(__dirname, "stage-glb-prop.tsx"), "utf8");
-    const thumbSource = readFileSync(join(__dirname, "mode-glb-thumb.tsx"), "utf8");
-    for (const source of [stageSource, thumbSource]) {
-      expect(source).toMatch(/setDecoderPath\("\/draco\/gltf\/"\)/);
-    }
+  it("ships the Draco decoder the shared loader points at", () => {
+    const loaderSource = readFileSync(join(__dirname, "glb-loader.ts"), "utf8");
+    expect(loaderSource).toMatch(/setDecoderPath\("\/draco\/gltf\/"\)/);
     for (const file of ["draco_decoder.js", "draco_decoder.wasm", "draco_wasm_wrapper.js"]) {
       expect(existsSync(join(publicDir, "draco/gltf", file))).toBe(true);
+    }
+  });
+
+  it("builds the Draco decoder once for the whole page", () => {
+    // Every DRACOLoader compiles its own wasm and runs its own workers, so the
+    // Decor step would pay that per thumb and per placed prop.
+    const built = sourceFiles(join(__dirname, "../..")).filter((f) =>
+      /new DRACOLoader\(/.test(readFileSync(f, "utf8"))
+    );
+    expect(built.map((f) => f.split(/[\\/]/).pop())).toEqual(["glb-loader.ts"]);
+
+    for (const file of ["stage-glb-prop.tsx", "mode-glb-thumb.tsx"]) {
+      const source = readFileSync(join(__dirname, file), "utf8");
+      expect(source).toMatch(/createGlbLoader/);
+      // The decoder outlives any single component, so nothing may dispose it.
+      expect(source).not.toMatch(/draco\??\.dispose\(\)/);
     }
   });
 

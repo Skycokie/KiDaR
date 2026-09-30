@@ -2,35 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-
-function disposeObject(object: THREE.Object3D) {
-  object.traverse((node) => {
-    const mesh = node as THREE.Mesh;
-    if (!mesh.isMesh) return;
-    mesh.geometry?.dispose();
-    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    for (const material of materials) {
-      const std = material as THREE.MeshStandardMaterial;
-      std.map?.dispose();
-      std.normalMap?.dispose();
-      std.roughnessMap?.dispose();
-      std.metalnessMap?.dispose();
-      std.emissiveMap?.dispose();
-      std.aoMap?.dispose();
-      material.dispose();
-    }
-  });
-}
-
-function createGlbLoader() {
-  const loader = new GLTFLoader();
-  const draco = new DRACOLoader();
-  draco.setDecoderPath("/draco/gltf/");
-  loader.setDRACOLoader(draco);
-  return { loader, draco };
-}
+import { createGlbLoader, disposeObject } from "./glb-loader";
 
 /**
  * Stage decor GLB — static pose (no auto-spin). Parent handles drag-to-move
@@ -60,7 +32,6 @@ export function StageGlbProp({
     let renderer: THREE.WebGLRenderer | null = null;
     let root: THREE.Object3D | null = null;
     let resizeObserver: ResizeObserver | null = null;
-    let draco: DRACOLoader | null = null;
 
     void (async () => {
       try {
@@ -87,9 +58,7 @@ export function StageGlbProp({
         rim.position.set(-1.6, 0.9, -1.2);
         scene.add(rim);
 
-        const created = createGlbLoader();
-        draco = created.draco;
-        const gltf = await created.loader.loadAsync(modelUrl);
+        const gltf = await createGlbLoader().loadAsync(modelUrl);
         if (cancelled) return;
         root = gltf.scene;
 
@@ -151,7 +120,6 @@ export function StageGlbProp({
       paintRef.current = null;
       resizeObserver?.disconnect();
       if (root) disposeObject(root);
-      draco?.dispose();
       if (renderer) {
         renderer.dispose();
         renderer.domElement.remove();
