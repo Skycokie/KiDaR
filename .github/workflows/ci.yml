@@ -27,6 +27,7 @@ jobs:
       # needs core and web.
       - run: pnpm install --frozen-lockfile --filter @kidar/core... --filter @kidar/web...
       - run: pnpm --filter @kidar/core test
+      - run: pnpm --filter @kidar/core typecheck
       - run: pnpm --filter @kidar/web test
       - run: pnpm --filter @kidar/web lint
       - run: pnpm --filter @kidar/web typecheck
