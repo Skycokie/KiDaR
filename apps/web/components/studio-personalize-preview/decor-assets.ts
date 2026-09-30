@@ -20,10 +20,22 @@ export const DECOR_GLB_SRC: Record<DecorId, string> = {
 
 /**
  * Decor ids that ship a Meshy GLB in this deploy bundle.
- * Empty until compressed/CDN-approved binaries are committed or hosted.
- * Missing files must not be advertised as available.
+ * `cloud` and `planet` have no binary, so they stay out.
+ * decor-preview-icons.test.ts checks this set against public/ so it cannot drift.
  */
-export const DECOR_GLB_AVAILABLE = new Set<DecorId>([]);
+export const DECOR_GLB_AVAILABLE = new Set<DecorId>([
+  "stars",
+  "grass",
+  "tree",
+  "house",
+  "balloons",
+  "figureWave",
+  "figureFloat",
+  "figureDance",
+  "figureJump",
+  "figureStill",
+  "figureFollow"
+]);
 
 export function decorGlbAvailable(id: DecorId): boolean {
   return DECOR_GLB_AVAILABLE.has(id);

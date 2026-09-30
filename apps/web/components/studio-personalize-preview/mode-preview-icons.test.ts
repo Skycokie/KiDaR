@@ -12,14 +12,20 @@ const cssSource = readFileSync(join(__dirname, "personalize-preview.css"), "utf8
 const publicDir = join(__dirname, "../../public");
 
 describe("Studio Personaj mode preview icons", () => {
-  it("uses CSS figurine placeholder and a cutout drawing for pop-out", () => {
-    expect(MODE_PREVIEW_ASSETS.figurine).toBe("/demo/glb/WHO.glb");
+  it("uses a figurine still and a cutout drawing for pop-out", () => {
+    expect(MODE_PREVIEW_ASSETS.figurine).toBe("/demo/studio/mode-figurine.webp");
     expect(MODE_PREVIEW_ASSETS.popoutDrawing).toBe("/demo/studio/mode-popout-drawing.png");
     expect(existsSync(join(publicDir, "demo/studio/mode-popout-drawing.png"))).toBe(true);
+    expect(existsSync(join(publicDir, "demo/studio/mode-figurine.webp"))).toBe(true);
     expect(shellSource).toMatch(/ModePreviewIcon/);
     expect(iconsSource).toMatch(/studio-ws__mode-icon-float/);
     expect(iconsSource).not.toMatch(/ModeGlbThumb/);
     expect(iconsSource).toMatch(/ModePopoutThumb/);
+  });
+
+  it("never points the figurine thumb at an uncommitted source GLB", () => {
+    expect(iconsSource).not.toMatch(/WHO\.glb/);
+    expect(existsSync(join(publicDir, "demo/glb/WHO.glb"))).toBe(false);
   });
 
   it("extrudes the pop-out drawing like Studio then floats the pop-out thumb", () => {
