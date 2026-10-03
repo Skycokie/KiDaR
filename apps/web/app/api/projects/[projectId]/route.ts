@@ -25,6 +25,15 @@ import {
 
 type Context = { params: { projectId: string } };
 
+/** Written only by publish / page_render on the server. */
+const SERVER_OWNED_SETTINGS = [
+  "publicHtmlUrl",
+  "publicQrUrl",
+  "publicPdfUrl",
+  "publicExperienceUrl",
+  "publishTermsAcceptedAt"
+] as const;
+
 export async function GET(_request: Request, { params }: Context) {
   const user = await getLoggedInUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -79,7 +88,9 @@ export async function PATCH(request: Request, { params }: Context) {
       ...(body.mode ? { mode: body.mode } : {})
     };
     if (body.settings) {
-      patch.settings = mergeSettings(existing.settings, body.settings);
+      const clientSettings = { ...body.settings };
+      for (const key of SERVER_OWNED_SETTINGS) delete clientSettings[key];
+      patch.settings = mergeSettings(existing.settings, clientSettings);
     }
     const project = await updateProjectDocument(params.projectId, patch);
     return NextResponse.json({ project });

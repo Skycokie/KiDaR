@@ -12,9 +12,7 @@ export const en: Messages = {
     description: "Turn a drawing into a figure you can discover in your world.",
     discoverCta: "Discover kidAR",
     studioCta: "Enter Studio",
-    originalArtNote: "Art © kidAR",
-    playAnimation: "Play animation",
-    pauseAnimation: "Pause animation",
+    originalArtNote: "Original illustrations created for kidAR.",
     processTitle: "From a drawing, into a new world.",
     draw: "Draw",
     drawBody: "Create a character in your own style.",
@@ -24,12 +22,9 @@ export const en: Messages = {
     discoverBody: "Look at the figure and explore it in your space.",
     closeTitle: "A small idea can become a big world.",
     enterCta: "Enter kidAR",
-    howStep1Title: "Photograph a scene",
-    howStep1Body: "Take a clear photo of a drawing or a real moment.",
-    howStep2Title: "Upload the photo",
-    howStep2Body: "kidAR builds a 3D figure from what you captured.",
-    howStep3Title: "Get a QR for 3D AR",
-    howStep3Body: "Scan the code and discover the figure in your space."
+    revealFound3d: "Show the found object in 3D",
+    spinDetective: "Lift and spin the yellow detective",
+    returnToPhoto: "Send the object back into the picture"
   },
   auth: {
     title: "Enter kidAR",
@@ -154,15 +149,6 @@ export const en: Messages = {
       updatedYesterday: "updated yesterday",
       updatedOn: "updated {date}",
       status: { draft: "In progress", ready: "Ready", published: "Published" },
-      delete: "Delete",
-      deleteConfirmTitle: "Delete this surprise?",
-      deleteConfirmBody: "It leaves your account and frees a slot on the free plan.",
-      deleteConfirmPublished:
-        "The public link and QR code will stop working. Anyone with the code will no longer open the experience.",
-      deleteConfirmAction: "Delete permanently",
-      deleteCancel: "Cancel",
-      deleteError: "We couldn’t delete the surprise. Try again.",
-      deleting: "Deleting…",
       fixtures: {
         aurora: { title: "Aurora", line: "A pencil dragon steps out of the night." },
         garden: { title: "The hidden garden", line: "The illustrated page opens like a gate." },
@@ -354,12 +340,22 @@ export const en: Messages = {
     publish: "Publish",
     publishPrepareTitle: "Prepare the world for publishing",
     publishLinkNote: "Your world will get a link and a QR code.",
-    publishStartNote: "The saved start pose will be used at the next publish.",
+    publishStartNote: "The saved start pose and decor go into the AR page.",
     publishLaterNote: "Real publishing will turn on after we review the AR experience.",
-    publishQrLabel: "QR code preview",
+    publishQrLabel: "The QR code opens your world’s AR page",
     publishWorld: "Publish world",
     publishInactive: "Real publishing is not turned on yet.",
     publishBack: "Back to Studio",
+    publishTermsLabel:
+      "I agree that the drawing, character, and decor become public through the link and QR code.",
+    publishBuilding: "Building your world… this can take a few minutes.",
+    publishReady: "Your world is ready. Scan the QR code with your phone.",
+    publishFailed: "Publishing didn’t work. You can try again.",
+    publishSaveFailed: "We couldn’t save the pose and decor. Try again.",
+    publishDenied: "Publishing isn’t available right now.",
+    publishQrDownload: "Download QR code",
+    publishOpenPage: "Open AR page",
+    publishPdf: "Printable sheet (PDF)",
     previewOnlyTitle: "Preview only",
     seeInAr: "See in AR",
     seeInArPreparing: "AR in preparation",
@@ -654,7 +650,17 @@ export const en: Messages = {
     worldHint: "Fixture world · Butterfly · Stars · Sunset"
   },
   ar: {
-    notPublic: "This experience is not public yet."
+    notPublic: "This experience is not public yet.",
+    cameraTitle: "View in your space",
+    cameraCharacterOnly: "3D character only. Decor appears only in AR on the drawing.",
+    cameraOpenAr: "Place the character in your room",
+    cameraLoading: "Loading the 3D character…",
+    cameraMissingModel: "The 3D character isn’t available right now. Try AR on the drawing.",
+    cameraBackToAr: "Back to AR on the drawing",
+    desktopTitle: "Open on your phone",
+    desktopBody:
+      "AR works on phones. Scan the QR code with your phone camera. Here you can rotate the character in 3D.",
+    desktopQrAlt: "QR code for the AR page"
   },
   legal: {
     footerLabel: "Legal",

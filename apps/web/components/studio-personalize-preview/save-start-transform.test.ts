@@ -7,7 +7,9 @@ import {
   isStartPoseDirty,
   parseArAnchorMode,
   patchStartTransform,
-  startSavePresentation
+  persistedDecorToStudio,
+  startSavePresentation,
+  type StudioDecorForSave
 } from "./save-start-transform";
 import { createWorkspaceState } from "./form-state";
 
@@ -27,7 +29,8 @@ describe("start transform preview save", () => {
             rotation: { x: 8, y: -32, z: 180 },
             position: { x: 0.2, y: -0.1, z: 0.4 },
             scale: 1.4
-          }
+          },
+          decor: []
         }
       }
     });
@@ -63,16 +66,74 @@ describe("start transform preview save", () => {
     expect(parseArAnchorMode(1)).toBe("marker");
   });
 
-  it("is dirty after yaw, pitch, or arAnchorMode changes; clean after matching save baseline", () => {
-    const baseline = { yaw: -32, pitch: 8, arAnchorMode: "marker" as const };
+  it("is dirty after yaw, pitch, arAnchorMode, or decor changes", () => {
+    const baseline = {
+      yaw: -32,
+      pitch: 8,
+      arAnchorMode: "marker" as const,
+      decor: [] as StudioDecorForSave[]
+    };
     expect(isStartPoseDirty(baseline, baseline)).toBe(false);
     expect(isStartPoseDirty({ ...baseline, yaw: -17 }, baseline)).toBe(true);
     expect(isStartPoseDirty({ ...baseline, pitch: 18 }, baseline)).toBe(true);
     expect(isStartPoseDirty({ ...baseline, arAnchorMode: "follow" }, baseline)).toBe(true);
     expect(
       isStartPoseDirty(
-        { yaw: -32, pitch: 8, arAnchorMode: "follow" },
-        { yaw: -32, pitch: 8, arAnchorMode: "follow" }
+        { ...baseline, decor: [{ id: "stars", x: 10, y: 20, yaw: 0, pitch: 0 }] },
+        baseline
+      )
+    ).toBe(true);
+  });
+
+  it("persists decor with radians converted to degrees", () => {
+    const body = buildStartTransformPatch({
+      yaw: 0,
+      pitch: 0,
+      offset: { x: 0, y: 0, z: 0 },
+      scale: 1,
+      decor: [{ id: "tree", x: 70, y: 40, yaw: Math.PI / 2, pitch: 0 }]
+    });
+    expect(body.settings.scene.decor).toEqual([
+      { id: "tree", x: 70, y: 40, yaw: 90, pitch: 0 }
+    ]);
+  });
+
+  it("persists only AR-capable decor and ignores Studio-only props for dirtiness", () => {
+    const body = buildStartTransformPatch({
+      yaw: 0,
+      pitch: 0,
+      offset: { x: 0, y: 0, z: 0 },
+      scale: 1,
+      decor: [
+        { id: "cloud", x: 20, y: 16, yaw: 0, pitch: 0 },
+        { id: "stars", x: 74, y: 14, yaw: 0, pitch: 0 }
+      ]
+    });
+    expect(body.settings.scene.decor.map((item) => item.id)).toEqual(["stars"]);
+    const pose = { yaw: 0, pitch: 0, arAnchorMode: "marker" as const };
+    expect(
+      isStartPoseDirty(
+        { ...pose, decor: [{ id: "planet", x: 50, y: 20, yaw: 0, pitch: 0 }] },
+        { ...pose, decor: [] }
+      )
+    ).toBe(false);
+  });
+
+  it("restores saved decor after reload with degrees back to radians", () => {
+    const decor = persistedDecorToStudio([
+      { id: "tree", x: 70, y: 40, yaw: 90, pitch: 0 },
+      { id: "nope", x: 1, y: 1, yaw: 0, pitch: 0 }
+    ]);
+    expect(decor).toHaveLength(1);
+    expect(decor[0]?.yaw).toBeCloseTo(Math.PI / 2, 6);
+    const state = createWorkspaceState({ hasDrawing: true, yaw: null, pitch: null, decor });
+    expect(state.decor).toHaveLength(1);
+    expect(state.decor[0]).toMatchObject({ id: "tree", x: 70, y: 40 });
+    expect(state.decor[0]?.key).toMatch(/^decor-/);
+    expect(
+      isStartPoseDirty(
+        { yaw: 0, pitch: 0, arAnchorMode: "marker", decor: state.decor },
+        { yaw: 0, pitch: 0, arAnchorMode: "marker", decor }
       )
     ).toBe(false);
   });
@@ -176,6 +237,8 @@ describe("start transform preview save", () => {
     expect(shell).toContain("baselineArAnchorMode");
     expect(page).toContain("parseArAnchorMode");
     expect(page).toContain("arAnchorMode:");
+    expect(page).toContain("persistedDecorToStudio");
+    expect(shell).toContain("baselineDecor");
     expect(writer).toContain('method: "PATCH"');
     expect(writer).not.toMatch(/\b(POST|PUT|DELETE)\b/);
     expect(writer).not.toMatch(/\/api\/publish|getUserMedia|FormData/);

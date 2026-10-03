@@ -5,6 +5,7 @@ import { FIGURINE_PIPELINE_VERSION } from "./figurine";
 import { AR_PAGE_TEMPLATE_VERSION } from "./templates/ar-page";
 import { PAGE_RENDER_PIPELINE_VERSION } from "./page-render";
 import { PRINT_PIPELINE_VERSION } from "./print/pdf";
+import { decorHashIdentity } from "./ar-decor";
 import type { JobType } from "./jobs";
 
 /** Bump when pipeline inputs or templates change meaning for public artifacts. */
@@ -165,6 +166,8 @@ export interface PageRenderHashParts {
   } | null;
   /** AR sticky-follow vs marker; pages with follow must rebuild when this flips. */
   arAnchorMode?: "marker" | "follow" | null;
+  /** Studio decor props (degrees); pages rebuild when placement changes. */
+  decor?: import("./ar-decor").ArDecorProp[] | null;
 }
 
 function originIdentity(raw: string | null | undefined): string | null {
@@ -199,7 +202,8 @@ export function buildPageRenderInputDocument(parts: PageRenderHashParts): Record
     publicAssetOrigin: originIdentity(parts.publicAssetOrigin),
     showWatermark: Boolean(parts.showWatermark),
     startTransform: startTransformIdentity(parts.startTransform ?? null),
-    arAnchorMode: parts.arAnchorMode === "follow" ? "follow" : "marker"
+    arAnchorMode: parts.arAnchorMode === "follow" ? "follow" : "marker",
+    decor: decorHashIdentity(parts.decor ?? null)
   };
 }
 

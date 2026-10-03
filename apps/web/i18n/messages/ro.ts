@@ -12,9 +12,7 @@ export const ro: Messages = {
     description: "Transformă un desen într-o figurină pe care o poți descoperi în lumea ta.",
     discoverCta: "Descoperă kidAR",
     studioCta: "Intră în Studio",
-    originalArtNote: "Ilustrații © kidAR",
-    playAnimation: "Pornește animația",
-    pauseAnimation: "Oprește animația",
+    originalArtNote: "Ilustrații originale create pentru kidAR.",
     processTitle: "Din desen, într-o lume nouă.",
     draw: "Desenează",
     drawBody: "Creează un personaj în stilul tău.",
@@ -24,12 +22,9 @@ export const ro: Messages = {
     discoverBody: "Privește figurina și exploreaz-o în spațiul tău.",
     closeTitle: "O idee mică poate deveni o lume mare.",
     enterCta: "Intră în kidAR",
-    howStep1Title: "Fotografiază o scenă",
-    howStep1Body: "Fă o poză clară a unui desen sau a unui moment real.",
-    howStep2Title: "Încarcă poza",
-    howStep2Body: "kidAR construiește o figurină 3D din ce ai capturat.",
-    howStep3Title: "Primești QR pentru AR 3D",
-    howStep3Body: "Scanează codul și descoperă figurina în spațiul tău."
+    revealFound3d: "Arată obiectul găsit în 3D",
+    spinDetective: "Ridică și învârte detectivul galben",
+    returnToPhoto: "Trimite obiectul înapoi în poză"
   },
   auth: {
     title: "Intră în kidAR",
@@ -154,15 +149,6 @@ export const ro: Messages = {
       updatedYesterday: "actualizat ieri",
       updatedOn: "actualizat {date}",
       status: { draft: "În lucru", ready: "Pregătit", published: "Publicat" },
-      delete: "Șterge",
-      deleteConfirmTitle: "Ștergi această surpriză?",
-      deleteConfirmBody: "Surpriza dispare din cont și eliberezi un loc din planul gratuit.",
-      deleteConfirmPublished:
-        "Linkul și QR-ul public nu vor mai funcționa. Oricine are codul nu mai poate deschide experiența.",
-      deleteConfirmAction: "Șterge definitiv",
-      deleteCancel: "Anulează",
-      deleteError: "Nu am putut șterge surpriza. Reîncearcă.",
-      deleting: "Se șterge…",
       fixtures: {
         aurora: { title: "Aurora", line: "Un dragon de creion iese din noapte." },
         garden: { title: "Grădina ascunsă", line: "Pagina ilustrată se deschide ca o poartă." },
@@ -354,12 +340,22 @@ export const ro: Messages = {
     publish: "Publică",
     publishPrepareTitle: "Pregătește lumea pentru publicare",
     publishLinkNote: "Lumea ta va primi un link și un cod QR.",
-    publishStartNote: "Poziția de start salvată va fi folosită la următoarea publicare.",
+    publishStartNote: "Poziția de start și decorul salvate intră în pagina AR.",
     publishLaterNote: "Publicarea reală va fi activată după ce verificăm experiența AR.",
-    publishQrLabel: "Previzualizare cod QR",
+    publishQrLabel: "Codul QR deschide pagina AR a lumii tale",
     publishWorld: "Publică lumea",
     publishInactive: "Publicarea reală nu este activată încă.",
     publishBack: "Înapoi în Studio",
+    publishTermsLabel:
+      "Sunt de acord ca desenul, personajul și decorul să devină publice prin link și codul QR.",
+    publishBuilding: "Construim lumea… poate dura câteva minute.",
+    publishReady: "Lumea ta e gata. Scanează codul QR cu telefonul.",
+    publishFailed: "Publicarea nu a reușit. Poți încerca din nou.",
+    publishSaveFailed: "Nu am putut salva poziția și decorul. Încearcă din nou.",
+    publishDenied: "Publicarea nu este disponibilă acum.",
+    publishQrDownload: "Descarcă codul QR",
+    publishOpenPage: "Deschide pagina AR",
+    publishPdf: "Fișa de printat (PDF)",
     previewOnlyTitle: "Doar previzualizare",
     seeInAr: "Vezi în AR",
     seeInArPreparing: "AR în pregătire",
@@ -654,7 +650,17 @@ export const ro: Messages = {
     worldHint: "Lume fixture · Fluture · Stele · Apus"
   },
   ar: {
-    notPublic: "Experiența nu este publică încă."
+    notPublic: "Experiența nu este publică încă.",
+    cameraTitle: "Vezi în camera ta",
+    cameraCharacterOnly: "Doar personajul 3D. Decorul apare doar în AR pe desen.",
+    cameraOpenAr: "Pune personajul în cameră",
+    cameraLoading: "Se încarcă personajul 3D…",
+    cameraMissingModel: "Personajul 3D nu este disponibil acum. Încearcă AR-ul pe desen.",
+    cameraBackToAr: "Înapoi la AR pe desen",
+    desktopTitle: "Deschide pe telefon",
+    desktopBody:
+      "AR-ul funcționează pe telefon. Scanează codul QR cu camera telefonului. Aici poți roti personajul în 3D.",
+    desktopQrAlt: "Cod QR pentru pagina AR"
   },
   legal: {
     footerLabel: "Informații legale",
