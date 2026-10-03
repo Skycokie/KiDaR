@@ -115,6 +115,8 @@ export function createWorkspaceState(seed: {
   pitch: number | null;
   arAnchorMode?: "marker" | "follow" | null;
   ideaPrompt?: string;
+  /** Persisted decor (radians); unknown ids are dropped. */
+  decor?: Array<{ id: string; x: number; y: number; yaw: number; pitch: number }>;
 }): PersonalizeState {
   const next = createInitialPersonalizeState();
   const placed =
@@ -144,8 +146,21 @@ export function createWorkspaceState(seed: {
   const withIdea = seed.ideaPrompt
     ? { ...withAnchor, ideaPrompt: limitIdeaPrompt(seed.ideaPrompt) }
     : withAnchor;
-  if (seed.hasDrawing) return withIdea;
-  return { ...withIdea, stage: "desenul", completedStages: [] };
+  const seededDecor = (seed.decor ?? [])
+    .filter((item): item is typeof item & { id: DecorId } =>
+      Object.prototype.hasOwnProperty.call(DECOR_HOME, item.id)
+    )
+    .slice(0, DECOR_MAX)
+    .map((item) => ({
+      ...createDecorInstance(item.id),
+      x: clamp(item.x, 4, 96),
+      y: clamp(item.y, 4, 96),
+      yaw: item.yaw,
+      pitch: item.pitch
+    }));
+  const withDecor = seededDecor.length ? { ...withIdea, decor: seededDecor } : withIdea;
+  if (seed.hasDrawing) return withDecor;
+  return { ...withDecor, stage: "desenul", completedStages: [] };
 }
 
 export function createInitialPersonalizeState(): PersonalizeState {
@@ -780,8 +795,14 @@ export function isPersonalizeWriteBlocked(url: string): boolean {
   if (isStartTransformPatchPath(path)) return false;
   if (isFigurineGeneratePath(path)) return false;
   if (isCharacterVoicePath(path)) return false;
+  if (isPublishWorldPath(path)) return false;
   if (path.startsWith("/api/")) return true;
   return false;
+}
+
+/** Explicit-consent publish, its status, and the owner-only QR PNG. */
+function isPublishWorldPath(path: string): boolean {
+  return path === "/api/publish" || /^\/api\/projects\/[^/]+\/(publish|qr)$/.test(path);
 }
 
 export const FORBIDDEN_PERSISTENCE_APIS = [

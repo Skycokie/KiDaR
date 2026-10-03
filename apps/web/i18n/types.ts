@@ -315,6 +315,15 @@ export type Messages = {
     publishWorld: string;
     publishInactive: string;
     publishBack: string;
+    publishTermsLabel: string;
+    publishBuilding: string;
+    publishReady: string;
+    publishFailed: string;
+    publishSaveFailed: string;
+    publishDenied: string;
+    publishQrDownload: string;
+    publishOpenPage: string;
+    publishPdf: string;
     previewOnlyTitle: string;
     seeInAr: string;
     seeInArPreparing: string;
@@ -597,5 +606,14 @@ export type Messages = {
   };
   ar: {
     notPublic: string;
+    cameraTitle: string;
+    cameraCharacterOnly: string;
+    cameraOpenAr: string;
+    cameraLoading: string;
+    cameraMissingModel: string;
+    cameraBackToAr: string;
+    desktopTitle: string;
+    desktopBody: string;
+    desktopQrAlt: string;
   };
 };

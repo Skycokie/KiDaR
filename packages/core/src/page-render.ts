@@ -16,6 +16,7 @@ import type { JobType, PipelineJob } from "./jobs";
 import type { HashableProjectSettings } from "./hash";
 import { resolveEffectiveArTransform } from "./start-transform";
 import { IMMUTABLE_CACHE_CONTROL } from "./storage-keys";
+import { normalizeArDecorList, resolveArDecorProps, type ArDecorProp } from "./ar-decor";
 
 export const PAGE_RENDER_PIPELINE_VERSION = "m4.4b.0";
 export const PAGE_POINTER_CACHE_CONTROL = "public, max-age=60";
@@ -92,6 +93,60 @@ export function consumerArUrl(appOrigin: string, slug: string, options?: { allow
   });
   const path = `/ar/${safeExperienceSlug(slug)}`;
   return `${origin.origin}${path}`;
+}
+
+/**
+ * App page for the character-only camera view (Scene Viewer / Quick Look / desktop orbit).
+ * Carries the already-public character GLB URL; decor is never part of this view.
+ */
+export function cameraViewUrl(
+  appOrigin: string,
+  slug: string,
+  modelUrl: string,
+  options?: { allowLocalOrigins?: boolean }
+): string {
+  const model = assertPublicAbsoluteUrl(modelUrl, {
+    allowLocalOrigins: options?.allowLocalOrigins,
+    label: "modelUrl"
+  });
+  const base = consumerArUrl(appOrigin, slug, options);
+  return `${base}/camera?model=${encodeURIComponent(model.href)}`;
+}
+
+export type CameraViewModelResult =
+  | { ok: true; modelUrl: string }
+  | { ok: false; reason: "missing" | "invalid" | "foreign_origin" | "not_glb" };
+
+/**
+ * Validate the `model` query param of the camera view. Only GLBs served from the
+ * public artifact origin are accepted, so the page cannot be used to proxy
+ * arbitrary third-party models.
+ */
+export function resolveCameraViewModel(input: {
+  modelParam: string | null | undefined;
+  publicBaseUrl: string | null | undefined;
+  allowLocalOrigins?: boolean;
+}): CameraViewModelResult {
+  const raw = input.modelParam?.trim();
+  if (!raw) return { ok: false, reason: "missing" };
+  if (!input.publicBaseUrl?.trim()) return { ok: false, reason: "invalid" };
+  let model: URL;
+  let base: URL;
+  try {
+    model = assertPublicAbsoluteUrl(raw, {
+      allowLocalOrigins: input.allowLocalOrigins,
+      label: "modelUrl"
+    });
+    base = assertPublicAbsoluteUrl(input.publicBaseUrl, {
+      allowLocalOrigins: input.allowLocalOrigins,
+      label: "publicBaseUrl"
+    });
+  } catch {
+    return { ok: false, reason: "invalid" };
+  }
+  if (model.origin !== base.origin) return { ok: false, reason: "foreign_origin" };
+  if (!model.pathname.toLowerCase().endsWith(".glb")) return { ok: false, reason: "not_glb" };
+  return { ok: true, modelUrl: model.href };
 }
 
 export function pageRenderPipelineLabel(): string {
@@ -280,7 +335,11 @@ export interface MapArPageInput {
   settings: HashableProjectSettings & {
     logoUrl?: string;
     soundUrl?: string;
-    scene?: { startTransform?: unknown; arAnchorMode?: unknown } | null;
+    scene?: {
+      startTransform?: unknown;
+      arAnchorMode?: unknown;
+      decor?: ArDecorProp[] | null;
+    } | null;
   };
   modelUrl: string;
   targetUrl: string;
@@ -288,6 +347,8 @@ export interface MapArPageInput {
   logoUrl?: string | null;
   allowLocalOrigins?: boolean;
   showWatermark?: boolean;
+  /** Absolute origin for /demo/glb decor assets (app URL). */
+  publicAppOrigin?: string | null;
 }
 
 /**
@@ -315,6 +376,16 @@ export function mapSettingsToArPageConfig(input: MapArPageInput): NormalizedArPa
     (input.settings.scene as { arAnchorMode?: unknown }).arAnchorMode === "follow"
       ? "follow"
       : "marker";
+  const decorList = normalizeArDecorList(
+    input.settings.scene && typeof input.settings.scene === "object"
+      ? (input.settings.scene as { decor?: unknown }).decor
+      : []
+  );
+  const appOrigin = input.publicAppOrigin?.trim() || "";
+  const resolvedProps =
+    appOrigin && decorList.length > 0
+      ? resolveArDecorProps({ decor: decorList, appOrigin })
+      : [];
   const config: ArPageConfig = {
     title: input.settings.title?.trim() || "Surpriza kidAR",
     theme: input.settings.theme || "#6d5dfc",
@@ -331,7 +402,13 @@ export function mapSettingsToArPageConfig(input: MapArPageInput): NormalizedArPa
     },
     showWatermark: input.showWatermark,
     allowLocalOrigins: input.allowLocalOrigins,
-    arAnchorMode
+    arAnchorMode,
+    props: resolvedProps.map((p) => ({
+      modelUrl: p.modelUrl,
+      position: p.position,
+      rotation: p.rotation,
+      scale: p.scale
+    }))
   };
   try {
     return normalizeArPageConfig(config);

@@ -354,4 +354,41 @@ describe("page_render stage", () => {
     expect(result.kind).toBe("written");
     expect(complete).toHaveBeenCalledOnce();
   });
+
+  it("publishes decor props and a character-only camera link in the MindAR page", async () => {
+    const job = baseJob();
+    const storage = new MemoryPublicArtifactStorage("https://cdn.example.com");
+    const complete = vi.fn(async (params) => ({ ...job, ...params, status: "done" as const }));
+    const withDecor: ProjectSettings = {
+      ...settings,
+      scene: { decor: [{ id: "tree", x: 70, y: 40, yaw: 90, pitch: 0 }] }
+    };
+    const result = await runPageRenderStage(job, {
+      storage,
+      appOrigin: "http://localhost:3000",
+      allowLocalOrigins: true,
+      ...stubArRuntime,
+      loadProject: async () => ({
+        sourceImagePath: "src_1",
+        mode: "popout",
+        slug: "demo-slug",
+        settings: withDecor,
+        settingsRaw: JSON.stringify(withDecor)
+      }),
+      loadSource: async () => tinyPng(),
+      listJobs: async () => siblingJobs("popout"),
+      complete
+    });
+    expect(result.kind).toBe("written");
+    if (result.kind !== "written") return;
+    const objects = (storage as unknown as { objects: Map<string, { body: Uint8Array }> }).objects;
+    const html = new TextDecoder().decode(objects.get(result.artifactKey)?.body);
+    expect(html).toContain("a-gltf-model");
+    expect(html).toContain("http://localhost:3000/demo/glb/decor/tree.glb");
+    expect(html).toContain('id="kidar-camera-view"');
+    expect(html).toContain(
+      `/ar/demo-slug/camera?model=${encodeURIComponent("https://cdn.example.com/models/p/c/popout.glb")}`
+    );
+    expect(html).toContain("Doar personajul 3D");
+  });
 });
