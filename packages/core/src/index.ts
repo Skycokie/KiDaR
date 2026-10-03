@@ -71,7 +71,9 @@ export { PublicStorageConfigError } from "./storage-error";
 export {
   resolvePublicStorageConfig,
   createUnimplementedPublicStorage,
-  createPublicArtifactStorage
+  createPublicArtifactStorage,
+  publishStorageEnv,
+  publishPublicBaseUrl
 } from "./storage";
 export type {
   PublicStorageProviderId,

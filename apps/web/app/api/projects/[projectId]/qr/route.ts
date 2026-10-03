@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   consumerArUrl,
   generateArQrPng,
+  publishPublicBaseUrl,
   resolveExperienceRedirect,
   safeExperienceSlug
 } from "@kidar/core";
@@ -26,10 +27,11 @@ export async function GET(request: Request, { params }: Context) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   if (!appUrl) return NextResponse.json({ error: "qr_unavailable" }, { status: 503 });
 
+  const publicBaseUrl = publishPublicBaseUrl(process.env);
   const published = await resolveExperienceRedirect({
     slug: project.slug,
-    publicBaseUrl: process.env.R2_PUBLIC_BASE_URL,
-    allowLocalOrigins: /localhost|127\.0\.0\.1/.test(process.env.R2_PUBLIC_BASE_URL ?? "")
+    publicBaseUrl,
+    allowLocalOrigins: /localhost|127\.0\.0\.1/.test(publicBaseUrl ?? "")
   });
   if (!published.ok) return NextResponse.json({ error: "not_published" }, { status: 409 });
 

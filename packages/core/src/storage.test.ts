@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   PublicStorageConfigError,
   createPublicArtifactStorage,
+  publishPublicBaseUrl,
+  publishStorageEnv,
   resolvePublicStorageConfig
 } from "./storage";
 
@@ -93,5 +95,54 @@ describe("public storage configuration", () => {
       apiKey: "key",
       bucketId: "public-ar"
     });
+  });
+});
+
+describe("publish storage env", () => {
+  const figureStaging = {
+    R2_ACCOUNT_ID: "acct",
+    R2_ACCESS_KEY_ID: "key",
+    R2_SECRET_ACCESS_KEY: "secret",
+    R2_BUCKET: "kidar-figures-staging",
+    R2_STAGING_BUCKET: "kidar-figures-staging"
+  };
+
+  it("leaves env untouched without publish overrides", () => {
+    const env = { ...figureStaging, R2_BUCKET: "kidar-public-ar", R2_PUBLIC_BASE_URL: "https://ar.example.com" };
+    expect(publishStorageEnv(env)).toBe(env);
+  });
+
+  it("routes publish to its own bucket while figure staging stays private", () => {
+    const env = {
+      ...figureStaging,
+      PUBLISH_R2_BUCKET: "kidar-public-staging",
+      PUBLISH_R2_PUBLIC_BASE_URL: "https://pub-abc.r2.dev"
+    };
+    const view = publishStorageEnv(env);
+    expect(view.R2_BUCKET).toBe("kidar-public-staging");
+    expect(view.R2_PUBLIC_BASE_URL).toBe("https://pub-abc.r2.dev");
+    expect(env.R2_BUCKET).toBe("kidar-figures-staging");
+    expect(env).not.toHaveProperty("R2_PUBLIC_BASE_URL");
+    expect(resolvePublicStorageConfig(view)).toMatchObject({ bucket: "kidar-public-staging" });
+  });
+
+  it("requires both publish overrides together", () => {
+    expect(() => publishStorageEnv({ ...figureStaging, PUBLISH_R2_PUBLIC_BASE_URL: "https://pub-abc.r2.dev" })).toThrow(
+      PublicStorageConfigError
+    );
+    expect(() => publishStorageEnv({ ...figureStaging, PUBLISH_R2_BUCKET: "kidar-public-staging" })).toThrow(
+      PublicStorageConfigError
+    );
+    expect(publishPublicBaseUrl({ ...figureStaging, PUBLISH_R2_BUCKET: "kidar-public-staging" })).toBeUndefined();
+  });
+
+  it("refuses to publish into the private figure staging bucket", () => {
+    expect(() =>
+      publishStorageEnv({
+        ...figureStaging,
+        PUBLISH_R2_BUCKET: "kidar-figures-staging",
+        PUBLISH_R2_PUBLIC_BASE_URL: "https://pub-abc.r2.dev"
+      })
+    ).toThrow(/kidar-figures-staging/);
   });
 });

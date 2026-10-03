@@ -49,6 +49,21 @@ describe("loadCameraView", () => {
     });
     expect(state).toMatchObject({ kind: "ready", modelUrl: model, qrDataUrl: null });
   });
+
+  it("reads the publish bucket origin when figure staging owns R2_BUCKET", async () => {
+    const state = await loadCameraView({
+      slug: "cocos",
+      modelParam: model,
+      env: {
+        NEXT_PUBLIC_APP_URL: env.NEXT_PUBLIC_APP_URL,
+        R2_BUCKET: "kidar-figures-staging",
+        PUBLISH_R2_BUCKET: "kidar-public-staging",
+        PUBLISH_R2_PUBLIC_BASE_URL: env.R2_PUBLIC_BASE_URL
+      },
+      fetchImpl: published
+    });
+    expect(state).toMatchObject({ kind: "ready", modelUrl: model });
+  });
 });
 
 describe("cameraViewPlatform", () => {
