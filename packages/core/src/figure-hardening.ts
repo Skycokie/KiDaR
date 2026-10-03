@@ -635,6 +635,17 @@ export type FigurePublishDecision =
         | "terms";
     };
 
+/**
+ * Map Appwrite project.status onto the figure publish lifecycle gate.
+ * Concurrent publishes while jobs run are blocked (`processing`).
+ * Draft / ready / error / published all map to `ready` so a world can be
+ * published or republished; enqueue remains idempotent on inputHash.
+ */
+export function publishLifecycleFromProjectStatus(status: string): FigureLifecycle {
+  if (status === "processing") return "processing";
+  return "ready";
+}
+
 /** UI cannot publish. The server allows it only when every gate passes. */
 export function decideFigurePublish(input: {
   flags: FigureFeatureFlags;

@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useReducer, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent
+} from "react";
 import {
   Check,
   Grid3x3,
@@ -91,8 +98,18 @@ import {
   reduceInteraction
 } from "./interaction-state";
 import {
+  PUBLISH_POLL_MS,
+  canStartPublish,
+  qrDownloadHref,
+  readPublishStatus,
+  shouldPollPublish,
+  startPublish,
+  type PublishStatusResponse
+} from "./publish-world";
+import {
   type PreviewProjectContext,
   type StartSaveStatus,
+  type StudioDecorForSave,
   buildStartTransformPatch,
   isStartPoseDirty,
   patchStartTransform,
@@ -588,11 +605,18 @@ type StartSaveState = {
   baselineYaw: number;
   baselinePitch: number;
   baselineArAnchorMode: "marker" | "follow";
+  baselineDecor: StudioDecorForSave[];
 };
 
 type StartSaveAction =
   | { type: "saving" }
-  | { type: "saved"; yaw: number; pitch: number; arAnchorMode: "marker" | "follow" }
+  | {
+      type: "saved";
+      yaw: number;
+      pitch: number;
+      arAnchorMode: "marker" | "follow";
+      decor: StudioDecorForSave[];
+    }
   | { type: "error" };
 
 function startSaveReducer(current: StartSaveState, action: StartSaveAction): StartSaveState {
@@ -602,10 +626,15 @@ function startSaveReducer(current: StartSaveState, action: StartSaveAction): Sta
       status: "saved",
       baselineYaw: action.yaw,
       baselinePitch: action.pitch,
-      baselineArAnchorMode: action.arAnchorMode
+      baselineArAnchorMode: action.arAnchorMode,
+      baselineDecor: action.decor
     };
   }
   return { ...current, status: "error" };
+}
+
+function decorForSave(decor: PersonalizeState["decor"]): StudioDecorForSave[] {
+  return decor.map((item) => ({ id: item.id, x: item.x, y: item.y, yaw: item.yaw, pitch: item.pitch }));
 }
 
 /**
@@ -698,7 +727,8 @@ export function PersonalizePreviewShell({
     yaw: projectContext?.startYaw ?? null,
     pitch: projectContext?.startPitch ?? null,
     arAnchorMode: projectContext?.arAnchorMode ?? null,
-    ideaPrompt: initialIdeaPrompt
+    ideaPrompt: initialIdeaPrompt,
+    decor: projectContext?.decor ?? []
   };
   const [state, dispatch] = useReducer(reducer, createWorkspaceState(orbitSeed));
   const [interaction, interactDispatch] = useReducer(reduceInteraction, createInteractionState());
@@ -707,7 +737,8 @@ export function PersonalizePreviewShell({
     baselineYaw: orbitSeed.yaw ?? createInitialPersonalizeState().orbitYaw,
     baselinePitch: orbitSeed.pitch ?? createInitialPersonalizeState().orbitPitch,
     baselineArAnchorMode:
-      orbitSeed.arAnchorMode ?? createInitialPersonalizeState().arAnchorMode
+      orbitSeed.arAnchorMode ?? createInitialPersonalizeState().arAnchorMode,
+    baselineDecor: orbitSeed.decor
   });
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatusView | null>(null);
   const [voiceDraft, setVoiceDraft] = useState<VoiceDraft | null>(null);
@@ -737,12 +768,14 @@ export function PersonalizePreviewShell({
     {
       yaw: state.orbitYaw,
       pitch: state.orbitPitch,
-      arAnchorMode: state.arAnchorMode
+      arAnchorMode: state.arAnchorMode,
+      decor: state.decor
     },
     {
       yaw: save.baselineYaw,
       pitch: save.baselinePitch,
-      arAnchorMode: save.baselineArAnchorMode
+      arAnchorMode: save.baselineArAnchorMode,
+      decor: save.baselineDecor
     }
   );
   const startPresentation = startSavePresentation({
@@ -752,10 +785,11 @@ export function PersonalizePreviewShell({
     copy: COPY.startSave
   });
 
-  const onSaveStart = async () => {
-    if (!projectContext || startPresentation.disabled) return;
+  const persistScene = async (): Promise<boolean> => {
+    if (!projectContext) return false;
     const yaw = state.orbitYaw;
     const pitch = state.orbitPitch;
+    const decor = decorForSave(state.decor);
     if (state.autoRotate) dispatch({ type: "autoRotate", value: false });
     saveDispatch({ type: "saving" });
     const ok = await patchStartTransform(
@@ -765,14 +799,60 @@ export function PersonalizePreviewShell({
         pitch,
         offset: projectContext.offset,
         scale: projectContext.scale,
-        arAnchorMode: state.arAnchorMode
+        arAnchorMode: state.arAnchorMode,
+        decor
       })
     );
     saveDispatch(
       ok
-        ? { type: "saved", yaw, pitch, arAnchorMode: state.arAnchorMode }
+        ? { type: "saved", yaw, pitch, arAnchorMode: state.arAnchorMode, decor }
         : { type: "error" }
     );
+    return ok;
+  };
+
+  const onSaveStart = async () => {
+    if (!projectContext || startPresentation.disabled) return;
+    await persistScene();
+  };
+
+  const [publishStatus, setPublishStatus] = useState<PublishStatusResponse | null>(null);
+  const [publishTerms, setPublishTerms] = useState(false);
+  const [publishBusy, setPublishBusy] = useState(false);
+  const [publishNotice, setPublishNotice] = useState<"save" | "denied" | null>(null);
+
+  const refreshPublishStatus = useCallback(async () => {
+    if (!projectId) return;
+    const result = await readPublishStatus(projectId);
+    if (result.ok) setPublishStatus(result.status);
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!state.publishOpen) return;
+    void refreshPublishStatus();
+  }, [state.publishOpen, refreshPublishStatus]);
+
+  useEffect(() => {
+    if (!state.publishOpen || !shouldPollPublish(publishStatus)) return;
+    const timer = window.setTimeout(() => void refreshPublishStatus(), PUBLISH_POLL_MS);
+    return () => window.clearTimeout(timer);
+  }, [state.publishOpen, publishStatus, refreshPublishStatus]);
+
+  const onPublishWorld = async () => {
+    if (!projectId || !canStartPublish({ status: publishStatus, termsAccepted: publishTerms, busy: publishBusy })) {
+      return;
+    }
+    setPublishBusy(true);
+    setPublishNotice(null);
+    if (!(await persistScene())) {
+      setPublishNotice("save");
+      setPublishBusy(false);
+      return;
+    }
+    const result = await startPublish(projectId, publishTerms);
+    if (!result.ok) setPublishNotice("denied");
+    await refreshPublishStatus();
+    setPublishBusy(false);
   };
 
   useEffect(() => {
@@ -1337,24 +1417,93 @@ export function PersonalizePreviewShell({
             </h2>
             <p>{COPY.publishLinkNote}</p>
             <p>{COPY.publishStartNote}</p>
-            <p>{COPY.publishLaterNote}</p>
+            {publishStatus && !publishStatus.publishEnabled ? <p>{COPY.publishLaterNote}</p> : null}
+            <p
+              className="studio-ws__publish-status"
+              role="status"
+              aria-live="polite"
+              data-publish-phase={publishStatus?.phase ?? "idle"}
+            >
+              {publishNotice === "save"
+                ? COPY.publishSaveFailed
+                : publishNotice === "denied"
+                  ? COPY.publishDenied
+                  : publishStatus?.phase === "building"
+                    ? COPY.publishBuilding
+                    : publishStatus?.phase === "ready"
+                      ? COPY.publishReady
+                      : publishStatus?.phase === "failed"
+                        ? COPY.publishFailed
+                        : ""}
+            </p>
             <figure className="studio-ws__publish-qr">
-              <svg viewBox="0 0 64 64" aria-hidden="true">
-                <rect x="4" y="4" width="18" height="18" />
-                <rect x="42" y="4" width="18" height="18" />
-                <rect x="4" y="42" width="18" height="18" />
-                <rect x="28" y="28" width="8" height="8" />
-                <rect x="40" y="40" width="6" height="6" />
-                <rect x="50" y="28" width="8" height="8" />
-                <rect x="28" y="48" width="8" height="8" />
-              </svg>
+              {publishStatus?.ready && publishStatus.qrPath ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={publishStatus.qrPath} alt={COPY.publishQrLabel} width={192} height={192} />
+              ) : (
+                <svg viewBox="0 0 64 64" aria-hidden="true">
+                  <rect x="4" y="4" width="18" height="18" />
+                  <rect x="42" y="4" width="18" height="18" />
+                  <rect x="4" y="42" width="18" height="18" />
+                  <rect x="28" y="28" width="8" height="8" />
+                  <rect x="40" y="40" width="6" height="6" />
+                  <rect x="50" y="28" width="8" height="8" />
+                  <rect x="28" y="48" width="8" height="8" />
+                </svg>
+              )}
               <figcaption>{COPY.publishQrLabel}</figcaption>
             </figure>
+            {publishStatus?.ready ? (
+              <div className="studio-ws__publish-links">
+                {publishStatus.qrPath ? (
+                  <a className="studio-ws__btn-secondary" href={qrDownloadHref(publishStatus.qrPath)} download>
+                    {COPY.publishQrDownload}
+                  </a>
+                ) : null}
+                {publishStatus.publicUrls.experience ? (
+                  <a
+                    className="studio-ws__btn-secondary"
+                    href={publishStatus.publicUrls.experience}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {COPY.publishOpenPage}
+                  </a>
+                ) : null}
+                {publishStatus.publicUrls.pdf ? (
+                  <a
+                    className="studio-ws__btn-secondary"
+                    href={publishStatus.publicUrls.pdf}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {COPY.publishPdf}
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
+            {publishStatus?.publishEnabled ? (
+              <label className="studio-ws__publish-terms">
+                <input
+                  type="checkbox"
+                  checked={publishTerms}
+                  onChange={(event) => setPublishTerms(event.target.checked)}
+                />
+                <span>{COPY.publishTermsLabel}</span>
+              </label>
+            ) : null}
             <div className="studio-ws__publish-actions">
-              <button type="button" className="studio-ws__btn-primary" disabled>
+              <button
+                type="button"
+                className="studio-ws__btn-primary"
+                disabled={!canStartPublish({ status: publishStatus, termsAccepted: publishTerms, busy: publishBusy })}
+                onClick={() => void onPublishWorld()}
+              >
                 {COPY.publishWorld}
               </button>
-              <p className="studio-ws__publish-inactive">{COPY.publishInactive}</p>
+              {publishStatus && !publishStatus.publishEnabled ? (
+                <p className="studio-ws__publish-inactive">{COPY.publishInactive}</p>
+              ) : null}
               <button type="button" className="studio-ws__btn-secondary" onClick={closePublish}>
                 {COPY.publishBack}
               </button>

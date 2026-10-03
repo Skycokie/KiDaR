@@ -11,6 +11,7 @@ import {
   assertModelUrlForMode,
   assertPublicHtmlBundle,
   assertSupportedSourceImage,
+  cameraViewUrl,
   consumerArUrl,
   experiencePointerKey,
   generateA4PrintPdf,
@@ -173,7 +174,8 @@ export async function runPageRenderStage(
     targetUrl,
     audioUrl,
     allowLocalOrigins: deps.allowLocalOrigins,
-    showWatermark: true
+    showWatermark: true,
+    publicAppOrigin: deps.appOrigin
   });
   const loadRuntime = deps.loadArRuntimeScripts ?? loadDefaultArRuntimeScripts;
   for (const script of await loadRuntime()) {
@@ -195,7 +197,12 @@ export async function runPageRenderStage(
     audioUrl: mapped.audioUrl ?? undefined,
     transform: { position: mapped.position, rotation: mapped.rotation, scale: mapped.scale },
     showWatermark: mapped.showWatermark,
-    allowLocalOrigins: deps.allowLocalOrigins
+    allowLocalOrigins: deps.allowLocalOrigins,
+    arAnchorMode: mapped.arAnchorMode,
+    props: mapped.props,
+    cameraViewUrl: cameraViewUrl(deps.appOrigin, project.slug, mapped.modelUrl, {
+      allowLocalOrigins: deps.allowLocalOrigins
+    })
   });
   assertPublicHtmlBundle(html, { modelUrl: mapped.modelUrl, targetUrl: mapped.targetUrl });
 

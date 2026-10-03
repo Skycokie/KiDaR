@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  AR_CAMERA_VIEW_LABEL_RO,
+  AR_CAMERA_VIEW_NOTE_RO,
   AR_FAILURE_COPY_RO,
   AR_IDLE_START_HINT_RO,
   AR_RETRY_BUTTON_LABEL_RO,
@@ -501,6 +503,45 @@ describe("AR start gate and error classification", () => {
       "follow"
     );
     expect(normalizeArPageConfig(baseConfig()).arAnchorMode).toBe("marker");
+  });
+
+  it("renders marker-anchored decor props beside the character model", () => {
+    const html = renderArPage({
+      ...baseConfig(),
+      props: [
+        {
+          modelUrl: "https://cdn.example.com/demo/glb/decor/stars.glb",
+          position: { x: 0.2, y: -0.1, z: 0.05 },
+          rotation: { x: 0, y: 15, z: 180 },
+          scale: 0.2
+        }
+      ]
+    });
+    expect(html).toContain('id="kidar-prop-0"');
+    expect(html).toContain("https://cdn.example.com/demo/glb/decor/stars.glb");
+    expect(html).toContain('id="kidar-model"');
+  });
+
+  it("labels the camera view as character-only and adds desktop guidance", () => {
+    const cameraUrl =
+      "https://app.example.com/ar/demo/camera?model=https%3A%2F%2Fcdn.example.com%2Fmodels%2Fp1%2Fabc%2Fpopout.glb";
+    const html = renderArPage({ ...baseConfig(), cameraViewUrl: cameraUrl });
+    expect(html).toContain('id="kidar-camera-view"');
+    expect(html).toContain(`href="${cameraUrl}"`);
+    expect(html).toContain(AR_CAMERA_VIEW_LABEL_RO);
+    expect(html).toContain(AR_CAMERA_VIEW_NOTE_RO);
+    expect(html).toContain('id="kidar-desktop-note" hidden');
+    expect(normalizeArPageConfig({ ...baseConfig(), cameraViewUrl: cameraUrl }).cameraViewUrl).toBe(
+      cameraUrl
+    );
+  });
+
+  it("omits the camera view link when no URL is configured and rejects unsafe ones", () => {
+    const html = renderArPage(baseConfig());
+    expect(html).not.toContain('id="kidar-camera-view"');
+    expect(() =>
+      renderArPage({ ...baseConfig(), cameraViewUrl: "javascript:alert(1)" })
+    ).toThrow(ArPageConfigError);
   });
 });
 

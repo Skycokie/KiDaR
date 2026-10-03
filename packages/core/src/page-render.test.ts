@@ -7,7 +7,9 @@ import { renderArPage } from "./templates/ar-page";
 import {
   arePageRenderDependenciesSatisfied,
   assertPublicHtmlBundle,
+  cameraViewUrl,
   consumerArUrl,
+  resolveCameraViewModel,
   experiencePointerKey,
   mapSettingsToArPageConfig,
   pageArtifactKey,
@@ -55,7 +57,9 @@ describe("page artifact keys", () => {
       showWatermark: true
     };
     const pageHash = computePageRenderInputHash(demoPage);
-    expect(pageHash).toBe("3527ccad4accbcff68fd2b70156903ecc305039c26ad1c8ec93bfe83e8bedeb0");
+    expect(pageHash).toBe("0fc0b3dce1b01a98de8b5b3aad8e437d4654a808f3384ccc38dbb28377987bc0");
+    expect(pageHash).not.toBe("d1b101633d92b0d0c10ae0694558baa24826d5facaa7ce799d9ebf3ad4e8dcff");
+    expect(pageHash).not.toBe("3527ccad4accbcff68fd2b70156903ecc305039c26ad1c8ec93bfe83e8bedeb0");
     expect(pageHash).not.toBe("3b2af8d0cb4cb106d65bff31b92eba6a03d8cab08da7e3ed552affe84487acc2");
     expect(pageHash).not.toBe("6fc29bcdf0bac65c8f55317b155264c695364760562573edb45339747de9d8bc");
     expect(pageHash).not.toBe("da985e5f064af51b2eb2c76ee7cc2ce5f66e74f55aa497855c0cee1561122fe3");
@@ -309,6 +313,83 @@ describe("settings to AR page mapping", () => {
         arAnchorMode: follow.arAnchorMode
       })
     ).toContain('data-ar-anchor="follow"');
+  });
+
+  it("maps persisted scene.decor into marker-anchored props on the app origin", () => {
+    const mapped = mapSettingsToArPageConfig({
+      settings: {
+        ...settings(),
+        scene: { decor: [{ id: "tree", x: 70, y: 40, yaw: 90, pitch: 0 }] }
+      },
+      modelUrl: "https://cdn.example.com/models/p/abc/popout.glb",
+      targetUrl: "https://cdn.example.com/targets/p/abc/targets.mind",
+      publicAppOrigin: "https://kidar.example"
+    });
+    expect(mapped.props).toHaveLength(1);
+    expect(mapped.props[0].modelUrl).toBe("https://kidar.example/demo/glb/decor/tree.glb");
+    expect(mapped.props[0].position.x).toBeCloseTo(0.2);
+    expect(mapped.props[0].position.y).toBeCloseTo(0.1);
+  });
+
+  it("changes the page_render hash when decor placement changes", () => {
+    const base = {
+      inputHash: hash,
+      slug: "demo",
+      publicAppOrigin: "https://kidar.example",
+      publicAssetOrigin: "https://cdn.example.com",
+      showWatermark: true
+    };
+    const without = computePageRenderInputHash(base);
+    const withDecor = computePageRenderInputHash({
+      ...base,
+      decor: [{ id: "tree", x: 70, y: 40, yaw: 90, pitch: 0 }]
+    });
+    const moved = computePageRenderInputHash({
+      ...base,
+      decor: [{ id: "tree", x: 20, y: 40, yaw: 90, pitch: 0 }]
+    });
+    expect(withDecor).not.toBe(without);
+    expect(moved).not.toBe(withDecor);
+  });
+});
+
+describe("camera view (character-only)", () => {
+  const model = "https://cdn.example.com/models/p1/abc/popout.glb";
+
+  it("builds an app URL under /ar/{slug}/camera that carries only the character GLB", () => {
+    const url = cameraViewUrl("https://kidar.example", "Demo Slug", model);
+    expect(url).toBe(
+      `https://kidar.example/ar/demo-slug/camera?model=${encodeURIComponent(model)}`
+    );
+  });
+
+  it("accepts only GLBs on the public artifact origin", () => {
+    const base = "https://cdn.example.com";
+    expect(resolveCameraViewModel({ modelParam: model, publicBaseUrl: base })).toEqual({
+      ok: true,
+      modelUrl: model
+    });
+    expect(resolveCameraViewModel({ modelParam: null, publicBaseUrl: base })).toEqual({
+      ok: false,
+      reason: "missing"
+    });
+    expect(
+      resolveCameraViewModel({ modelParam: "https://evil.example/x.glb", publicBaseUrl: base })
+    ).toEqual({ ok: false, reason: "foreign_origin" });
+    expect(
+      resolveCameraViewModel({
+        modelParam: "https://cdn.example.com/pages/p1/abc/index.html",
+        publicBaseUrl: base
+      })
+    ).toEqual({ ok: false, reason: "not_glb" });
+    expect(resolveCameraViewModel({ modelParam: "javascript:1", publicBaseUrl: base })).toEqual({
+      ok: false,
+      reason: "invalid"
+    });
+    expect(resolveCameraViewModel({ modelParam: model, publicBaseUrl: undefined })).toEqual({
+      ok: false,
+      reason: "invalid"
+    });
   });
 });
 

@@ -9,6 +9,7 @@ import {
   claimFigureGeneration,
   decideFigureGeneration,
   decideFigurePublish,
+  publishLifecycleFromProjectStatus,
   figureIdempotencyKey,
   normalizeFigureUpload,
   stripFailedFigureFields,
@@ -353,5 +354,12 @@ describe("figure access, budget, audit, and publish", () => {
         termsAccepted: true
       }).allowed
     ).toBe(true);
+  });
+
+  it("maps project status onto the publish lifecycle gate", () => {
+    expect(publishLifecycleFromProjectStatus("processing")).toBe("processing");
+    expect(publishLifecycleFromProjectStatus("draft")).toBe("ready");
+    expect(publishLifecycleFromProjectStatus("ready")).toBe("ready");
+    expect(publishLifecycleFromProjectStatus("error")).toBe("ready");
   });
 });

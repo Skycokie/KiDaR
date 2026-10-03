@@ -8,7 +8,10 @@ import {
 import { StudioI18nProvider } from "@/components/i18n/studio-i18n";
 import { PersonalizePreviewShell } from "@/components/studio-personalize-preview";
 import type { PreviewProjectContext } from "@/components/studio-personalize-preview/save-start-transform";
-import { parseArAnchorMode } from "@/components/studio-personalize-preview/save-start-transform";
+import {
+  parseArAnchorMode,
+  persistedDecorToStudio
+} from "@/components/studio-personalize-preview/save-start-transform";
 import { getMessages } from "@/i18n/get-messages";
 import { getRequestLocale } from "@/i18n/get-request-locale";
 import { getLoggedInUser } from "@/lib/appwrite/client";
@@ -60,7 +63,8 @@ async function loadOwnedPreview(projectId: string | undefined): Promise<{
     },
     startYaw: typeof rotation?.y === "number" && Number.isFinite(rotation.y) ? rotation.y : null,
     startPitch: typeof rotation?.x === "number" && Number.isFinite(rotation.x) ? rotation.x : null,
-    arAnchorMode: parseArAnchorMode(project.settings?.scene?.arAnchorMode)
+    arAnchorMode: parseArAnchorMode(project.settings?.scene?.arAnchorMode),
+    decor: persistedDecorToStudio(project.settings?.scene?.decor)
   };
   const drawingSrc = project.source_image_path
     ? await createSignedSourceUrl(project.source_image_path, 60 * 30)
