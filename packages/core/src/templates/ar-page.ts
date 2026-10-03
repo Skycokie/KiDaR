@@ -50,7 +50,7 @@ export function arRuntimeScriptUrls(publicAssetOrigin: string): { aframe: string
  * Included in the page_render input hash so a new template writes a new
  * immutable `pages/<projectId>/<hash>/` namespace instead of overwriting.
  */
-export const AR_PAGE_TEMPLATE_VERSION = "ar-page-follow-v1";
+export const AR_PAGE_TEMPLATE_VERSION = "ar-page-decor-v1";
 
 export const DEFAULT_AR_INSTRUCTIONS_RO =
   "Îndreaptă camera spre desenul tipărit pentru a vedea modelul 3D.";
@@ -286,6 +286,23 @@ export interface ArPageConfig {
    * reparent onto the phone camera (`follow`). Default marker.
    */
   arAnchorMode?: "marker" | "follow";
+  /**
+   * Extra marker-anchored GLB props (Studio decor). Stay on the target even when
+   * the character uses follow mode.
+   */
+  props?: Array<{
+    modelUrl: string;
+    position?: Partial<ArPageVec3>;
+    rotation?: Partial<ArPageVec3>;
+    scale?: number;
+  }>;
+}
+
+export interface NormalizedArPageProp {
+  modelUrl: string;
+  position: ArPageVec3;
+  rotation: ArPageVec3;
+  scale: number;
 }
 
 export interface NormalizedArPageConfig {
@@ -305,6 +322,7 @@ export interface NormalizedArPageConfig {
   assetOrigins: string[];
   allowLocalOrigins: boolean;
   arAnchorMode: "marker" | "follow";
+  props: NormalizedArPageProp[];
 }
 
 function finiteNumber(value: unknown, label: string, fallback: number): number {
@@ -362,7 +380,14 @@ function optionalPublicUrl(
 
 function collectAssetOrigins(config: NormalizedArPageConfig): string[] {
   const origins = new Set<string>([...config.assetOrigins]);
-  for (const href of [config.modelUrl, config.targetUrl, config.logoUrl, config.audioUrl, config.ctaUrl]) {
+  for (const href of [
+    config.modelUrl,
+    config.targetUrl,
+    config.logoUrl,
+    config.audioUrl,
+    config.ctaUrl,
+    ...config.props.map((p) => p.modelUrl)
+  ]) {
     if (!href) continue;
     try {
       origins.add(new URL(href).origin);
@@ -441,6 +466,44 @@ export function normalizeArPageConfig(config: ArPageConfig): NormalizedArPageCon
 
   const arAnchorMode = config.arAnchorMode === "follow" ? "follow" : "marker";
 
+  const props: NormalizedArPageProp[] = [];
+  if (config.props) {
+    if (!Array.isArray(config.props)) {
+      throw new ArPageConfigError("props must be an array", "INVALID_PROPS");
+    }
+    if (config.props.length > 16) {
+      throw new ArPageConfigError("props must have at most 16 items", "INVALID_PROPS");
+    }
+    for (let i = 0; i < config.props.length; i += 1) {
+      const prop = config.props[i];
+      if (!prop || typeof prop !== "object") {
+        throw new ArPageConfigError(`props[${i}] must be an object`, "INVALID_PROPS");
+      }
+      let propModelUrl: string;
+      try {
+        propModelUrl = assertPublicAbsoluteUrl(prop.modelUrl, {
+          allowLocalOrigins,
+          label: `props[${i}].modelUrl`
+        }).href;
+      } catch (error) {
+        if (error instanceof PublicUrlError) {
+          throw new ArPageConfigError(error.message, error.code);
+        }
+        throw error;
+      }
+      const propScale = finiteNumber(prop.scale, `props[${i}].scale`, 0.25);
+      if (propScale <= 0 || propScale > 10) {
+        throw new ArPageConfigError(`props[${i}].scale must be in (0, 10]`, "INVALID_SCALE");
+      }
+      props.push({
+        modelUrl: propModelUrl,
+        position: normalizeVec3(prop.position, `props[${i}].position`, { x: 0, y: 0, z: 0.05 }),
+        rotation: normalizeVec3(prop.rotation, `props[${i}].rotation`, { x: 0, y: 0, z: 180 }),
+        scale: propScale
+      });
+    }
+  }
+
   const assetOrigins: string[] = [];
   if (config.assetOrigins) {
     for (const origin of config.assetOrigins) {
@@ -477,7 +540,8 @@ export function normalizeArPageConfig(config: ArPageConfig): NormalizedArPageCon
     showWatermark: Boolean(config.showWatermark),
     assetOrigins,
     allowLocalOrigins,
-    arAnchorMode
+    arAnchorMode,
+    props
   };
 }
 
@@ -551,6 +615,22 @@ export function renderArPage(config: ArPageConfig): string {
   const scaleAttr = escapeHtmlAttr(
     `${normalized.scale} ${normalized.scale} ${normalized.scale}`
   );
+
+  const propsHtml = normalized.props
+    .map((prop, index) => {
+      const src = escapeHtmlAttr(prop.modelUrl);
+      const pos = escapeHtmlAttr(formatVec3(prop.position));
+      const rot = escapeHtmlAttr(formatVec3(prop.rotation));
+      const scl = escapeHtmlAttr(`${prop.scale} ${prop.scale} ${prop.scale}`);
+      return `        <a-gltf-model
+          id="kidar-prop-${index}"
+          src="${src}"
+          position="${pos}"
+          rotation="${rot}"
+          scale="${scl}"
+        ></a-gltf-model>`;
+    })
+    .join("\n");
 
   const logoHtml = normalized.logoUrl
     ? `<img class="logo" src="${escapeHtmlAttr(normalized.logoUrl)}" alt="" width="96" height="96" />`
@@ -1161,6 +1241,7 @@ document.addEventListener("securitypolicyviolation", function (event) {
           rotation="${rotation}"
           scale="${scaleAttr}"
         ></a-gltf-model>
+${propsHtml}
       </a-entity>
     </a-scene>
   </div>

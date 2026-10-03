@@ -24,7 +24,7 @@ export const MODE_PREVIEW_GLB = {
 
 /** Decorative mode thumbs for Personaj → Cum apare. Not interactive. */
 export function ModePreviewIcon({ mode }: { mode: TransformModeId }) {
-  if (mode === "figurine") {
+  if (mode === "figurine" || mode === "upload") {
     return (
       <span className="studio-ws__mode-icon studio-ws__mode-icon--figurine">
         <span className="studio-ws__mode-icon-float" aria-hidden="true">

@@ -33,6 +33,7 @@ import {
   patchRunningJobResult
 } from "../appwrite/jobs";
 import { createWorkerAppwrite } from "../appwrite/client";
+import { maybeRefundFigurineCredits } from "../credits/refund";
 import { optimizeGlb } from "../popout/optimize";
 import {
   createTripoProvider,
@@ -600,6 +601,16 @@ export async function handleFigurineJobFailure(
     error: `[${code}] ${message}`,
     terminal: !retryable
   });
+
+  try {
+    await maybeRefundFigurineCredits({
+      job,
+      persistedResult,
+      terminal: !retryable
+    });
+  } catch {
+    // best-effort refund
+  }
 
   try {
     const project = await getProjectRecord(job.projectId);

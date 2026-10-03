@@ -338,6 +338,12 @@ export type Messages = {
     figurineNeedsProject: string;
     figurineNeedsDrawing: string;
     figurineDisclosure: string;
+    uploadNeedsProject: string;
+    uploadDisclosure: string;
+    uploadPick: string;
+    uploadAgain: string;
+    uploadBusy: string;
+    uploadReady: string;
     voiceHeading: string;
     voiceSupport: string;
     voiceRoleLabel: string;
@@ -459,6 +465,7 @@ export type Messages = {
       modes: {
         popout: { label: string; hint: string };
         figurine: { label: string; hint: string };
+        upload: { label: string; hint: string };
       };
       styles: {
         preserve: { label: string; hint: string };

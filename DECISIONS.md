@@ -43,10 +43,12 @@
   from the public CDN origin. Probe: `pnpm storage:r2:verify` (optional
   `--write` only under `__kidar_verify__/`). M4.4b still owns page_render and
   `/ar/:slug`.
-- **M4.2 worker polling:** the Railway worker uses Appwrite document polling
+- **M4.2 worker polling:** the Hetzner (Docker Compose) worker uses Appwrite document polling
   (configurable `WORKER_POLL_INTERVAL_MS`, idle backoff up to 15s) instead of
   Realtime subscriptions. Polling keeps claim/retry tests deterministic and
   avoids an extra Realtime dependency for a single-stage MVP pipeline.
+  (Older notes said “Railway worker”; orchestrate with root `docker-compose.yml`
+  targeting Hetzner CX23 or local Docker.)
 - **M4.2 popout runtime:** browser preview keeps `@imgly/background-removal` +
   canvas/WebGL; the worker uses `@imgly/background-removal-node` + `sharp` for
   cutout bytes, headless `three` ExtrudeGeometry + `gltf-transform`/`pngjs` for

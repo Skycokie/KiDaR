@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans, Syne } from "next/font/google";
+import { readFigureFeatureFlags } from "@kidar/core";
 import {
   creativeIdeaPrompt,
   parseCreativeStartingPoint,
@@ -36,6 +37,10 @@ type PageProps = {
   searchParams?: { projectId?: string | string[]; from?: string | string[]; hint?: string | string[] };
 };
 
+function optionalUrl(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
 async function loadOwnedPreview(projectId: string | undefined): Promise<{
   drawingSrc: string | null;
   projectContext: PreviewProjectContext | null;
@@ -47,6 +52,7 @@ async function loadOwnedPreview(projectId: string | undefined): Promise<{
   if (!project) return { drawingSrc: null, projectContext: null };
   const offset = project.settings?.offset;
   const rotation = project.settings?.scene?.startTransform?.rotation;
+  const settings = project.settings ?? {};
   const projectContext: PreviewProjectContext = {
     projectId: project.id,
     scale:
@@ -60,7 +66,12 @@ async function loadOwnedPreview(projectId: string | undefined): Promise<{
     },
     startYaw: typeof rotation?.y === "number" && Number.isFinite(rotation.y) ? rotation.y : null,
     startPitch: typeof rotation?.x === "number" && Number.isFinite(rotation.x) ? rotation.x : null,
-    arAnchorMode: parseArAnchorMode(project.settings?.scene?.arAnchorMode)
+    arAnchorMode: parseArAnchorMode(project.settings?.scene?.arAnchorMode),
+    publicHtmlUrl: optionalUrl(settings.publicHtmlUrl),
+    publicQrUrl: optionalUrl(settings.publicQrUrl),
+    publicPdfUrl: optionalUrl(settings.publicPdfUrl),
+    publicExperienceUrl: optionalUrl(settings.publicExperienceUrl),
+    arFeatureEnabled: readFigureFeatureFlags(process.env).ar
   };
   const drawingSrc = project.source_image_path
     ? await createSignedSourceUrl(project.source_image_path, 60 * 30)

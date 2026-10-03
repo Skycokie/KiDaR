@@ -55,7 +55,8 @@ describe("page artifact keys", () => {
       showWatermark: true
     };
     const pageHash = computePageRenderInputHash(demoPage);
-    expect(pageHash).toBe("3527ccad4accbcff68fd2b70156903ecc305039c26ad1c8ec93bfe83e8bedeb0");
+    expect(pageHash).toBe("d1b101633d92b0d0c10ae0694558baa24826d5facaa7ce799d9ebf3ad4e8dcff");
+    expect(pageHash).not.toBe("3527ccad4accbcff68fd2b70156903ecc305039c26ad1c8ec93bfe83e8bedeb0");
     expect(pageHash).not.toBe("3b2af8d0cb4cb106d65bff31b92eba6a03d8cab08da7e3ed552affe84487acc2");
     expect(pageHash).not.toBe("6fc29bcdf0bac65c8f55317b155264c695364760562573edb45339747de9d8bc");
     expect(pageHash).not.toBe("da985e5f064af51b2eb2c76ee7cc2ce5f66e74f55aa497855c0cee1561122fe3");

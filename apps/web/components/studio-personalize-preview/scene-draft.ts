@@ -116,7 +116,7 @@ export function sceneSummary(draft: StudioSceneDraft, locale: Locale = "ro"): Sc
   ];
 }
 
-/** Documents the future conjunction. The live UI does not call this to enable AR. */
+/** Conjunction used by Studio when public AR URLs and flags are known. */
 export function evaluateFutureSceneEligibility(gate: FutureArGate): FutureSceneEligibility {
   const arEligible =
     gate.technicalStatus === "ready" &&

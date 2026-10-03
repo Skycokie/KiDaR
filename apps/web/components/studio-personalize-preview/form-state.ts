@@ -734,7 +734,10 @@ export function isStageComplete(state: PersonalizeState, stage: StudioStageId): 
  * Allowed writes:
  * - PATCH /api/projects/:projectId (start transform)
  * - POST /api/projects/:projectId/figurine (Tripo)
+ * - POST /api/projects/:projectId/asset (user GLB)
  * - PATCH/POST/DELETE /api/projects/:projectId/voices/... (character voice)
+ * - POST /api/publish (AR/QR publish enqueue)
+ * - GET is not a write; publish status lives at GET /api/projects/:id/publish
  */
 export function isStartTransformPatchPath(url: string): boolean {
   let path = url.split("?")[0] ?? url;
@@ -758,6 +761,17 @@ export function isFigurineGeneratePath(url: string): boolean {
   return /^\/api\/projects\/[^/]+\/figurine$/.test(path);
 }
 
+export function isAssetUploadPath(url: string): boolean {
+  let path = url.split("?")[0] ?? url;
+  try {
+    path = new URL(url, "http://local.invalid").pathname;
+  } catch {
+    // keep split path
+  }
+  path = path.replace(/\/+$/, "") || "/";
+  return /^\/api\/projects\/[^/]+\/asset$/.test(path);
+}
+
 export function isCharacterVoicePath(url: string): boolean {
   let path = url.split("?")[0] ?? url;
   try {
@@ -767,6 +781,17 @@ export function isCharacterVoicePath(url: string): boolean {
   }
   path = path.replace(/\/+$/, "") || "/";
   return /^\/api\/projects\/[^/]+\/voices\/[^/]+(?:\/audio)?$/.test(path);
+}
+
+export function isPublishPath(url: string): boolean {
+  let path = url.split("?")[0] ?? url;
+  try {
+    path = new URL(url, "http://local.invalid").pathname;
+  } catch {
+    // keep split path
+  }
+  path = path.replace(/\/+$/, "") || "/";
+  return path === "/api/publish" || /^\/api\/projects\/[^/]+\/publish$/.test(path);
 }
 
 export function isPersonalizeWriteBlocked(url: string): boolean {
@@ -779,7 +804,9 @@ export function isPersonalizeWriteBlocked(url: string): boolean {
   path = path.replace(/\/+$/, "") || "/";
   if (isStartTransformPatchPath(path)) return false;
   if (isFigurineGeneratePath(path)) return false;
+  if (isAssetUploadPath(path)) return false;
   if (isCharacterVoicePath(path)) return false;
+  if (isPublishPath(path)) return false;
   if (path.startsWith("/api/")) return true;
   return false;
 }
@@ -791,4 +818,4 @@ export const FORBIDDEN_PERSISTENCE_APIS = [
   "caches"
 ] as const;
 
-export const FORBIDDEN_COPY_SNIPPETS = ["publicat", "upload"] as const;
+export const FORBIDDEN_COPY_SNIPPETS = ["publicat"] as const;

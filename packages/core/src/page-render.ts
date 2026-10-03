@@ -16,6 +16,7 @@ import type { JobType, PipelineJob } from "./jobs";
 import type { HashableProjectSettings } from "./hash";
 import { resolveEffectiveArTransform } from "./start-transform";
 import { IMMUTABLE_CACHE_CONTROL } from "./storage-keys";
+import { normalizeArDecorList, resolveArDecorProps, type ArDecorProp } from "./ar-decor";
 
 export const PAGE_RENDER_PIPELINE_VERSION = "m4.4b.0";
 export const PAGE_POINTER_CACHE_CONTROL = "public, max-age=60";
@@ -280,7 +281,11 @@ export interface MapArPageInput {
   settings: HashableProjectSettings & {
     logoUrl?: string;
     soundUrl?: string;
-    scene?: { startTransform?: unknown; arAnchorMode?: unknown } | null;
+    scene?: {
+      startTransform?: unknown;
+      arAnchorMode?: unknown;
+      decor?: ArDecorProp[] | null;
+    } | null;
   };
   modelUrl: string;
   targetUrl: string;
@@ -288,6 +293,8 @@ export interface MapArPageInput {
   logoUrl?: string | null;
   allowLocalOrigins?: boolean;
   showWatermark?: boolean;
+  /** Absolute origin for /demo/glb decor assets (app URL). */
+  publicAppOrigin?: string | null;
 }
 
 /**
@@ -315,6 +322,16 @@ export function mapSettingsToArPageConfig(input: MapArPageInput): NormalizedArPa
     (input.settings.scene as { arAnchorMode?: unknown }).arAnchorMode === "follow"
       ? "follow"
       : "marker";
+  const decorList = normalizeArDecorList(
+    input.settings.scene && typeof input.settings.scene === "object"
+      ? (input.settings.scene as { decor?: unknown }).decor
+      : []
+  );
+  const appOrigin = input.publicAppOrigin?.trim() || "";
+  const resolvedProps =
+    appOrigin && decorList.length > 0
+      ? resolveArDecorProps({ decor: decorList, appOrigin })
+      : [];
   const config: ArPageConfig = {
     title: input.settings.title?.trim() || "Surpriza kidAR",
     theme: input.settings.theme || "#6d5dfc",
@@ -331,7 +348,13 @@ export function mapSettingsToArPageConfig(input: MapArPageInput): NormalizedArPa
     },
     showWatermark: input.showWatermark,
     allowLocalOrigins: input.allowLocalOrigins,
-    arAnchorMode
+    arAnchorMode,
+    props: resolvedProps.map((p) => ({
+      modelUrl: p.modelUrl,
+      position: p.position,
+      rotation: p.rotation,
+      scale: p.scale
+    }))
   };
   try {
     return normalizeArPageConfig(config);

@@ -370,6 +370,12 @@ export const ro: Messages = {
     figurineNeedsDrawing: "Adaugă un desen din Atelier ca să generăm figurina 3D.",
     figurineDisclosure:
       "Modelul 3D este generat dintr-o singură imagine. Detaliile nevăzute, inclusiv spatele, sunt interpretate.",
+    uploadNeedsProject: "Pornește lumea din Atelier ca să adaugi figurina ta GLB.",
+    uploadDisclosure: "Alege un fișier .glb (max. 25 MB). Va apărea în AR după publicare.",
+    uploadPick: "Alege fișierul GLB",
+    uploadAgain: "Alege alt GLB",
+    uploadBusy: "Încărcăm…",
+    uploadReady: "Figurina e gata pentru publicare AR.",
     voiceHeading: "Vocea personajului",
     voiceSupport: "Alege dacă vorbește singur sau doar când e descoperit. Adaugă un mesaj scurt și un audio.",
     voiceRoleLabel: "Rol",
@@ -491,7 +497,8 @@ export const ro: Messages = {
     choices: {
       modes: {
         popout: { label: "Pop-out din desen", hint: "Ridicat din hârtie, ușor plat" },
-        figurine: { label: "Figurină 3D", hint: "Personaj 3D din desen, cu Tripo" }
+        figurine: { label: "Figurină 3D", hint: "Personaj 3D din desen, cu Tripo" },
+        upload: { label: "Încarcă GLB", hint: "Figurina ta 3D, gata de AR" }
       },
       styles: {
         preserve: { label: "Păstrează desenul", hint: "Linii și culori din original" },

@@ -81,7 +81,11 @@ const SCHEMA = [
     name: "profiles",
     attributes: [
       { key: "plan", type: "string", size: 16, required: true },
-      { key: "stripe_customer_id", type: "string", size: 128, required: false }
+      { key: "stripe_customer_id", type: "string", size: 128, required: false },
+      // ISO timestamp; server-only write when the user accepts publish terms.
+      { key: "terms_accepted_at", type: "string", size: 40, required: false },
+      // Figurină 3D Tripo credits. Server-only write (owner has read, not update).
+      { key: "credits", type: "integer", required: false, min: 0, max: 100000, default: 0 }
     ],
     indexes: []
   },

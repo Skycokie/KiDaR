@@ -382,3 +382,72 @@ export async function failJob(params: {
   }
   return refreshed;
 }
+
+/**
+ * Cancel a queued job that never acquired a lock (billing race after enqueue).
+ * Only safe while status is still `queued`.
+ */
+export async function cancelQueuedJob(params: {
+  jobId: string;
+  error: string;
+}): Promise<PipelineJob | null> {
+  const { databases } = createAdminClient();
+  const currentDoc = await databases.getDocument(
+    APPWRITE_DATABASE_ID,
+    APPWRITE_JOBS_COLLECTION,
+    params.jobId
+  );
+  const current = mapJobDocument(currentDoc);
+  if (current.status !== "queued") return null;
+  const existingBag = parsePayloadBag(currentDoc.payload);
+  const { input_hash: _ih, artifact_hash: _ah, last_error: _le, result: _r, ...extra } =
+    existingBag;
+  const next: PipelineJob = {
+    ...current,
+    status: "error",
+    attempt: current.maxAttempts,
+    nextRunAt: null,
+    lockedAt: null,
+    lockToken: null,
+    lastError: truncateJobError(params.error),
+    updatedAt: new Date().toISOString()
+  };
+  await databases.updateDocument(
+    APPWRITE_DATABASE_ID,
+    APPWRITE_JOBS_COLLECTION,
+    params.jobId,
+    {
+      status: next.status,
+      attempt: next.attempt,
+      locked_at: null,
+      lock_token: null,
+      next_run_at: null,
+      payload: buildPayloadString(next, extra)
+    }
+  );
+  return mapJobDocument(
+    await databases.getDocument(APPWRITE_DATABASE_ID, APPWRITE_JOBS_COLLECTION, params.jobId)
+  );
+}
+
+export async function patchJobPayload(
+  jobId: string,
+  patch: Record<string, unknown>
+): Promise<PipelineJob> {
+  const { databases } = createAdminClient();
+  const currentDoc = await databases.getDocument(
+    APPWRITE_DATABASE_ID,
+    APPWRITE_JOBS_COLLECTION,
+    jobId
+  );
+  const current = mapJobDocument(currentDoc);
+  const existingBag = parsePayloadBag(currentDoc.payload);
+  const { input_hash: _ih, artifact_hash: _ah, last_error: _le, result: _r, ...extra } =
+    existingBag;
+  await databases.updateDocument(APPWRITE_DATABASE_ID, APPWRITE_JOBS_COLLECTION, jobId, {
+    payload: buildPayloadString(current, { ...extra, ...patch })
+  });
+  return mapJobDocument(
+    await databases.getDocument(APPWRITE_DATABASE_ID, APPWRITE_JOBS_COLLECTION, jobId)
+  );
+}

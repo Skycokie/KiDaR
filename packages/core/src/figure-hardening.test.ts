@@ -9,6 +9,8 @@ import {
   claimFigureGeneration,
   decideFigureGeneration,
   decideFigurePublish,
+  publishAllowlisted,
+  publishLifecycleFromProjectStatus,
   figureIdempotencyKey,
   normalizeFigureUpload,
   stripFailedFigureFields,
@@ -353,5 +355,24 @@ describe("figure access, budget, audit, and publish", () => {
         termsAccepted: true
       }).allowed
     ).toBe(true);
+  });
+
+  it("treats an empty publish allowlist as GA and a set list as staged rollout", () => {
+    expect(publishAllowlisted({}, "user-1")).toBe(true);
+    expect(publishAllowlisted({ FIGURE_PUBLISH_ALLOWLIST: "  " }, "user-1")).toBe(true);
+    expect(
+      publishAllowlisted({ FIGURE_PUBLISH_ALLOWLIST: "user-1, user-2" }, "user-1")
+    ).toBe(true);
+    expect(
+      publishAllowlisted({ FIGURE_PUBLISH_ALLOWLIST: "user-1;user-2" }, "user-3")
+    ).toBe(false);
+    expect(publishAllowlisted({ FIGURE_PUBLISH_ALLOWLIST: "user-1" }, "")).toBe(false);
+  });
+
+  it("maps project status onto the publish lifecycle gate", () => {
+    expect(publishLifecycleFromProjectStatus("processing")).toBe("processing");
+    expect(publishLifecycleFromProjectStatus("draft")).toBe("ready");
+    expect(publishLifecycleFromProjectStatus("ready")).toBe("ready");
+    expect(publishLifecycleFromProjectStatus("error")).toBe("ready");
   });
 });

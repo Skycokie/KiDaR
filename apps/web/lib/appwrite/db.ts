@@ -9,6 +9,7 @@ import {
 } from "./config";
 import { createAdminClient, createSessionClient } from "./client";
 import { ownerReadOnlyPermissions } from "./permissions";
+import { isCreditsBypassEnabled } from "@/lib/credits";
 
 export type Plan = "free" | "paid";
 
@@ -31,6 +32,8 @@ export type ProfileRecord = {
   id: string;
   plan: Plan;
   stripe_customer_id: string | null;
+  terms_accepted_at: string | null;
+  credits: number;
   created_at: string;
 };
 
@@ -68,10 +71,20 @@ export function mapProject(doc: Models.Document): ProjectRecord {
 
 export function mapProfile(doc: Models.Document): ProfileRecord {
   const data = doc as Models.Document & Record<string, unknown>;
+  const creditsRaw = data.credits;
+  const credits =
+    typeof creditsRaw === "number" && Number.isFinite(creditsRaw)
+      ? Math.max(0, Math.floor(creditsRaw))
+      : 0;
   return {
     id: data.$id,
     plan: data.plan === "paid" ? "paid" : "free",
     stripe_customer_id: (data.stripe_customer_id as string | null) ?? null,
+    terms_accepted_at:
+      typeof data.terms_accepted_at === "string" && data.terms_accepted_at.trim()
+        ? data.terms_accepted_at
+        : null,
+    credits,
     created_at: data.$createdAt
   };
 }
@@ -90,7 +103,7 @@ export async function ensureProfile(userId: string): Promise<ProfileRecord> {
       APPWRITE_DATABASE_ID,
       APPWRITE_PROFILES_COLLECTION,
       userId,
-      { plan: "free", stripe_customer_id: null },
+      { plan: "free", stripe_customer_id: null, terms_accepted_at: null, credits: 0 },
       ownerReadOnlyPermissions(userId)
     );
     return mapProfile(created);
@@ -109,6 +122,73 @@ export async function getProfile(userId: string): Promise<ProfileRecord> {
   } catch {
     return ensureProfile(userId);
   }
+}
+
+/** Admin-only profile patch. Owner documents are read-only for the session client. */
+export async function updateProfileDocument(
+  userId: string,
+  patch: Record<string, unknown>
+): Promise<ProfileRecord> {
+  const { databases } = createAdminClient();
+  const doc = await databases.updateDocument(
+    APPWRITE_DATABASE_ID,
+    APPWRITE_PROFILES_COLLECTION,
+    userId,
+    patch
+  );
+  return mapProfile(doc);
+}
+
+/** Persist publish terms acceptance. Idempotent when already set. */
+export async function acceptPublishTerms(userId: string): Promise<ProfileRecord> {
+  const profile = await ensureProfile(userId);
+  if (profile.terms_accepted_at) return profile;
+  return updateProfileDocument(userId, {
+    terms_accepted_at: new Date().toISOString()
+  });
+}
+
+export type CreditDebitResult =
+  | { ok: true; credits: number; bypassed: boolean }
+  | { ok: false; code: "insufficient_credits"; credits: number };
+
+/**
+ * Debit Tripo credits. Caller must only invoke after enqueue creates a new job.
+ * Uses admin client; never expose update to the session.
+ */
+export async function debitCredits(
+  userId: string,
+  amount: number
+): Promise<CreditDebitResult> {
+  if (!Number.isInteger(amount) || amount < 1) {
+    throw new Error("debit amount must be a positive integer");
+  }
+  if (isCreditsBypassEnabled()) {
+    const profile = await ensureProfile(userId);
+    return { ok: true, credits: profile.credits, bypassed: true };
+  }
+  const profile = await ensureProfile(userId);
+  if (profile.credits < amount) {
+    return { ok: false, code: "insufficient_credits", credits: profile.credits };
+  }
+  const updated = await updateProfileDocument(userId, {
+    credits: profile.credits - amount
+  });
+  return { ok: true, credits: updated.credits, bypassed: false };
+}
+
+/** Refund credits after a pre-provider terminal failure. Admin-only. */
+export async function creditCredits(
+  userId: string,
+  amount: number
+): Promise<ProfileRecord> {
+  if (!Number.isInteger(amount) || amount < 1) {
+    throw new Error("credit amount must be a positive integer");
+  }
+  const profile = await ensureProfile(userId);
+  return updateProfileDocument(userId, {
+    credits: profile.credits + amount
+  });
 }
 
 export async function listProjectsForOwner(owner: string): Promise<ProjectRecord[]> {

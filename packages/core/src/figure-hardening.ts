@@ -16,6 +16,8 @@ import { FIGURE_STAGING_MAX_USDZ_BYTES } from "./figure-staging";
 export const FIGURE_FLAG_GENERATION = "FIGURE_GENERATION_ENABLED";
 export const FIGURE_FLAG_AR = "FIGURE_AR_ENABLED";
 export const FIGURE_FLAG_PUBLISH = "FIGURE_PUBLISH_ENABLED";
+/** Comma/space/semicolon-separated user ids. Empty or unset = all authenticated users. */
+export const FIGURE_PUBLISH_ALLOWLIST = "FIGURE_PUBLISH_ALLOWLIST";
 
 export const FIGURE_GLB_CONTENT_TYPE = "model/gltf-binary";
 export const FIGURE_USDZ_CONTENT_TYPE = "model/vnd.usdz+zip";
@@ -634,6 +636,32 @@ export type FigurePublishDecision =
         | "limits"
         | "terms";
     };
+
+/**
+ * Allowlist for publish. Empty / unset list means GA (every authenticated user).
+ * When set, only listed user ids may publish (staged rollout / partial kill switch).
+ */
+export function publishAllowlisted(
+  env: Record<string, string | undefined>,
+  userId: string
+): boolean {
+  if (!userId) return false;
+  const raw = (env[FIGURE_PUBLISH_ALLOWLIST] ?? "").trim();
+  if (!raw) return true;
+  const ids = raw.split(/[,;\s]+/).map((part) => part.trim()).filter(Boolean);
+  return ids.includes(userId);
+}
+
+/**
+ * Map Appwrite project.status onto the figure publish lifecycle gate.
+ * Concurrent publishes while jobs run are blocked (`processing`).
+ * Draft / ready / error / published all map to `ready` so a world can be
+ * published or republished; enqueue remains idempotent on inputHash.
+ */
+export function publishLifecycleFromProjectStatus(status: string): FigureLifecycle {
+  if (status === "processing") return "processing";
+  return "ready";
+}
 
 /** UI cannot publish. The server allows it only when every gate passes. */
 export function decideFigurePublish(input: {

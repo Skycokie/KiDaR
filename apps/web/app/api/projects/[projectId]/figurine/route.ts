@@ -13,10 +13,16 @@ import {
 } from "@kidar/core";
 import { computeInputHash, sha256Hex } from "@kidar/core/hash";
 import { getLoggedInUser } from "@/lib/appwrite/client";
-import { getProjectForOwner, updateProjectDocument } from "@/lib/appwrite/db";
-import { enqueueJob, findJobByInputHash } from "@/lib/appwrite/jobs";
+import {
+  debitCredits,
+  getProfile,
+  getProjectForOwner,
+  updateProjectDocument
+} from "@/lib/appwrite/db";
+import { cancelQueuedJob, enqueueJob, findJobByInputHash, patchJobPayload } from "@/lib/appwrite/jobs";
 import { APPWRITE_SOURCE_BUCKET } from "@/lib/appwrite/config";
 import { isFigurineFeatureEnabled } from "@/lib/figurine-feature";
+import { FIGURINE_CREDIT_COST, isCreditsBypassEnabled } from "@/lib/credits";
 
 type Context = { params: { projectId: string } };
 
@@ -132,6 +138,7 @@ export async function GET(_request: Request, { params }: Context) {
 /**
  * Explicit start of Figurină 3D generation.
  * Enqueues work for the Hetzner worker (paid Tripo calls happen there only).
+ * Credits are debited only when enqueue creates a new job.
  */
 export async function POST(request: Request, { params }: Context) {
   const user = await getLoggedInUser();
@@ -202,6 +209,60 @@ export async function POST(request: Request, { params }: Context) {
     provider: FIGURINE_PROVIDER
   };
 
+  if (!isCreditsBypassEnabled()) {
+    const profile = await getProfile(user.$id);
+    if (profile.credits < FIGURINE_CREDIT_COST) {
+      return NextResponse.json(
+        {
+          error: "insufficient_credits",
+          message: "Nu mai ai credite pentru Figurină 3D.",
+          credits: profile.credits,
+          cost: FIGURINE_CREDIT_COST
+        },
+        { status: 402 }
+      );
+    }
+  }
+
+  // Enqueue first so idempotent hits never debit. Debit only on kind === "created".
+  const enqueued = await enqueueJob({
+    projectId: project.id,
+    type: "figurine_build",
+    inputHash,
+    ownerId: user.$id,
+    payload: {
+      source: "studio_figurine",
+      subjectId,
+      creditsDebited: 0,
+      creditsOwnerId: user.$id
+    }
+  });
+
+  if (enqueued.kind === "created") {
+    const debit = await debitCredits(user.$id, FIGURINE_CREDIT_COST);
+    if (!debit.ok) {
+      await cancelQueuedJob({
+        jobId: enqueued.job.id,
+        error: "[INSUFFICIENT_CREDITS] Cancelled before Tripo submit"
+      });
+      return NextResponse.json(
+        {
+          error: "insufficient_credits",
+          message: "Nu mai ai credite pentru Figurină 3D.",
+          credits: debit.credits,
+          cost: FIGURINE_CREDIT_COST
+        },
+        { status: 402 }
+      );
+    }
+    if (!debit.bypassed) {
+      await patchJobPayload(enqueued.job.id, {
+        creditsDebited: FIGURINE_CREDIT_COST,
+        creditsOwnerId: user.$id
+      });
+    }
+  }
+
   await updateProjectDocument(params.projectId, {
     mode: "figurine_3d" satisfies ProjectMode,
     status: "processing",
@@ -211,17 +272,6 @@ export async function POST(request: Request, { params }: Context) {
         ...(project.settings.figurineSubjects ?? []).filter((s) => s.id !== subjectId),
         subject
       ]
-    }
-  });
-
-  const enqueued = await enqueueJob({
-    projectId: project.id,
-    type: "figurine_build",
-    inputHash,
-    ownerId: user.$id,
-    payload: {
-      source: "studio_figurine",
-      subjectId
     }
   });
 
@@ -244,6 +294,7 @@ export async function POST(request: Request, { params }: Context) {
     kind: enqueued.kind,
     jobId: enqueued.job.id,
     label: figurineProgressLabel("queued"),
-    disclosure: FIGURINE_DISCLOSURE_RO
+    disclosure: FIGURINE_DISCLOSURE_RO,
+    creditsDebited: enqueued.kind === "created" ? FIGURINE_CREDIT_COST : 0
   });
 }

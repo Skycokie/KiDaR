@@ -370,6 +370,12 @@ export const en: Messages = {
     figurineNeedsDrawing: "Add a drawing from Studio to generate the 3D figure.",
     figurineDisclosure:
       "The 3D model is generated from a single image. Unseen details, including the back, are interpreted.",
+    uploadNeedsProject: "Start the world from Studio to add your own GLB figure.",
+    uploadDisclosure: "Choose a .glb file (max 25 MB). It appears in AR after you publish.",
+    uploadPick: "Choose GLB file",
+    uploadAgain: "Choose another GLB",
+    uploadBusy: "Loading…",
+    uploadReady: "Figure is ready for AR publish.",
     voiceHeading: "Character voice",
     voiceSupport: "Choose whether it speaks on its own or only when discovered. Add a short message and audio.",
     voiceRoleLabel: "Role",
@@ -491,7 +497,8 @@ export const en: Messages = {
     choices: {
       modes: {
         popout: { label: "Pop-out from the drawing", hint: "Lifted from paper, slightly flat" },
-        figurine: { label: "3D figure", hint: "3D character from the drawing, with Tripo" }
+        figurine: { label: "3D figure", hint: "3D character from the drawing, with Tripo" },
+        upload: { label: "Load GLB", hint: "Your own 3D figure, ready for AR" }
       },
       styles: {
         preserve: { label: "Keep the drawing", hint: "Lines and colors from the original" },

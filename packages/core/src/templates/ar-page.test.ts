@@ -502,6 +502,23 @@ describe("AR start gate and error classification", () => {
     );
     expect(normalizeArPageConfig(baseConfig()).arAnchorMode).toBe("marker");
   });
+
+  it("renders marker-anchored decor props beside the character model", () => {
+    const html = renderArPage({
+      ...baseConfig(),
+      props: [
+        {
+          modelUrl: "https://cdn.example.com/demo/glb/decor/stars.glb",
+          position: { x: 0.2, y: -0.1, z: 0.05 },
+          rotation: { x: 0, y: 15, z: 180 },
+          scale: 0.2
+        }
+      ]
+    });
+    expect(html).toContain('id="kidar-prop-0"');
+    expect(html).toContain("https://cdn.example.com/demo/glb/decor/stars.glb");
+    expect(html).toContain('id="kidar-model"');
+  });
 });
 
 function extractFunction(html: string, name: string): string {

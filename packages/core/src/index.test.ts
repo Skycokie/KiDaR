@@ -144,6 +144,30 @@ describe("core policies", () => {
     expect(result.scene?.startTransform?.scale).toBe(1);
   });
 
+  it("merges and validates scene.decor", () => {
+    const current = {
+      title: "Demo",
+      theme: "#ff0",
+      scale: 1,
+      offset: { x: 0, y: 0, z: 0 },
+      scene: {
+        startTransform: {
+          rotation: { x: 0, y: 0, z: 180 },
+          position: { x: 0, y: 0, z: 0 },
+          scale: 1
+        }
+      }
+    } as ProjectSettings;
+    const result = mergeSettings(current, {
+      scene: { decor: [{ id: "stars", x: 20, y: 30, yaw: 5, pitch: 0 }] }
+    });
+    expect(result.scene?.decor).toEqual([{ id: "stars", x: 20, y: 30, yaw: 5, pitch: 0 }]);
+    expect(result.scene?.startTransform?.scale).toBe(1);
+    expect(validateSceneSettingsPatch({ decor: [{ id: "stars", x: 1, y: 2 }] })).toBeNull();
+    expect(validateSceneSettingsPatch({ decor: [{ id: "nope", x: 1, y: 2 }] })).toMatch(/known/);
+    expect(validateSceneSettingsPatch({ decor: "nope" })).toMatch(/array/);
+  });
+
   it("creates stable URL slugs", () => {
     expect(slugify("  Mărțișor & friends! ")).toBe("martisor-friends");
   });

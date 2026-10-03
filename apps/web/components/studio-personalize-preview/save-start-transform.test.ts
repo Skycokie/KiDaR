@@ -27,7 +27,8 @@ describe("start transform preview save", () => {
             rotation: { x: 8, y: -32, z: 180 },
             position: { x: 0.2, y: -0.1, z: 0.4 },
             scale: 1.4
-          }
+          },
+          decor: []
         }
       }
     });
@@ -63,18 +64,31 @@ describe("start transform preview save", () => {
     expect(parseArAnchorMode(1)).toBe("marker");
   });
 
-  it("is dirty after yaw, pitch, or arAnchorMode changes; clean after matching save baseline", () => {
-    const baseline = { yaw: -32, pitch: 8, arAnchorMode: "marker" as const };
+  it("is dirty after yaw, pitch, arAnchorMode, or decor changes", () => {
+    const baseline = { yaw: -32, pitch: 8, arAnchorMode: "marker" as const, decor: [] as const };
     expect(isStartPoseDirty(baseline, baseline)).toBe(false);
     expect(isStartPoseDirty({ ...baseline, yaw: -17 }, baseline)).toBe(true);
     expect(isStartPoseDirty({ ...baseline, pitch: 18 }, baseline)).toBe(true);
     expect(isStartPoseDirty({ ...baseline, arAnchorMode: "follow" }, baseline)).toBe(true);
     expect(
       isStartPoseDirty(
-        { yaw: -32, pitch: 8, arAnchorMode: "follow" },
-        { yaw: -32, pitch: 8, arAnchorMode: "follow" }
+        { ...baseline, decor: [{ id: "stars", x: 10, y: 20, yaw: 0, pitch: 0 }] },
+        baseline
       )
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  it("persists decor with radians converted to degrees", () => {
+    const body = buildStartTransformPatch({
+      yaw: 0,
+      pitch: 0,
+      offset: { x: 0, y: 0, z: 0 },
+      scale: 1,
+      decor: [{ id: "tree", x: 70, y: 40, yaw: Math.PI / 2, pitch: 0 }]
+    });
+    expect(body.settings.scene.decor).toEqual([
+      { id: "tree", x: 70, y: 40, yaw: 90, pitch: 0 }
+    ]);
   });
 
   it("hydrates arAnchorMode from project seed without leaking across workspaces", () => {

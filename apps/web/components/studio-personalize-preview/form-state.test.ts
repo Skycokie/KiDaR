@@ -312,7 +312,7 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(isPersonalizeWriteBlocked("/api/projects/x/figurine")).toBe(false);
     expect(isPersonalizeWriteBlocked("/api/projects/x/voices/primary")).toBe(false);
     expect(isPersonalizeWriteBlocked("/api/projects/x/voices/primary/audio")).toBe(false);
-    expect(isPersonalizeWriteBlocked("/api/publish")).toBe(true);
+    expect(isPersonalizeWriteBlocked("/api/publish")).toBe(false);
   });
 
   it("setArLive opens the AR stage with a local overlay flag", () => {
@@ -333,8 +333,8 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(isPersonalizeWriteBlocked("/api/projects/x")).toBe(false);
     expect(isPersonalizeWriteBlocked("/api/projects/x/figurine")).toBe(false);
     expect(isPersonalizeWriteBlocked("/api/projects/x/voices/primary")).toBe(false);
-    expect(isPersonalizeWriteBlocked("/api/projects/x/asset")).toBe(true);
-    expect(isPersonalizeWriteBlocked("/api/publish")).toBe(true);
+    expect(isPersonalizeWriteBlocked("/api/projects/x/asset")).toBe(false);
+    expect(isPersonalizeWriteBlocked("/api/publish")).toBe(false);
     expect(PERSONALIZE_BACK_HREF).toBe("/studio");
     expect(PERSONALIZE_STUDIO_HREF).toBe("/studio-preview/personalizeaza");
     expect(PERSONALIZE_CAMERA_HREF).toBe("/studio-preview/personalizeaza/camera");
@@ -393,7 +393,8 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(shell).toContain('event.key === "Escape"');
     expect(shell).toContain("closePublish");
     expect(shell).toContain("{COPY.publishWorld}");
-    expect(shell).toContain("disabled");
+    expect(shell).toContain("onPublishWorld");
+    expect(shell).toContain("startPublish");
     expect(shell).not.toContain("href={`/studio/${projectId}`}");
     expect(shell).not.toContain('from "next/link"');
     expect(COPY.publishPrepareTitle).toMatch(/publicare/);
@@ -477,7 +478,7 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(extractEffect).not.toContain("viewRef");
   });
 
-  it("Vezi în AR is disabled until real assets exist and does not open a fake AR overlay", () => {
+  it("Vezi în AR enables only when arLive and opens the published experience URL", () => {
     const shell = readLocal("personalize-shell.tsx");
     expect(shell).not.toContain("/studio-preview/personalizeaza/camera");
     expect(shell).not.toContain("PERSONALIZE_CAMERA_HREF");
@@ -490,9 +491,11 @@ describe("Studio personalize workspace — fixture + local state", () => {
     );
     expect(shell).toContain("data-ar-eligible=");
     expect(shell).toContain("mirror");
+    expect(shell).toContain("onClick={openAr}");
+    expect(shell).toContain("disabled={!arLive}");
+    expect(shell).toContain("window.open(experienceUrl");
     expect(shell).not.toMatch(/\brel=["']ar["']/);
     expect(shell).not.toMatch(/\bnavigator\.mediaDevices\b|\.getUserMedia\b/);
     expect(shell).not.toContain("studio-ws__ar-live");
-    expect(shell).not.toContain("onClick={openAr}");
   });
 });

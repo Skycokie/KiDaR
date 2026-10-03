@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { UploadModelError, PublicStorageConfigError } from "@kidar/core";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import { getProfile, getProjectForOwner, updateProjectDocument } from "@/lib/appwrite/db";
 import { createSignedAssetUrl, uploadProjectAsset } from "@/lib/appwrite/storage";
+import { promoteUploadModelToPublic } from "@/lib/promote-upload-model";
 
 type Context = { params: { projectId: string } };
 type AssetKind = "model" | "logo" | "sound";
@@ -47,12 +49,51 @@ export async function POST(request: Request, { params }: Context) {
 
   try {
     const path = await uploadProjectAsset(user.$id, params.projectId, kind, file);
-    const key = kind === "model" ? "uploadModelPath" : kind === "logo" ? "logoPath" : "soundPath";
-    const settings = { ...project.settings, [key]: path };
-    await updateProjectDocument(params.projectId, { settings });
+    const settings: Record<string, unknown> = { ...project.settings };
+    let publicModelUrl: string | null = null;
+
+    if (kind === "model") {
+      settings.uploadModelPath = path;
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      try {
+        const promoted = await promoteUploadModelToPublic({
+          projectId: params.projectId,
+          bytes
+        });
+        settings.uploadModelUrl = promoted.publicUrl;
+        publicModelUrl = promoted.publicUrl;
+      } catch (promoteError) {
+        // Private path is still saved; publish can retry promote.
+        if (
+          !(promoteError instanceof PublicStorageConfigError) &&
+          !(promoteError instanceof UploadModelError)
+        ) {
+          throw promoteError;
+        }
+      }
+    } else if (kind === "logo") {
+      settings.logoPath = path;
+    } else {
+      settings.soundPath = path;
+    }
+
+    const patch: { settings: typeof settings; mode?: "upload" } = { settings };
+    if (kind === "model") patch.mode = "upload";
+    await updateProjectDocument(params.projectId, patch);
     const url = await createSignedAssetUrl(path, 60 * 15);
-    return NextResponse.json({ path, url });
+    return NextResponse.json({
+      path,
+      url,
+      uploadModelUrl: publicModelUrl,
+      mode: kind === "model" ? "upload" : project.mode
+    });
   } catch (cause) {
+    if (cause instanceof UploadModelError) {
+      return NextResponse.json({ error: cause.message, code: cause.code }, { status: 400 });
+    }
+    if (cause instanceof PublicStorageConfigError) {
+      return NextResponse.json({ error: cause.message, code: cause.code }, { status: 503 });
+    }
     const message = cause instanceof Error ? cause.message : "Upload failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }

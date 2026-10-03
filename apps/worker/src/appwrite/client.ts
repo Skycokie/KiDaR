@@ -19,6 +19,7 @@ export function createWorkerAppwrite() {
     databaseId: process.env.APPWRITE_DATABASE_ID || "kidar",
     jobsCollection: process.env.APPWRITE_JOBS_COLLECTION || "jobs",
     projectsCollection: process.env.APPWRITE_PROJECTS_COLLECTION || "projects",
+    profilesCollection: process.env.APPWRITE_PROFILES_COLLECTION || "profiles",
     sourceBucket: process.env.APPWRITE_SOURCE_BUCKET || "source-drawings"
   };
 }

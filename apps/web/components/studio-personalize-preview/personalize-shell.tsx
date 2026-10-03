@@ -77,6 +77,7 @@ import {
 import { IdeaPromptCard } from "./idea-prompt-card";
 import type { PromptLanguage } from "./idea-prompt";
 import { FigurineGenerateCard } from "./figurine-generate-card";
+import { UploadModelCard } from "./upload-model-card";
 import { VoiceCard, type VoiceDraft } from "./voice-card";
 import {
   readCharacterVoiceStatus,
@@ -84,7 +85,18 @@ import {
 } from "./character-voice-client";
 import { PRIMARY_CHARACTER_ID } from "@kidar/core";
 import { contextPreviewLines } from "./scene-context";
-import { CURRENT_SCENE_ELIGIBILITY, sceneSummary, toStudioSceneDraft } from "./scene-draft";
+import {
+  evaluateFutureSceneEligibility,
+  sceneSummary,
+  toStudioSceneDraft,
+  type FutureSceneEligibility
+} from "./scene-draft";
+import {
+  readPublishStatus,
+  shouldPollPublish,
+  startPublish,
+  type PublishStatusResponse
+} from "./publish-world";
 import { GardenPoster } from "./garden-poster";
 import {
   createInteractionState,
@@ -306,6 +318,9 @@ function Inspector({
   dispatch,
   drawingSrc,
   projectId,
+  sceneEligibility,
+  arExperienceUrl,
+  onOpenAr,
   onVoiceChange,
   onVoiceDraftChange,
   onPlayVoice
@@ -314,6 +329,9 @@ function Inspector({
   dispatch: (action: Action) => void;
   drawingSrc?: string | null;
   projectId?: string | null;
+  sceneEligibility: FutureSceneEligibility;
+  arExperienceUrl: string | null;
+  onOpenAr: () => void;
   onVoiceChange?: (status: VoiceStatusView | null) => void;
   onVoiceDraftChange?: (draft: VoiceDraft | null) => void;
   onPlayVoice: (url: string) => void;
@@ -386,6 +404,7 @@ function Inspector({
         {state.transformMode === "figurine" ? (
           <FigurineGenerateCard projectId={projectId} hasDrawing={hasDrawing} />
         ) : null}
+        {state.transformMode === "upload" ? <UploadModelCard projectId={projectId} /> : null}
 
         <p className="studio-ws__section-label">{COPY.giveLife}</p>
         <div className="studio-ws__assets" role="group" aria-label={COPY.giveLife}>
@@ -542,8 +561,9 @@ function Inspector({
   const scene = toStudioSceneDraft(state, hasDrawing);
   const summary = sceneSummary(scene, locale);
   const storyLines = scene.context.story ? contextPreviewLines(scene.context, state, locale) : [];
+  const arReady = sceneEligibility.arEligible && Boolean(arExperienceUrl);
   return (
-    <div className="studio-ws__inspector-block" data-ar-eligible={CURRENT_SCENE_ELIGIBILITY.arEligible ? "yes" : "no"}>
+    <div className="studio-ws__inspector-block" data-ar-eligible={sceneEligibility.arEligible ? "yes" : "no"}>
       <h2>{COPY.sceneHeading}</h2>
       <p className="studio-ws__muted">{COPY.sceneBody}</p>
       <p className="studio-ws__scene-label">{COPY.sceneLocalLabel}</p>
@@ -573,12 +593,20 @@ function Inspector({
           </div>
         ))}
       </dl>
-      <p className="studio-ws__scene-status">{messages.studio.arPreparing}</p>
+      <p className="studio-ws__scene-status">
+        {arReady ? COPY.seeSceneInAr : messages.studio.arPreparing}
+      </p>
       <p className="studio-ws__muted">{COPY.sceneExplanation}</p>
-      <button type="button" className="studio-ws__primary-btn" disabled>
+      <button
+        type="button"
+        className="studio-ws__primary-btn"
+        disabled={!arReady}
+        title={arReady ? undefined : COPY.sceneHelper}
+        onClick={onOpenAr}
+      >
         {COPY.seeSceneInAr}
       </button>
-      <p className="studio-ws__muted">{COPY.sceneHelper}</p>
+      {arReady ? null : <p className="studio-ws__muted">{COPY.sceneHelper}</p>}
     </div>
   );
 }
@@ -588,11 +616,18 @@ type StartSaveState = {
   baselineYaw: number;
   baselinePitch: number;
   baselineArAnchorMode: "marker" | "follow";
+  baselineDecor: Array<{ id: string; x: number; y: number; yaw: number; pitch: number }>;
 };
 
 type StartSaveAction =
   | { type: "saving" }
-  | { type: "saved"; yaw: number; pitch: number; arAnchorMode: "marker" | "follow" }
+  | {
+      type: "saved";
+      yaw: number;
+      pitch: number;
+      arAnchorMode: "marker" | "follow";
+      decor: Array<{ id: string; x: number; y: number; yaw: number; pitch: number }>;
+    }
   | { type: "error" };
 
 function startSaveReducer(current: StartSaveState, action: StartSaveAction): StartSaveState {
@@ -602,7 +637,8 @@ function startSaveReducer(current: StartSaveState, action: StartSaveAction): Sta
       status: "saved",
       baselineYaw: action.yaw,
       baselinePitch: action.pitch,
-      baselineArAnchorMode: action.arAnchorMode
+      baselineArAnchorMode: action.arAnchorMode,
+      baselineDecor: action.decor
     };
   }
   return { ...current, status: "error" };
@@ -707,10 +743,20 @@ export function PersonalizePreviewShell({
     baselineYaw: orbitSeed.yaw ?? createInitialPersonalizeState().orbitYaw,
     baselinePitch: orbitSeed.pitch ?? createInitialPersonalizeState().orbitPitch,
     baselineArAnchorMode:
-      orbitSeed.arAnchorMode ?? createInitialPersonalizeState().arAnchorMode
+      orbitSeed.arAnchorMode ?? createInitialPersonalizeState().arAnchorMode,
+    baselineDecor: []
   });
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatusView | null>(null);
   const [voiceDraft, setVoiceDraft] = useState<VoiceDraft | null>(null);
+  const [publishStatus, setPublishStatus] = useState<PublishStatusResponse | null>(null);
+  const [publishBusy, setPublishBusy] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [livePublicUrls, setLivePublicUrls] = useState({
+    html: projectContext?.publicHtmlUrl ?? null,
+    qr: projectContext?.publicQrUrl ?? null,
+    pdf: projectContext?.publicPdfUrl ?? null,
+    experience: projectContext?.publicExperienceUrl ?? null
+  });
   const savedVoice = voiceStatus?.voice ?? null;
   const draftMessage = voiceDraft?.message.trim() ?? "";
   const liveVoice = voiceDraft
@@ -737,12 +783,14 @@ export function PersonalizePreviewShell({
     {
       yaw: state.orbitYaw,
       pitch: state.orbitPitch,
-      arAnchorMode: state.arAnchorMode
+      arAnchorMode: state.arAnchorMode,
+      decor: state.decor
     },
     {
       yaw: save.baselineYaw,
       pitch: save.baselinePitch,
-      arAnchorMode: save.baselineArAnchorMode
+      arAnchorMode: save.baselineArAnchorMode,
+      decor: save.baselineDecor
     }
   );
   const startPresentation = startSavePresentation({
@@ -756,6 +804,13 @@ export function PersonalizePreviewShell({
     if (!projectContext || startPresentation.disabled) return;
     const yaw = state.orbitYaw;
     const pitch = state.orbitPitch;
+    const decor = state.decor.map((item) => ({
+      id: item.id,
+      x: item.x,
+      y: item.y,
+      yaw: item.yaw,
+      pitch: item.pitch
+    }));
     if (state.autoRotate) dispatch({ type: "autoRotate", value: false });
     saveDispatch({ type: "saving" });
     const ok = await patchStartTransform(
@@ -765,12 +820,13 @@ export function PersonalizePreviewShell({
         pitch,
         offset: projectContext.offset,
         scale: projectContext.scale,
-        arAnchorMode: state.arAnchorMode
+        arAnchorMode: state.arAnchorMode,
+        decor
       })
     );
     saveDispatch(
       ok
-        ? { type: "saved", yaw, pitch, arAnchorMode: state.arAnchorMode }
+        ? { type: "saved", yaw, pitch, arAnchorMode: state.arAnchorMode, decor }
         : { type: "error" }
     );
   };
@@ -809,6 +865,103 @@ export function PersonalizePreviewShell({
   }, [state.autoRotate]);
 
   const closePublish = () => dispatch({ type: "publish", open: false });
+
+  const experienceUrl = livePublicUrls.experience ?? livePublicUrls.html;
+  const sceneEligibility = evaluateFutureSceneEligibility({
+    technicalStatus: experienceUrl
+      ? "ready"
+      : publishStatus?.phase === "failed"
+        ? "failed"
+        : "pending",
+    sceneAssetAvailable: Boolean(drawingSrc || experienceUrl),
+    qualityReview: experienceUrl ? "approved" : "pending",
+    arFormatAvailable: Boolean(experienceUrl),
+    arFlag: projectContext?.arFeatureEnabled ? "true" : undefined,
+    authenticated: Boolean(projectId),
+    owner: Boolean(projectId)
+  });
+  const arLive = sceneEligibility.arEligible && Boolean(experienceUrl);
+
+  const openAr = () => {
+    if (!experienceUrl || !arLive) return;
+    dispatch({ type: "arLive", value: true });
+    window.open(experienceUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const onPublishWorld = async () => {
+    if (!projectId || !projectContext || publishBusy) return;
+    setPublishBusy(true);
+    setPublishError(null);
+    const decor = state.decor.map((item) => ({
+      id: item.id,
+      x: item.x,
+      y: item.y,
+      yaw: item.yaw,
+      pitch: item.pitch
+    }));
+    const saved = await patchStartTransform(
+      projectContext.projectId,
+      buildStartTransformPatch({
+        yaw: state.orbitYaw,
+        pitch: state.orbitPitch,
+        offset: projectContext.offset,
+        scale: projectContext.scale,
+        arAnchorMode: state.arAnchorMode,
+        decor
+      })
+    );
+    if (!saved) {
+      setPublishError("save_failed");
+      setPublishBusy(false);
+      return;
+    }
+    saveDispatch({
+      type: "saved",
+      yaw: state.orbitYaw,
+      pitch: state.orbitPitch,
+      arAnchorMode: state.arAnchorMode,
+      decor
+    });
+    const result = await startPublish(projectId, { acceptTerms: true });
+    if (!result.ok) {
+      setPublishError(result.error);
+      setPublishBusy(false);
+      return;
+    }
+    const status = await readPublishStatus(projectId);
+    if (status.ok) {
+      setPublishStatus(status.status);
+      setLivePublicUrls(status.status.publicUrls);
+    }
+    setPublishBusy(false);
+  };
+
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+    void (async () => {
+      const result = await readPublishStatus(projectId);
+      if (cancelled || !result.ok) return;
+      setPublishStatus(result.status);
+      setLivePublicUrls(result.status.publicUrls);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId || !shouldPollPublish(publishStatus)) return;
+    const id = window.setInterval(() => {
+      void (async () => {
+        const result = await readPublishStatus(projectId);
+        if (!result.ok) return;
+        setPublishStatus(result.status);
+        setLivePublicUrls(result.status.publicUrls);
+      })();
+    }, 2500);
+    return () => window.clearInterval(id);
+  }, [projectId, publishStatus]);
 
   useEffect(() => {
     if (!state.publishOpen) return;
@@ -1069,7 +1222,7 @@ export function PersonalizePreviewShell({
       data-studio-mode="personalize-workspace"
       data-has-drawing={hasDrawing ? "yes" : "no"}
       data-project={projectId ? "linked" : "fixture"}
-      data-ar-live="no"
+      data-ar-live={arLive ? "yes" : "no"}
       data-sheet={state.leftOpen || state.rightOpen ? "open" : "closed"}
     >
       <a className="studio-ws__skip" href="#studio-ws-main">
@@ -1088,7 +1241,13 @@ export function PersonalizePreviewShell({
               {COPY.savedLocal}
             </span>
             {renderPublish()}
-            <button type="button" className="studio-ws__btn-primary" disabled title={COPY.sceneHelper}>
+            <button
+              type="button"
+              className="studio-ws__btn-primary"
+              disabled={!arLive}
+              title={arLive ? undefined : COPY.sceneHelper}
+              onClick={openAr}
+            >
               {COPY.seeSceneInAr}
             </button>
           </div>
@@ -1097,7 +1256,13 @@ export function PersonalizePreviewShell({
           <>
             <p className="studio-ws__saved studio-ws__saved--sheet">{COPY.savedLocal}</p>
             {renderPublish()}
-            <button type="button" className="studio-ws__btn-primary" disabled title={COPY.sceneHelper}>
+            <button
+              type="button"
+              className="studio-ws__btn-primary"
+              disabled={!arLive}
+              title={arLive ? undefined : COPY.sceneHelper}
+              onClick={openAr}
+            >
               {COPY.seeSceneInAr}
             </button>
           </>
@@ -1272,6 +1437,9 @@ export function PersonalizePreviewShell({
             dispatch={dispatch}
             drawingSrc={drawingSrc}
             projectId={projectId}
+            sceneEligibility={sceneEligibility}
+            arExperienceUrl={experienceUrl}
+            onOpenAr={openAr}
             onVoiceChange={setVoiceStatus}
             onVoiceDraftChange={setVoiceDraft}
             onPlayVoice={playVoiceClip}
@@ -1298,7 +1466,13 @@ export function PersonalizePreviewShell({
           <SlidersHorizontal size={17} strokeWidth={1.75} aria-hidden />
           {COPY.rightNavOpen}
         </button>
-        <button type="button" className="studio-ws__dock-cta" disabled title={COPY.sceneHelper}>
+        <button
+          type="button"
+          className="studio-ws__dock-cta"
+          disabled={!arLive}
+          title={arLive ? undefined : COPY.sceneHelper}
+          onClick={openAr}
+        >
           {COPY.seeSceneInAr}
         </button>
       </nav>
@@ -1338,23 +1512,55 @@ export function PersonalizePreviewShell({
             <p>{COPY.publishLinkNote}</p>
             <p>{COPY.publishStartNote}</p>
             <p>{COPY.publishLaterNote}</p>
+            {publishStatus?.phase === "building" ? (
+              <p className="studio-ws__muted" aria-live="polite">
+                {publishStatus.steps.map((step) => `${step.type}: ${step.label}`).join(" · ")}
+              </p>
+            ) : null}
+            {publishError ? <p className="studio-ws__muted">{publishError}</p> : null}
             <figure className="studio-ws__publish-qr">
-              <svg viewBox="0 0 64 64" aria-hidden="true">
-                <rect x="4" y="4" width="18" height="18" />
-                <rect x="42" y="4" width="18" height="18" />
-                <rect x="4" y="42" width="18" height="18" />
-                <rect x="28" y="28" width="8" height="8" />
-                <rect x="40" y="40" width="6" height="6" />
-                <rect x="50" y="28" width="8" height="8" />
-                <rect x="28" y="48" width="8" height="8" />
-              </svg>
+              {livePublicUrls.qr ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={livePublicUrls.qr} alt={COPY.publishQrLabel} width={192} height={192} />
+              ) : (
+                <svg viewBox="0 0 64 64" aria-hidden="true">
+                  <rect x="4" y="4" width="18" height="18" />
+                  <rect x="42" y="4" width="18" height="18" />
+                  <rect x="4" y="42" width="18" height="18" />
+                  <rect x="28" y="28" width="8" height="8" />
+                  <rect x="40" y="40" width="6" height="6" />
+                  <rect x="50" y="28" width="8" height="8" />
+                  <rect x="28" y="48" width="8" height="8" />
+                </svg>
+              )}
               <figcaption>{COPY.publishQrLabel}</figcaption>
             </figure>
+            {experienceUrl ? (
+              <p>
+                <a href={experienceUrl} target="_blank" rel="noopener noreferrer">
+                  {experienceUrl}
+                </a>
+              </p>
+            ) : null}
+            {livePublicUrls.pdf ? (
+              <p>
+                <a href={livePublicUrls.pdf} target="_blank" rel="noopener noreferrer">
+                  PDF
+                </a>
+              </p>
+            ) : null}
             <div className="studio-ws__publish-actions">
-              <button type="button" className="studio-ws__btn-primary" disabled>
+              <button
+                type="button"
+                className="studio-ws__btn-primary"
+                disabled={publishBusy || publishStatus?.phase === "building"}
+                onClick={() => {
+                  void onPublishWorld();
+                }}
+              >
                 {COPY.publishWorld}
               </button>
-              <p className="studio-ws__publish-inactive">{COPY.publishInactive}</p>
+              {arLive ? null : <p className="studio-ws__publish-inactive">{COPY.publishInactive}</p>}
               <button type="button" className="studio-ws__btn-secondary" onClick={closePublish}>
                 {COPY.publishBack}
               </button>

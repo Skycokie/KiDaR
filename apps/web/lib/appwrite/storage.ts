@@ -80,6 +80,16 @@ export async function uploadCharacterVoiceAudio(
   return upsertFile(APPWRITE_ASSETS_BUCKET, fileId, file, ownerId);
 }
 
+export async function downloadProjectAssetBytes(fileId: string): Promise<Uint8Array | null> {
+  const { storage } = createAdminClient();
+  try {
+    const arrayBuffer = await storage.getFileDownload(APPWRITE_ASSETS_BUCKET, fileId);
+    return new Uint8Array(arrayBuffer);
+  } catch {
+    return null;
+  }
+}
+
 export async function deleteStorageFiles(bucketId: string, fileIds: string[]) {
   const { storage } = createAdminClient();
   for (const fileId of fileIds) {
