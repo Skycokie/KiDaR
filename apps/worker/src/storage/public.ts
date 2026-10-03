@@ -10,6 +10,7 @@ import {
   isAllowedUnpublishKey,
   normalizePublicObjectKey,
   publicArtifactUrl,
+  publishStorageEnv,
   resolvePublicStorageConfig,
   type PublicArtifactMetadata,
   type PublicArtifactStorage,
@@ -144,7 +145,7 @@ function r2Client(config: R2PublicStorageConfig) {
 export function createWorkerPublicStorage(
   env: NodeJS.ProcessEnv = process.env
 ): PublicArtifactStorage {
-  const config = resolvePublicStorageConfig(env);
+  const config = resolvePublicStorageConfig(publishStorageEnv(env));
   if (config.provider !== "r2") {
     throw new PublicStorageConfigError(
       "Worker requires R2 public artifact storage. Appwrite public fallback is not wired for uploads, and source-drawings must stay private."

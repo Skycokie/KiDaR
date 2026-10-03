@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { AR_ROBOTS_META_CONTENT, resolveExperienceRedirect } from "@kidar/core";
+import { AR_ROBOTS_META_CONTENT, publishPublicBaseUrl, resolveExperienceRedirect } from "@kidar/core";
 import { getMessages } from "@/i18n/get-messages";
 import { getRequestLocale } from "@/i18n/get-request-locale";
 
@@ -13,10 +13,11 @@ export async function GET(
   _request: Request,
   { params }: { params: { slug: string } }
 ) {
+  const publicBaseUrl = publishPublicBaseUrl(process.env);
   const result = await resolveExperienceRedirect({
     slug: params.slug,
-    publicBaseUrl: process.env.R2_PUBLIC_BASE_URL,
-    allowLocalOrigins: /localhost|127\.0\.0\.1/.test(process.env.R2_PUBLIC_BASE_URL ?? "")
+    publicBaseUrl,
+    allowLocalOrigins: /localhost|127\.0\.0\.1/.test(publicBaseUrl ?? "")
   });
   if (!result.ok) {
     return new NextResponse(getMessages(getRequestLocale()).ar.notPublic, {

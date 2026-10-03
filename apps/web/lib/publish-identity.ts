@@ -1,6 +1,7 @@
 import {
   normalizeArDecorList,
   planPublishJobs,
+  publishPublicBaseUrl,
   resolveEffectiveArTransform,
   type ProjectMode,
   type ProjectSettings
@@ -57,7 +58,7 @@ export function pageRenderIdentityFor(
   return {
     slug: project.slug,
     publicAppOrigin: publicOrigin(env.NEXT_PUBLIC_APP_URL),
-    publicAssetOrigin: publicOrigin(env.R2_PUBLIC_BASE_URL),
+    publicAssetOrigin: publicOrigin(publishPublicBaseUrl(env)),
     showWatermark: true,
     startTransform: resolveEffectiveArTransform(project.settings),
     arAnchorMode:

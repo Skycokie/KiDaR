@@ -6,6 +6,7 @@ import {
   publishLifecycleFromProjectStatus,
   readFigureFeatureFlags,
   createPublicArtifactStorage,
+  publishStorageEnv,
   type JobType
 } from "@kidar/core";
 import { jobInputHashForType } from "@kidar/core/hash";
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    createPublicArtifactStorage(process.env);
+    createPublicArtifactStorage(publishStorageEnv(process.env));
 
     const inputHash = publishContentHash(project);
     const plan = planProjectPublish(project, inputHash, process.env);

@@ -1,6 +1,7 @@
 import {
   consumerArUrl,
   generateArQrPng,
+  publishPublicBaseUrl,
   resolveCameraViewModel,
   resolveExperienceRedirect,
   safeExperienceSlug
@@ -48,7 +49,7 @@ export async function loadCameraView(input: {
   } catch {
     return { kind: "not_public" };
   }
-  const publicBaseUrl = input.env.R2_PUBLIC_BASE_URL;
+  const publicBaseUrl = publishPublicBaseUrl(input.env);
   const allowLocalAssets = /localhost|127\.0\.0\.1/.test(publicBaseUrl ?? "");
   const published = await resolveExperienceRedirect({
     slug,
