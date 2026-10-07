@@ -12,7 +12,7 @@ export const ro: Messages = {
     description: "Transformă un desen într-o figurină pe care o poți descoperi în lumea ta.",
     discoverCta: "Descoperă kidAR",
     studioCta: "Intră în Studio",
-    originalArtNote: "Ilustrații originale create pentru kidAR.",
+    originalArtNote: "Ilustrații © kidAR",
     processTitle: "Din desen, într-o lume nouă.",
     draw: "Desenează",
     drawBody: "Creează un personaj în stilul tău.",
@@ -641,5 +641,20 @@ export const ro: Messages = {
   },
   ar: {
     notPublic: "Experiența nu este publică încă."
+  },
+  legal: {
+    footerLabel: "Informații legale",
+    privacy: "Politica de confidențialitate",
+    terms: "Termeni de utilizare",
+    cookies: "Cookie-uri",
+    backHome: "Înapoi la kidAR",
+    lastUpdated: "Ultima actualizare",
+    consentParent:
+      "Sunt părintele sau tutorele legal al copilului care a făcut acest desen și sunt de acord ca desenul să fie prelucrat pentru a crea experiența kidAR, conform",
+    consentVoice:
+      "Sunt de acord ca această voce să fie stocată și redată în pagina AR publică a proiectului, conform",
+    consentPolicyLink: "politicii de confidențialitate",
+    consentRequired: "Confirmă mai întâi acest lucru.",
+    consentSaveError: "Nu am putut salva confirmarea. Încearcă din nou."
   }
 };

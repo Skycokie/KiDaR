@@ -6,6 +6,8 @@ import { KidarWordmark } from "@/components/brand/kidar-wordmark";
 import { LocaleSwitcher } from "@/components/i18n/locale-switcher";
 import "@/components/brand/kidar-wordmark.css";
 import { DrawingScene, LandingDiscovery } from "@/components/landing/drawing-scene";
+import { JourneyScene } from "@/components/landing/journey-scene";
+import { LegalFooter } from "@/components/legal/legal-footer";
 import { getMessages } from "@/i18n/get-messages";
 import { getRequestLocale } from "@/i18n/get-request-locale";
 import { hrefForLocale } from "@/i18n/locale";
@@ -56,7 +58,7 @@ export default async function HomePage() {
           </Suspense>
           <KidarWordmark />
         </header>
-        <section className="landing-hero" aria-labelledby="home-title">
+        <section className="landing-hero landing-hero--stage" aria-labelledby="home-title">
           <div className="landing-copy">
             <h1 id="home-title">{copy.title}</h1>
             <p className="landing-lead">{copy.description}</p>
@@ -68,15 +70,8 @@ export default async function HomePage() {
                 {copy.studioCta}
               </Link>
             </div>
-            <p className="landing-credit">{copy.originalArtNote}</p>
           </div>
-          <DrawingScene
-            labels={{
-              revealFound3d: copy.revealFound3d,
-              spinDetective: copy.spinDetective,
-              returnToPhoto: copy.returnToPhoto
-            }}
-          />
+          <JourneyScene />
         </section>
 
         <section className="landing-process" aria-labelledby="process-title">
@@ -93,14 +88,27 @@ export default async function HomePage() {
           <LandingDiscovery />
         </section>
 
-        <section className="landing-close" aria-labelledby="close-title">
-          <h2 id="close-title">{copy.closeTitle}</h2>
-          <div className="landing-actions">
-            <Link className="landing-btn landing-btn--primary" href={discoverHref}>
-              {copy.enterCta}
-            </Link>
+        <section className="landing-close landing-close--phone" aria-labelledby="close-title">
+          <div className="landing-close__copy">
+            <h2 id="close-title">{copy.closeTitle}</h2>
+            <div className="landing-actions">
+              <Link className="landing-btn landing-btn--primary" href={discoverHref}>
+                {copy.enterCta}
+              </Link>
+            </div>
           </div>
+          <DrawingScene
+            labels={{
+              revealFound3d: copy.revealFound3d,
+              spinDetective: copy.spinDetective,
+              returnToPhoto: copy.returnToPhoto
+            }}
+          />
         </section>
+
+        <p className="landing-credit">{copy.originalArtNote}</p>
+
+        <LegalFooter locale={locale} />
       </main>
     </div>
   );

@@ -12,7 +12,7 @@ export const en: Messages = {
     description: "Turn a drawing into a figure you can discover in your world.",
     discoverCta: "Discover kidAR",
     studioCta: "Enter Studio",
-    originalArtNote: "Original illustrations created for kidAR.",
+    originalArtNote: "Art © kidAR",
     processTitle: "From a drawing, into a new world.",
     draw: "Draw",
     drawBody: "Create a character in your own style.",
@@ -641,5 +641,20 @@ export const en: Messages = {
   },
   ar: {
     notPublic: "This experience is not public yet."
+  },
+  legal: {
+    footerLabel: "Legal",
+    privacy: "Privacy policy",
+    terms: "Terms of use",
+    cookies: "Cookies",
+    backHome: "Back to kidAR",
+    lastUpdated: "Last updated",
+    consentParent:
+      "I am the parent or legal guardian of the child who made this drawing, and I agree that it is processed to create the kidAR experience, as described in the",
+    consentVoice:
+      "I agree that this voice is stored and played on the public AR page of this project, as described in the",
+    consentPolicyLink: "privacy policy",
+    consentRequired: "Please confirm this first.",
+    consentSaveError: "We could not save your confirmation. Please try again."
   }
 };
