@@ -118,30 +118,32 @@ export function DrawingScene({ labels }: { labels: DrawingSceneLabels }) {
       aria-hidden="true"
     >
       <div className="detective-hero__glow" />
-      <div className="detective-hero__frame">
-        <Image
-          className="detective-hero__image"
-          src={detectiveStory}
-          alt=""
-          fill
-          priority
-          sizes="(max-width: 899px) 92vw, 500px"
-        />
-        <div className="detective-hero__shine" />
-        <DetectiveCharacter
-          src={detectiveYellowCoat}
-          demo={HOMEPAGE_DEMO_CHARACTERS.detectiveYellowCoat}
-          className="detective-character--hero"
-          spinRequestId={heroSpinId}
-        />
-        {starlit === "hidden" ? (
-          <button
-            type="button"
-            className="detective-hero__reveal"
-            aria-label={labels.revealFound3d}
-            onClick={() => setStarlit((current) => starlitNextPhase(current, "photo"))}
+      <div className="detective-hero__phone">
+        <div className="detective-hero__frame">
+          <Image
+            className="detective-hero__image"
+            src={detectiveStory}
+            alt=""
+            fill
+            priority
+            sizes="(max-width: 899px) 72vw, 280px"
           />
-        ) : null}
+          <div className="detective-hero__shine" />
+          <DetectiveCharacter
+            src={detectiveYellowCoat}
+            demo={HOMEPAGE_DEMO_CHARACTERS.detectiveYellowCoat}
+            className="detective-character--hero"
+            spinRequestId={heroSpinId}
+          />
+          {starlit === "hidden" ? (
+            <button
+              type="button"
+              className="detective-hero__reveal"
+              aria-label={labels.revealFound3d}
+              onClick={() => setStarlit((current) => starlitNextPhase(current, "photo"))}
+            />
+          ) : null}
+        </div>
       </div>
       {starlit !== "hidden" ? (
         <div className="starlit-emerge">
