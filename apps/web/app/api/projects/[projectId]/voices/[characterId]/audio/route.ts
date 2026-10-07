@@ -9,6 +9,7 @@ import {
 } from "@kidar/core";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import { getProjectForOwner, updateProjectDocument } from "@/lib/appwrite/db";
+import { hasValidConsent } from "@/lib/consent";
 import {
   createSignedAssetUrl,
   uploadCharacterVoiceAudio
@@ -24,6 +25,13 @@ export async function POST(request: Request, { params }: Context) {
     return NextResponse.json(
       { error: "invalid_character_id", message: "Identificatorul personajului nu este valid." },
       { status: 400 }
+    );
+  }
+
+  if (!hasValidConsent(user.prefs, "voice")) {
+    return NextResponse.json(
+      { error: "consent_required", message: "Voice consent required." },
+      { status: 403 }
     );
   }
 

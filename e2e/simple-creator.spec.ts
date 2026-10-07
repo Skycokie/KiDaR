@@ -118,6 +118,7 @@ test("Atelier foto step uploads JPG and continues to scene", async ({ page }) =>
 
   const fileInput = page.locator('input[type="file"]').first();
   await fileInput.setInputFiles(photoFixture);
+  await page.locator('[data-consent="parent"] input').check();
   await page.getByRole("button", { name: /Salvează poza/i }).click();
   await expect(page.getByRole("heading", { name: "Cum vrei să prindă viață?" })).toBeVisible({
     timeout: 30_000
@@ -130,6 +131,7 @@ test("Atelier scene save reaches confirmation and Studio link", async ({ page })
   await chooseCharacter(page);
   await continueFromStart(page);
   await page.locator('input[type="file"]').first().setInputFiles(photoFixture);
+  await page.locator('[data-consent="parent"] input').check();
   await page.getByRole("button", { name: /Salvează poza/i }).click();
   await expect(page.getByRole("heading", { name: "Cum vrei să prindă viață?" })).toBeVisible({
     timeout: 30_000

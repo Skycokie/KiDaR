@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { FIGURE_MAX_UPLOAD_BYTES, normalizeFigureUpload } from "@kidar/core";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import { getProjectForOwner, updateProjectDocument } from "@/lib/appwrite/db";
+import { hasValidConsent } from "@/lib/consent";
 import { createSignedSourceUrl, uploadSourceDrawing } from "@/lib/appwrite/storage";
 
 type Context = { params: { projectId: string } };
@@ -9,6 +10,10 @@ type Context = { params: { projectId: string } };
 export async function POST(request: Request, { params }: Context) {
   const user = await getLoggedInUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (!hasValidConsent(user.prefs, "parent")) {
+    return NextResponse.json({ error: "Parental consent required", code: "consent_required" }, { status: 403 });
+  }
 
   const project = await getProjectForOwner(params.projectId, user.$id);
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });

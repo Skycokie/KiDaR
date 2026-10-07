@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useId, useMemo, useReducer, useRef } from "react";
+import { useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
 import { useStudioI18n } from "@/components/i18n/studio-i18n";
+import { ConsentCheck } from "@/components/legal/consent-check";
+import { postConsent } from "@/components/legal/consent-client";
 import { SOURCE_ACCEPT } from "@/lib/simple-creator";
 import { CreazaArt } from "./art";
 import { buildCreateProjectPayload, postCreateProject } from "./create-project";
@@ -140,6 +142,8 @@ export function CreazaPreviewShell() {
   const { locale, messages } = useStudioI18n();
   const t = messages.creaza;
   const [state, dispatch] = useReducer(reducer, undefined, createInitialCreazaFormState);
+  const [parentConsent, setParentConsent] = useState(false);
+  const [consentError, setConsentError] = useState<"" | "required" | "save">("");
   const fileInputId = useId();
   const cameraInputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -202,8 +206,21 @@ export function CreazaPreviewShell() {
       return;
     }
 
+    if (!parentConsent) {
+      setConsentError("required");
+      return;
+    }
+
     uploadInFlightRef.current = true;
     dispatch({ type: "begin-upload" });
+
+    // The parent/guardian confirmation is stored on the account before any drawing leaves the device.
+    if (!(await postConsent("parent"))) {
+      uploadInFlightRef.current = false;
+      setConsentError("save");
+      dispatch({ type: "fail-upload", error: "generic" });
+      return;
+    }
 
     const result = await postSourceUpload(decision.projectId, decision.file);
 
@@ -589,6 +606,21 @@ export function CreazaPreviewShell() {
                 </button>
               ) : null}
             </div>
+
+            <ConsentCheck
+              kind="parent"
+              checked={parentConsent}
+              disabled={dropLocked}
+              onChange={(checked) => {
+                setParentConsent(checked);
+                setConsentError("");
+              }}
+            />
+            {consentError ? (
+              <p className="creaza-inline-error" role="alert">
+                {consentError === "required" ? messages.legal.consentRequired : messages.legal.consentSaveError}
+              </p>
+            ) : null}
 
             <div className="creaza-actions">
               <button

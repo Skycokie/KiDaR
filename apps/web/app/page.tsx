@@ -6,6 +6,7 @@ import { KidarWordmark } from "@/components/brand/kidar-wordmark";
 import { LocaleSwitcher } from "@/components/i18n/locale-switcher";
 import "@/components/brand/kidar-wordmark.css";
 import { DrawingScene, LandingDiscovery } from "@/components/landing/drawing-scene";
+import { LegalFooter } from "@/components/legal/legal-footer";
 import { getMessages } from "@/i18n/get-messages";
 import { getRequestLocale } from "@/i18n/get-request-locale";
 import { hrefForLocale } from "@/i18n/locale";
@@ -101,6 +102,8 @@ export default async function HomePage() {
             </Link>
           </div>
         </section>
+
+        <LegalFooter locale={locale} />
       </main>
     </div>
   );
