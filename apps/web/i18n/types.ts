@@ -20,6 +20,8 @@ export type Messages = {
     discoverCta: string;
     studioCta: string;
     originalArtNote: string;
+    playAnimation: string;
+    pauseAnimation: string;
     processTitle: string;
     draw: string;
     drawBody: string;

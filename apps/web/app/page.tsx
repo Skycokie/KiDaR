@@ -71,7 +71,7 @@ export default async function HomePage() {
               </Link>
             </div>
           </div>
-          <JourneyScene />
+          <JourneyScene playLabel={copy.playAnimation} pauseLabel={copy.pauseAnimation} />
         </section>
 
         <section className="landing-process" aria-labelledby="process-title">
