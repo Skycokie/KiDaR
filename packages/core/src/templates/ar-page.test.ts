@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  AR_CAMERA_PRIVACY_NOTE_RO,
+  AR_ROBOTS_META_CONTENT,
   AR_FAILURE_COPY_RO,
   AR_IDLE_START_HINT_RO,
   AR_RETRY_BUTTON_LABEL_RO,
@@ -32,6 +34,21 @@ const baseConfig = (): ArPageConfig => ({
 });
 
 describe("renderArPage", () => {
+  it("keeps public AR pages out of search engines and states the camera privacy note", () => {
+    const html = renderArPage(baseConfig());
+    expect(html).toContain(`<meta name="robots" content="${AR_ROBOTS_META_CONTENT}" />`);
+    expect(AR_ROBOTS_META_CONTENT).toMatch(/noindex/);
+    expect(html).toContain('id="kidar-privacy-note"');
+    expect(html).toContain(AR_CAMERA_PRIVACY_NOTE_RO);
+  });
+
+  it("never loads runtime scripts from a third-party CDN", () => {
+    const html = renderArPage(baseConfig());
+    expect(html).not.toContain("jsdelivr");
+    expect(html).toContain(`src="${AFRAME_RUNTIME_SCRIPT_PATH}"`);
+    expect(html).toContain(`src="${MINDAR_RUNTIME_SCRIPT_PATH}"`);
+  });
+
   it("renders deterministic HTML for a normalized config", () => {
     const htmlA = renderArPage(baseConfig());
     const htmlB = renderArPage(baseConfig());

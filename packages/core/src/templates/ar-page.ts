@@ -50,10 +50,15 @@ export function arRuntimeScriptUrls(publicAssetOrigin: string): { aframe: string
  * Included in the page_render input hash so a new template writes a new
  * immutable `pages/<projectId>/<hash>/` namespace instead of overwriting.
  */
-export const AR_PAGE_TEMPLATE_VERSION = "ar-page-follow-v1";
+export const AR_PAGE_TEMPLATE_VERSION = "ar-page-follow-v2";
 
 export const DEFAULT_AR_INSTRUCTIONS_RO =
   "Îndreaptă camera spre desenul tipărit pentru a vedea modelul 3D.";
+/** Shown on the start card so visitors know the camera feed never leaves the phone. */
+export const AR_CAMERA_PRIVACY_NOTE_RO =
+  "Imaginea camerei rămâne pe telefonul tău. Nu este înregistrată și nu este trimisă nicăieri.";
+/** Public AR pages are reachable only by link or QR code. Keep them out of search engines. */
+export const AR_ROBOTS_META_CONTENT = "noindex, nofollow, noarchive";
 export const AR_START_BUTTON_LABEL_RO = "Pornește experiența AR";
 export const AR_RETRY_BUTTON_LABEL_RO = "Reîncearcă";
 export const AR_IDLE_START_HINT_RO = "Apasă pentru a porni experiența AR.";
@@ -1074,6 +1079,7 @@ export function renderArPage(config: ArPageConfig): string {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="${AR_ROBOTS_META_CONTENT}" />
   <meta http-equiv="Content-Security-Policy" content="${escapeCspAttribute(csp)}" />
   <title>${title}</title>
   <script id="kidar-csp-probe">
@@ -1108,6 +1114,7 @@ document.addEventListener("securitypolicyviolation", function (event) {
     .start-card { max-width: 22rem; width: 100%; text-align: center; }
     #kidar-start-hint { margin: 0 0 .85rem; opacity: .92; font-size: .95rem; }
     #kidar-start { appearance: none; border: 0; cursor: pointer; width: 100%; padding: .9rem 1.1rem; border-radius: .75rem; font-size: 1.05rem; font-weight: 700; color: #111; background: var(--kidar-theme); }
+    #kidar-privacy-note { margin: .75rem 0 0; font-size: .78rem; line-height: 1.4; opacity: .7; }
     #kidar-start:disabled { opacity: .65; cursor: default; }
     #kidar-camera-hint, #kidar-error { position: absolute; left: 1rem; right: 1rem; bottom: 1.25rem; z-index: 4; margin: 0; padding: .75rem 1rem; border-radius: .65rem; text-align: center; font-size: .9rem; }
     #kidar-camera-hint { background: rgba(15,20,25,.85); }
@@ -1135,6 +1142,7 @@ document.addEventListener("securitypolicyviolation", function (event) {
       <div class="start-card">
         <p id="kidar-start-hint">${escapeHtml(AR_IDLE_START_HINT_RO)}</p>
         <button type="button" id="kidar-start">${escapeHtml(AR_START_BUTTON_LABEL_RO)}</button>
+        <p id="kidar-privacy-note">${escapeHtml(AR_CAMERA_PRIVACY_NOTE_RO)}</p>
       </div>
     </div>
 

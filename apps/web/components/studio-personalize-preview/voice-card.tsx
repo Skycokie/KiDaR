@@ -7,6 +7,8 @@ import {
   type CharacterVoiceRole
 } from "@kidar/core";
 import { useStudioI18n } from "@/components/i18n/studio-i18n";
+import { ConsentCheck } from "@/components/legal/consent-check";
+import { postConsent } from "@/components/legal/consent-client";
 import {
   VOICE_ERROR_KEY,
   deleteCharacterVoice,
@@ -47,6 +49,7 @@ export function VoiceCard({
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState<string>("");
   const [note, setNote] = useState("");
+  const [voiceConsent, setVoiceConsent] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sessionRef = useRef<VoiceRecorderSession | null>(null);
   const { messages } = useStudioI18n();
@@ -116,6 +119,12 @@ export function VoiceCard({
     setBusy(true);
     setError("");
     setNote("");
+    // The voice consent is stored on the account before any audio leaves the device.
+    if (!(await postConsent("voice"))) {
+      setBusy(false);
+      setError(messages.legal.consentSaveError);
+      return;
+    }
     const draftChanged =
       !status?.voice || status.voice.role !== role || status.voice.message !== message.trim();
     if (draftChanged) {
@@ -151,6 +160,10 @@ export function VoiceCard({
         return;
       }
       await uploadFile(stopped.file);
+      return;
+    }
+    if (!voiceConsent) {
+      setError(messages.legal.consentRequired);
       return;
     }
     const started = await startVoiceRecording();
@@ -250,6 +263,12 @@ export function VoiceCard({
 
       <p className="studio-ws__section-label">{COPY.voiceAudioLabel}</p>
       <p className="studio-ws__muted">{COPY.voiceLimits}</p>
+      <ConsentCheck
+        kind="voice"
+        checked={voiceConsent}
+        disabled={busy || recording}
+        onChange={setVoiceConsent}
+      />
       <div className="studio-ws__voice-actions">
         <input
           ref={fileInputRef}
@@ -265,7 +284,7 @@ export function VoiceCard({
         <button
           type="button"
           className="studio-ws__btn-secondary"
-          disabled={busy || recording}
+          disabled={busy || recording || !voiceConsent}
           onClick={() => fileInputRef.current?.click()}
         >
           {COPY.voiceUpload}
@@ -274,7 +293,7 @@ export function VoiceCard({
           <button
             type="button"
             className="studio-ws__btn-secondary"
-            disabled={busy}
+            disabled={busy || (!recording && !voiceConsent)}
             aria-pressed={recording}
             onClick={() => void toggleRecord()}
           >

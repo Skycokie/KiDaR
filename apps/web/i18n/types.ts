@@ -598,4 +598,17 @@ export type Messages = {
   ar: {
     notPublic: string;
   };
+  legal: {
+    footerLabel: string;
+    privacy: string;
+    terms: string;
+    cookies: string;
+    backHome: string;
+    lastUpdated: string;
+    consentParent: string;
+    consentVoice: string;
+    consentPolicyLink: string;
+    consentRequired: string;
+    consentSaveError: string;
+  };
 };

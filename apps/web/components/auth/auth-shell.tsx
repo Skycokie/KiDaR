@@ -2,6 +2,7 @@ import { Suspense, type ReactNode } from "react";
 import { DM_Sans, Syne } from "next/font/google";
 import { KidarWordmark } from "@/components/brand/kidar-wordmark";
 import { LocaleSwitcher } from "@/components/i18n/locale-switcher";
+import { LegalFooter } from "@/components/legal/legal-footer";
 import type { Locale } from "@/i18n/config";
 import "@/components/brand/kidar-wordmark.css";
 import "./auth-shell.css";
@@ -42,6 +43,7 @@ export function AuthShell({
         </div>
         <h1>{title}</h1>
         {children}
+        <LegalFooter locale={locale} />
       </section>
     </main>
   );

@@ -641,5 +641,20 @@ export const en: Messages = {
   },
   ar: {
     notPublic: "This experience is not public yet."
+  },
+  legal: {
+    footerLabel: "Legal",
+    privacy: "Privacy policy",
+    terms: "Terms of use",
+    cookies: "Cookies",
+    backHome: "Back to kidAR",
+    lastUpdated: "Last updated",
+    consentParent:
+      "I am the parent or legal guardian of the child who made this drawing, and I agree that it is processed to create the kidAR experience, as described in the",
+    consentVoice:
+      "I agree that this voice is stored and played on the public AR page of this project, as described in the",
+    consentPolicyLink: "privacy policy",
+    consentRequired: "Please confirm this first.",
+    consentSaveError: "We could not save your confirmation. Please try again."
   }
 };
