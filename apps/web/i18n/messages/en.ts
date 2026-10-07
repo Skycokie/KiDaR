@@ -12,7 +12,7 @@ export const en: Messages = {
     description: "Turn a drawing into a figure you can discover in your world.",
     discoverCta: "Discover kidAR",
     studioCta: "Enter Studio",
-    originalArtNote: "Original illustrations created for kidAR.",
+    originalArtNote: "Art © kidAR",
     processTitle: "From a drawing, into a new world.",
     draw: "Draw",
     drawBody: "Create a character in your own style.",

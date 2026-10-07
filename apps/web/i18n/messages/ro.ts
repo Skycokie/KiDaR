@@ -12,7 +12,7 @@ export const ro: Messages = {
     description: "Transformă un desen într-o figurină pe care o poți descoperi în lumea ta.",
     discoverCta: "Descoperă kidAR",
     studioCta: "Intră în Studio",
-    originalArtNote: "Ilustrații originale create pentru kidAR.",
+    originalArtNote: "Ilustrații © kidAR",
     processTitle: "Din desen, într-o lume nouă.",
     draw: "Desenează",
     drawBody: "Creează un personaj în stilul tău.",

@@ -129,7 +129,8 @@ body:has(.landing) {
 .landing-credit {
   margin: 0;
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: 0.78rem;
+  text-align: right;
 }
 
 .landing-actions {
@@ -1173,6 +1174,85 @@ body:has(.landing) {
   max-width: 18ch;
 }
 
+/* Hero: centered copy over the large particle story loop; the photo phone sits below. */
+.landing-hero.landing-hero--stage {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: clamp(20px, 3vw, 36px);
+  min-height: 0;
+  padding-top: 8px;
+  text-align: center;
+}
+
+.landing-hero--stage .landing-copy {
+  justify-items: center;
+  max-width: 44rem;
+}
+
+.landing-hero--stage h1 {
+  max-width: 16ch;
+  margin-inline: auto;
+}
+
+.landing-hero--stage .landing-lead {
+  margin-inline: auto;
+}
+
+.landing-hero--stage .landing-actions {
+  justify-content: center;
+}
+
+/* Closing block: call to action on the left, the photo phone on the right. */
+.landing-close.landing-close--phone {
+  max-width: none;
+  align-items: center;
+  gap: 40px;
+}
+
+.landing-close__copy {
+  display: grid;
+  gap: 18px;
+}
+
+.landing-close--phone .detective-hero {
+  margin-top: 0;
+}
+
+@media (min-width: 700px) {
+  .landing-close.landing-close--phone {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+
+  .landing-close--phone .detective-hero {
+    margin-inline: 0;
+  }
+}
+
+/* Decorative particle story loop (draw -> character -> decor -> voice -> AR phone -> QR). */
+.journey-scene {
+  position: relative;
+  width: min(100%, 620px);
+  aspect-ratio: 1 / 1;
+  margin-inline: auto;
+  pointer-events: none;
+  /* Voice rings can reach the canvas edge: fade the border so nothing is cut hard. */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent),
+    linear-gradient(180deg, transparent, #000 6%, #000 94%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent),
+    linear-gradient(180deg, transparent, #000 6%, #000 94%, transparent);
+  mask-composite: intersect;
+}
+.journey-scene__stage,
+.journey-scene__canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 .landing-steps {
   display: grid;
   gap: 14px;
@@ -1346,8 +1426,7 @@ body:has(.landing) {
   }
 
   .landing h1,
-  .landing-lead,
-  .landing-credit {
+  .landing-lead {
     margin-inline: auto;
   }
 
