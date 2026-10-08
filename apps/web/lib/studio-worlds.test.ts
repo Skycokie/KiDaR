@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   artKindFromId,
+  editorialPosterSrc,
   fixtureStudioWorlds,
   formatStudioUpdatedLabel,
   normalizeStudioWorldStatus,
@@ -45,11 +46,16 @@ describe("studio-worlds DTO mapping", () => {
       href: "/studio-preview/personalizeaza?projectId=abc123",
       status: "draft",
       updatedLabel: expect.any(String),
-      visualVariant: visualVariantFromId("abc123")
+      visualVariant: visualVariantFromId("abc123"),
+      preview: {
+        kind: "safe-preview",
+        src: editorialPosterSrc(visualVariantFromId("abc123")),
+        alt: "Aurora vie"
+      }
     });
     expect(card).not.toHaveProperty("uploadModelPath");
     expect(card).not.toHaveProperty("source_image_path");
-    expect(card.preview).toBeUndefined();
+    expect(card.preview?.src).toMatch(/^\/demo\/studio\/worlds\//);
   });
 
   it("opens worlds in the personalize workspace, keeping the locale", () => {
@@ -96,6 +102,12 @@ describe("studio-worlds DTO mapping", () => {
       }
     }
     expect(fixtureStudioWorlds("en").map((world) => world.title)).toContain("The hidden garden");
+  });
+
+  it("maps every card crop to an editorial poster that exists in public/", () => {
+    for (const variant of ["portrait", "landscape", "square"] as const) {
+      expect(existsSync(join(process.cwd(), "public", editorialPosterSrc(variant)))).toBe(true);
+    }
   });
 
   it("gives every fixture world a poster image that exists in public/", () => {
