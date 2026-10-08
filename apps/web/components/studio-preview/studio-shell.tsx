@@ -274,7 +274,36 @@ function WorldsGallery({
   createHref: string;
   standalone?: boolean;
 }) {
-  const worlds = result.kind === "fixtures" || result.kind === "live" ? result.worlds : [];
+  const canDelete = result.kind === "live";
+  const [worlds, setWorlds] = useState(
+    result.kind === "fixtures" || result.kind === "live" ? result.worlds : []
+  );
+  const [pendingDelete, setPendingDelete] = useState<StudioWorldCard | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(false);
+
+  async function confirmDelete() {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    setDeleteError(false);
+    try {
+      const response = await fetch(`/api/projects/${encodeURIComponent(pendingDelete.id)}`, {
+        method: "DELETE"
+      });
+      if (!response.ok && response.status !== 204) {
+        throw new Error("delete_failed");
+      }
+      setWorlds((current) => current.filter((world) => world.id !== pendingDelete.id));
+      if (selectedId === pendingDelete.id) {
+        onSelect("");
+      }
+      setPendingDelete(null);
+    } catch {
+      setDeleteError(true);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <section className={`worlds${standalone ? " worlds--page" : ""}`} aria-labelledby="worlds-title">
@@ -338,6 +367,34 @@ function WorldsGallery({
               </>
             );
 
+            if (canDelete && world.href) {
+              return (
+                <article key={world.id} className={className}>
+                  <a
+                    href={world.href}
+                    className="world-poster__link"
+                    aria-label={label}
+                    onClick={() => onSelect(world.id)}
+                  >
+                    {body}
+                  </a>
+                  <button
+                    type="button"
+                    className="world-poster__delete"
+                    aria-label={`${t.gallery.delete}: ${world.title}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setDeleteError(false);
+                      setPendingDelete(world);
+                    }}
+                  >
+                    {t.gallery.delete}
+                  </button>
+                </article>
+              );
+            }
+
             if (world.href) {
               return (
                 <a
@@ -371,6 +428,53 @@ function WorldsGallery({
           </blockquote>
         </div>
       )}
+
+      {pendingDelete ? (
+        <div
+          className="world-delete-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="world-delete-title"
+        >
+          <div className="world-delete-dialog__panel">
+            <h3 id="world-delete-title">{t.gallery.deleteConfirmTitle}</h3>
+            <p>
+              <strong>{pendingDelete.title}</strong>
+            </p>
+            <p>{t.gallery.deleteConfirmBody}</p>
+            {pendingDelete.status === "published" ? (
+              <p className="world-delete-dialog__warn">{t.gallery.deleteConfirmPublished}</p>
+            ) : null}
+            {deleteError ? (
+              <p className="world-delete-dialog__error" role="alert">
+                {t.gallery.deleteError}
+              </p>
+            ) : null}
+            <div className="world-delete-dialog__actions">
+              <button
+                type="button"
+                className="atelier-secondary"
+                disabled={deleting}
+                onClick={() => {
+                  if (deleting) return;
+                  setPendingDelete(null);
+                  setDeleteError(false);
+                }}
+              >
+                {t.gallery.deleteCancel}
+              </button>
+              <button
+                type="button"
+                className="world-delete-dialog__confirm"
+                disabled={deleting}
+                onClick={() => void confirmDelete()}
+              >
+                {deleting ? t.gallery.deleting : t.gallery.deleteConfirmAction}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -154,6 +154,15 @@ export const ro: Messages = {
       updatedYesterday: "actualizat ieri",
       updatedOn: "actualizat {date}",
       status: { draft: "În lucru", ready: "Pregătit", published: "Publicat" },
+      delete: "Șterge",
+      deleteConfirmTitle: "Ștergi această surpriză?",
+      deleteConfirmBody: "Surpriza dispare din cont și eliberezi un loc din planul gratuit.",
+      deleteConfirmPublished:
+        "Linkul și QR-ul public nu vor mai funcționa. Oricine are codul nu mai poate deschide experiența.",
+      deleteConfirmAction: "Șterge definitiv",
+      deleteCancel: "Anulează",
+      deleteError: "Nu am putut șterge surpriza. Reîncearcă.",
+      deleting: "Se șterge…",
       fixtures: {
         aurora: { title: "Aurora", line: "Un dragon de creion iese din noapte." },
         garden: { title: "Grădina ascunsă", line: "Pagina ilustrată se deschide ca o poartă." },

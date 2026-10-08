@@ -5,7 +5,13 @@
  * Persistence adapters map between this model and document fields.
  */
 
-export const JOB_TYPES = ["popout_build", "figurine_build", "mind_compile", "page_render"] as const;
+export const JOB_TYPES = [
+  "popout_build",
+  "figurine_build",
+  "mind_compile",
+  "page_render",
+  "unpublish"
+] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
 export const JOB_STATUSES = ["queued", "running", "done", "error"] as const;

@@ -388,6 +388,101 @@
   cursor: pointer;
 }
 
+.world-poster__link {
+  position: absolute;
+  inset: 0;
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.world-poster__delete {
+  position: absolute;
+  top: 0.7rem;
+  left: 0.7rem;
+  z-index: 3;
+  margin: 0;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(8, 9, 12, 0.72);
+  color: #f6f1e8;
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.world-poster__delete:hover,
+.world-poster__delete:focus-visible {
+  background: rgba(120, 36, 36, 0.92);
+  border-color: rgba(255, 220, 220, 0.45);
+  outline: none;
+}
+
+.world-delete-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgba(8, 9, 12, 0.72);
+}
+
+.world-delete-dialog__panel {
+  width: min(26rem, 100%);
+  padding: 1.35rem 1.4rem 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1rem;
+  background: #14161c;
+  color: #f6f1e8;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+}
+
+.world-delete-dialog__panel h3 {
+  margin: 0 0 0.75rem;
+  font-family: var(--display);
+  font-size: 1.45rem;
+  letter-spacing: -0.03em;
+}
+
+.world-delete-dialog__panel p {
+  margin: 0 0 0.65rem;
+  line-height: 1.45;
+}
+
+.world-delete-dialog__warn,
+.world-delete-dialog__error {
+  color: #f0c2c2;
+}
+
+.world-delete-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: flex-end;
+  margin-top: 1.1rem;
+}
+
+.world-delete-dialog__confirm {
+  margin: 0;
+  padding: 0.7rem 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: #b33b3b;
+  color: #fff8f4;
+  font: inherit;
+  cursor: pointer;
+}
+
+.world-delete-dialog__confirm:disabled,
+.world-delete-dialog__actions .atelier-secondary:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
 .world-poster--portrait {
   grid-row: span 2;
   min-height: 34rem;
@@ -460,6 +555,7 @@
   position: absolute;
   top: 0.85rem;
   right: 0.85rem;
+  z-index: 2;
   opacity: 0;
   padding: 0.25rem 0.55rem;
   border-radius: 999px;

@@ -275,3 +275,11 @@ export function computeArtifactHash(parts: {
 export function computeMindCompileInputHash(parts: MindCompileInputParts): string {
   return hashCanonical(buildMindCompileInputDocument(parts));
 }
+
+/** Stable idempotency hash for an unpublish job over a fixed key set. */
+export function computeUnpublishInputHash(keys: string[]): string {
+  return hashCanonical({
+    type: "unpublish",
+    keys: [...keys].sort()
+  });
+}
