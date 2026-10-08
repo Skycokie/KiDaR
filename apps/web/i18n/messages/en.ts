@@ -13,6 +13,8 @@ export const en: Messages = {
     discoverCta: "Discover kidAR",
     studioCta: "Enter Studio",
     originalArtNote: "Art © kidAR",
+    playAnimation: "Play animation",
+    pauseAnimation: "Pause animation",
     processTitle: "From a drawing, into a new world.",
     draw: "Draw",
     drawBody: "Create a character in your own style.",

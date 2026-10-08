@@ -13,6 +13,8 @@ export const ro: Messages = {
     discoverCta: "Descoperă kidAR",
     studioCta: "Intră în Studio",
     originalArtNote: "Ilustrații © kidAR",
+    playAnimation: "Pornește animația",
+    pauseAnimation: "Oprește animația",
     processTitle: "Din desen, într-o lume nouă.",
     draw: "Desenează",
     drawBody: "Creează un personaj în stilul tău.",

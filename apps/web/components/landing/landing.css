@@ -1229,9 +1229,41 @@ body:has(.landing) {
 }
 
 /* Decorative particle story loop (draw -> character -> decor -> voice -> AR phone -> QR). */
+.journey-scene-wrap {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: min(100%, 620px);
+  margin-inline: auto;
+}
+
+/* Shown only when the device asks for reduced motion (iOS "Reduce Motion"). */
+.journey-scene__play {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.22));
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.journey-scene__play:focus-visible {
+  outline: 2px solid var(--warm, #f2b84b);
+  outline-offset: 3px;
+}
+
 .journey-scene {
   position: relative;
-  width: min(100%, 620px);
+  width: 100%;
   aspect-ratio: 1 / 1;
   margin-inline: auto;
   pointer-events: none;

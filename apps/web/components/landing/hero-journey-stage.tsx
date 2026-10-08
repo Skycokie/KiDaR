@@ -45,8 +45,24 @@ function scheduleIdle(run: () => void): () => void {
  * character and a small world, speaks, moves into an AR phone and becomes a QR.
  * Pointer events are off; the canvas is square and aria-hidden.
  */
-export function HeroJourneyStage() {
+export function HeroJourneyStage({
+  playing = false,
+  onReducedMotion
+}: {
+  /** Only matters under reduced motion: the visitor asked to watch the loop anyway. */
+  playing?: boolean;
+  onReducedMotion?: (reduced: boolean) => void;
+}) {
   const mountRef = useRef<HTMLDivElement>(null);
+  const playingRef = useRef(playing);
+  const reducedCallbackRef = useRef(onReducedMotion);
+  const syncRef = useRef<(() => void) | null>(null);
+  reducedCallbackRef.current = onReducedMotion;
+
+  useEffect(() => {
+    playingRef.current = playing;
+    syncRef.current?.();
+  }, [playing]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -54,6 +70,7 @@ export function HeroJourneyStage() {
 
     let cancelled = false;
     let frame = 0;
+    let stillFrame = 0;
     let renderer: THREE.WebGLRenderer | null = null;
     let geometry: THREE.BufferGeometry | null = null;
     let material: THREE.PointsMaterial | null = null;
@@ -73,7 +90,10 @@ export function HeroJourneyStage() {
     const color = new THREE.Color();
 
     const tearDown = () => {
+      syncRef.current = null;
       window.cancelAnimationFrame(frame);
+      window.cancelAnimationFrame(stillFrame);
+      stillFrame = 0;
       frame = 0;
       resizeObserver?.disconnect();
       intersectionObserver?.disconnect();
@@ -153,6 +173,11 @@ export function HeroJourneyStage() {
           col.needsUpdate = true;
         };
 
+        // Resizing clears a WebGL canvas. While the loop is not running (still frame under
+        // reduced motion, or paused), redraw the last frame or the scene stays blank.
+        let lastPaintTime = JOURNEY_STATIC_TIME;
+        let repaint: (() => void) | null = null;
+
         const fit = () => {
           if (!renderer) return;
           const width = Math.max(1, mount.clientWidth);
@@ -160,6 +185,16 @@ export function HeroJourneyStage() {
           renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
           renderer.setSize(width, height, false);
           if (material) material.size = width < 360 ? 4 : width < 520 ? 4.5 : 5.5;
+          if (!frame) drawStill();
+        };
+
+        // Safari only reliably presents a WebGL canvas that was drawn inside an animation frame.
+        const drawStill = () => {
+          if (stillFrame) return;
+          stillFrame = window.requestAnimationFrame(() => {
+            stillFrame = 0;
+            if (!cancelled && !frame) repaint?.();
+          });
         };
 
         fit();
@@ -168,24 +203,28 @@ export function HeroJourneyStage() {
 
         const paint = (time: number) => {
           if (!renderer) return;
+          lastPaintTime = time;
           writeParticles(time);
           renderer.render(scene, camera);
         };
+        repaint = () => paint(lastPaintTime);
 
+        // Reduced motion shows one still frame until the visitor presses play.
+        const motionAllowed = () => !reducedMotion || playingRef.current;
         if (reducedMotion) {
-          paint(JOURNEY_STATIC_TIME);
-          return;
+          drawStill();
+          reducedCallbackRef.current?.(true);
         }
 
         const kick = () => {
-          if (cancelled || frame || !renderer || !visible || document.hidden) return;
+          if (cancelled || frame || !renderer || !visible || document.hidden || !motionAllowed()) return;
           lastNow = 0;
           frame = window.requestAnimationFrame(loop);
         };
 
         const loop = (now: number) => {
           if (cancelled || !renderer) return;
-          if (document.hidden || !visible) {
+          if (document.hidden || !visible || !motionAllowed()) {
             frame = 0;
             return;
           }
@@ -220,6 +259,14 @@ export function HeroJourneyStage() {
           { threshold: 0.05 }
         );
         intersectionObserver.observe(mount);
+
+        syncRef.current = () => {
+          if (motionAllowed()) kick();
+          else {
+            window.cancelAnimationFrame(frame);
+            frame = 0;
+          }
+        };
 
         kick();
       } catch {
