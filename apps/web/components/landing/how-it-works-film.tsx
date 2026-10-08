@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 /** Real film in `public/demo/landing/`; SVG loop is only a missing-file fallback. */
 export const HOW_IT_WORKS_FILM = {
@@ -58,9 +58,14 @@ export function HowItWorksFilm({ steps, playLabel, pauseLabel }: HowItWorksFilmP
   }, []);
 
   useEffect(() => {
-    if (!hasFilm || (reducedMotion && !playing)) return;
+    if (!hasFilm) return;
     const video = videoRef.current;
     if (!video) return;
+    // Under Reduce Motion, play() must stay inside the tap handler (user gesture).
+    if (reducedMotion) {
+      if (!playing) video.pause();
+      return;
+    }
     const attempt = video.play();
     if (attempt) {
       attempt
@@ -70,25 +75,59 @@ export function HowItWorksFilm({ steps, playLabel, pauseLabel }: HowItWorksFilmP
   }, [hasFilm, reducedMotion, playing]);
 
   const motionOn = !reducedMotion || playing;
-  const showVideo = hasFilm && motionOn;
   const showPoster = hasFilm && !motionOn;
-  const showPlayControl = reducedMotion || (hasFilm && videoNeedsTap);
+  const interactive = reducedMotion || (hasFilm && videoNeedsTap);
+  const announcedPlaying = reducedMotion ? playing : !videoNeedsTap;
 
   const onPlayToggle = () => {
-    if (hasFilm && videoNeedsTap && videoRef.current) {
-      void videoRef.current.play().then(() => setVideoNeedsTap(false));
+    const video = videoRef.current;
+    if (reducedMotion) {
+      if (playing) {
+        video?.pause();
+        setPlaying(false);
+        return;
+      }
+      setPlaying(true);
+      setVideoNeedsTap(false);
+      void video?.play().catch(() => setVideoNeedsTap(true));
       return;
     }
-    setPlaying((value) => !value);
+    if (hasFilm && video) {
+      if (video.paused || videoNeedsTap) {
+        setVideoNeedsTap(false);
+        void video.play().catch(() => setVideoNeedsTap(true));
+        return;
+      }
+      video.pause();
+      setVideoNeedsTap(true);
+    }
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!interactive) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onPlayToggle();
+    }
   };
 
   return (
     <div className="how-film">
-      <div className="how-film__frame" data-playing={motionOn ? "true" : "false"}>
-        {showVideo ? (
+      <div
+        className={`how-film__frame${interactive ? " how-film__frame--interactive" : ""}`}
+        data-playing={motionOn ? "true" : "false"}
+        role={interactive ? "button" : undefined}
+        tabIndex={interactive ? 0 : undefined}
+        aria-label={interactive ? (announcedPlaying ? pauseLabel : playLabel) : undefined}
+        aria-pressed={interactive ? announcedPlaying : undefined}
+        onClick={interactive ? onPlayToggle : undefined}
+        onKeyDown={interactive ? onKeyDown : undefined}
+      >
+        {hasFilm ? (
           <video
             ref={videoRef}
             className="how-film__media"
+            data-active={motionOn ? "true" : "false"}
             poster={HOW_IT_WORKS_FILM.poster}
             autoPlay={!reducedMotion}
             muted
@@ -104,20 +143,9 @@ export function HowItWorksFilm({ steps, playLabel, pauseLabel }: HowItWorksFilmP
         {showPoster ? (
           // Dynamic public path; next/image is unnecessary for a single static poster.
           // eslint-disable-next-line @next/next/no-img-element
-          <img className="how-film__media" src={HOW_IT_WORKS_FILM.poster} alt="" draggable={false} />
+          <img className="how-film__poster" src={HOW_IT_WORKS_FILM.poster} alt="" draggable={false} />
         ) : null}
         {!hasFilm ? <HowItWorksSvg playing={motionOn} /> : null}
-        {showPlayControl ? (
-          <button
-            type="button"
-            className="how-film__play"
-            aria-pressed={motionOn && !videoNeedsTap}
-            onClick={onPlayToggle}
-          >
-            <span aria-hidden="true">{motionOn && !videoNeedsTap ? "❚❚" : "▶"}</span>
-            {motionOn && !videoNeedsTap ? pauseLabel : playLabel}
-          </button>
-        ) : null}
       </div>
       <ol className="how-film__steps">
         {steps.map((step, index) => (

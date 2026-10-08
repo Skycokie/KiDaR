@@ -1242,6 +1242,7 @@ body:has(.landing) {
 }
 
 .how-film__media,
+.how-film__poster,
 .how-film__svg {
   display: block;
   width: 100%;
@@ -1249,30 +1250,24 @@ body:has(.landing) {
   object-fit: cover;
 }
 
-.how-film__play {
+.how-film__media[data-active="false"] {
   position: absolute;
-  left: 50%;
-  bottom: 14px;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 18px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 999px;
-  background: rgba(8, 10, 14, 0.72);
-  color: #f3efe6;
-  font: inherit;
-  font-size: 0.92rem;
-  font-weight: 600;
-  cursor: pointer;
-  transform: translateX(-50%);
-  -webkit-tap-highlight-color: transparent;
-  backdrop-filter: blur(8px);
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
-.how-film__play:focus-visible {
+.how-film__poster {
+  position: relative;
+  z-index: 1;
+}
+
+.how-film__frame--interactive {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.how-film__frame--interactive:focus-visible {
   outline: 2px solid var(--warm, #f2b84b);
   outline-offset: 3px;
 }
@@ -1411,27 +1406,17 @@ body:has(.landing) {
   margin-inline: auto;
 }
 
-/* Shown only when the device asks for reduced motion (iOS "Reduce Motion"). */
-.journey-scene__play {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 18px;
-  border: 1px solid var(--line, rgba(255, 255, 255, 0.22));
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: inherit;
-  font: inherit;
-  font-size: 0.92rem;
-  font-weight: 600;
+/* Reduce Motion: tap the zone to play/pause (no visible button). */
+.journey-scene-wrap--interactive {
   cursor: pointer;
+  pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
 }
 
-.journey-scene__play:focus-visible {
+.journey-scene-wrap--interactive:focus-visible {
   outline: 2px solid var(--warm, #f2b84b);
   outline-offset: 3px;
+  border-radius: 12px;
 }
 
 .journey-scene {
