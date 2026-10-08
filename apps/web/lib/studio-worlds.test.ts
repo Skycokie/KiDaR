@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   artKindFromId,
@@ -94,5 +96,14 @@ describe("studio-worlds DTO mapping", () => {
       }
     }
     expect(fixtureStudioWorlds("en").map((world) => world.title)).toContain("The hidden garden");
+  });
+
+  it("gives every fixture world a poster image that exists in public/", () => {
+    for (const world of fixtureStudioWorlds("ro")) {
+      expect(world.preview?.kind).toBe("safe-preview");
+      const src = world.preview?.src ?? "";
+      expect(src).toMatch(/^\/demo\/studio\/worlds\/[a-z]+\.webp$/);
+      expect(existsSync(join(process.cwd(), "public", src))).toBe(true);
+    }
   });
 });
