@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import {
   collectCharacterVoiceAudioPaths,
   collectUnpublishKeys,
-  computeUnpublishInputHash,
   mergeSettings,
   projectNeedsUnpublish,
   validateSceneSettingsPatch,
   type ProjectSettingsPatch
 } from "@kidar/core";
+import { computeUnpublishInputHash } from "@kidar/core/hash";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import {
   deleteProjectDocument,

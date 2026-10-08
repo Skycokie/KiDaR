@@ -1,9 +1,9 @@
 /**
  * Pure helpers for project delete + public unpublish key collection.
  * Never touches Appwrite or R2 — callers persist / delete.
+ * Keep this free of `node:crypto` so `@kidar/core` stays client-safe.
  */
 
-import { hashCanonical } from "./hash";
 import { experiencePointerKey, safeExperienceSlug } from "./page-render";
 import type { CharacterVoiceMap } from "./character-voice";
 
@@ -87,14 +87,6 @@ export function projectNeedsUnpublish(input: {
   const slug = typeof input.slug === "string" ? input.slug.trim() : "";
   if (!slug) return false;
   return Boolean(input.publicHtmlUrl?.trim() || input.publicExperienceUrl?.trim());
-}
-
-/** Stable idempotency hash for an unpublish job over a fixed key set. */
-export function computeUnpublishInputHash(keys: string[]): string {
-  return hashCanonical({
-    type: "unpublish",
-    keys: [...keys].sort()
-  });
 }
 
 /** Allow-list for worker deletes: only experience pointers and page artifacts. */

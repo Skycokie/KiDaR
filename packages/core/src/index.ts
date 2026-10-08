@@ -157,7 +157,6 @@ export type {
 export {
   collectCharacterVoiceAudioPaths,
   collectUnpublishKeys,
-  computeUnpublishInputHash,
   isAllowedUnpublishKey,
   objectKeyFromPublicUrl,
   projectNeedsUnpublish

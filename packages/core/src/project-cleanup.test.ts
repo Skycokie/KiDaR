@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { computeUnpublishInputHash } from "./hash";
 import {
   collectCharacterVoiceAudioPaths,
   collectUnpublishKeys,
-  computeUnpublishInputHash,
   isAllowedUnpublishKey,
   objectKeyFromPublicUrl,
   projectNeedsUnpublish
