@@ -170,7 +170,11 @@ export function StudioShell({
                   </li>
                 </ol>
               </div>
-              <HeroStage label={t.atelier.heroLabel} />
+              <HeroStage
+                label={t.atelier.heroLabel}
+                playLabel={messages.landing.playAnimation}
+                pauseLabel={messages.landing.pauseAnimation}
+              />
             </section>
 
             <WorldsGallery
