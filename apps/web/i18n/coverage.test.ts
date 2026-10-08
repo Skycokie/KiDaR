@@ -35,7 +35,7 @@ describe("i18n coverage", () => {
 
   it.each([
     "app/auth/callback/route.ts",
-    "components/landing/drawing-scene.tsx",
+    "components/landing/how-it-works-film.tsx",
     "app/studio/page.tsx",
     "components/studio-preview/studio-shell.tsx",
     "components/studio-preview/fixtures.ts",

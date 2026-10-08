@@ -24,9 +24,12 @@ export const en: Messages = {
     discoverBody: "Look at the figure and explore it in your space.",
     closeTitle: "A small idea can become a big world.",
     enterCta: "Enter kidAR",
-    revealFound3d: "Show the found object in 3D",
-    spinDetective: "Lift and spin the yellow detective",
-    returnToPhoto: "Send the object back into the picture"
+    howStep1Title: "Photograph a scene",
+    howStep1Body: "Take a clear photo of a drawing or a real moment.",
+    howStep2Title: "Upload the photo",
+    howStep2Body: "kidAR builds a 3D figure from what you captured.",
+    howStep3Title: "Get a QR for 3D AR",
+    howStep3Body: "Scan the code and discover the figure in your space."
   },
   auth: {
     title: "Enter kidAR",
