@@ -54,6 +54,17 @@ export function visualVariantFromId(id: string): StudioWorldVisualVariant {
   return VARIANT_CYCLE[hashId(id) % VARIANT_CYCLE.length]!;
 }
 
+const EDITORIAL_POSTERS: Record<StudioWorldVisualVariant, string> = {
+  portrait: "/demo/studio/worlds/aurora.webp",
+  landscape: "/demo/studio/worlds/garden.webp",
+  square: "/demo/studio/worlds/kite.webp"
+};
+
+/** Shared editorial poster whose shape matches the card crop (never the child's private drawing). */
+export function editorialPosterSrc(variant: StudioWorldVisualVariant): string {
+  return EDITORIAL_POSTERS[variant];
+}
+
 /** CSS/SVG artwork seed from id when no safe preview exists. */
 export function artKindFromId(id: string): StudioWorldArtKind {
   return ART_KINDS[hashId(id) % ART_KINDS.length]!;
@@ -106,14 +117,17 @@ export function toStudioWorldCard(
     project.name.trim() ||
     getMessages(locale).worlds.gallery.untitled;
 
+  const visualVariant = visualVariantFromId(project.id);
+
   return {
     id: project.id,
     title,
     href: personalizeHref(project.id, locale),
     status: normalizeStudioWorldStatus(project.status, project.settings),
     updatedLabel: formatStudioUpdatedLabel(project.updated_at, locale),
-    visualVariant: visualVariantFromId(project.id)
-    // No private source /api/files preview — editorial art from id only.
+    visualVariant,
+    // No private source /api/files preview: a shared editorial poster, picked by crop.
+    preview: { kind: "safe-preview", src: editorialPosterSrc(visualVariant), alt: title }
   };
 }
 
