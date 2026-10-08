@@ -166,12 +166,22 @@ function Sticker() {
   );
 }
 
-export function HeroStage({ label }: { label: string }) {
+export function HeroStage({
+  label,
+  playLabel,
+  pauseLabel
+}: {
+  label: string;
+  playLabel: string;
+  pauseLabel: string;
+}) {
   return (
-    <div className="atelier-stage" aria-hidden="true">
-      <div className="atelier-stage__wash" />
-      <HeroStageFilm />
-      <p className="atelier-stage__label">{label}</p>
+    <div className="atelier-stage">
+      <div className="atelier-stage__wash" aria-hidden="true" />
+      <HeroStageFilm playLabel={playLabel} pauseLabel={pauseLabel} />
+      <p className="atelier-stage__label" aria-hidden="true">
+        {label}
+      </p>
     </div>
   );
 }

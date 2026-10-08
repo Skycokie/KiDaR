@@ -21,4 +21,12 @@ describe("Studio atelier hero film", () => {
     expect(cssSource).toMatch(/aspect-ratio:\s*16\s*\/\s*9/);
     expect(cssSource).not.toMatch(/\.atelier-phone/);
   });
+
+  it("keeps the video mounted and supports tap-to-play on mobile", () => {
+    const source = readFileSync(join(__dirname, "hero-phone.tsx"), "utf8");
+    expect(source).toMatch(/playsInline/);
+    expect(source).toMatch(/atelier-film--interactive/);
+    expect(source).toMatch(/videoNeedsTap/);
+    expect(cssSource).toMatch(/\.atelier-film--interactive/);
+  });
 });
