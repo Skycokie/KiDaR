@@ -24,9 +24,12 @@ export const ro: Messages = {
     discoverBody: "Privește figurina și exploreaz-o în spațiul tău.",
     closeTitle: "O idee mică poate deveni o lume mare.",
     enterCta: "Intră în kidAR",
-    revealFound3d: "Arată obiectul găsit în 3D",
-    spinDetective: "Ridică și învârte detectivul galben",
-    returnToPhoto: "Trimite obiectul înapoi în poză"
+    howStep1Title: "Fotografiază o scenă",
+    howStep1Body: "Fă o poză clară a unui desen sau a unui moment real.",
+    howStep2Title: "Încarcă poza",
+    howStep2Body: "kidAR construiește o figurină 3D din ce ai capturat.",
+    howStep3Title: "Primești QR pentru AR 3D",
+    howStep3Body: "Scanează codul și descoperă figurina în spațiul tău."
   },
   auth: {
     title: "Intră în kidAR",

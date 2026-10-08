@@ -5,8 +5,9 @@ import { DM_Sans, Syne } from "next/font/google";
 import { KidarWordmark } from "@/components/brand/kidar-wordmark";
 import { LocaleSwitcher } from "@/components/i18n/locale-switcher";
 import "@/components/brand/kidar-wordmark.css";
-import { DrawingScene, LandingDiscovery } from "@/components/landing/drawing-scene";
+import { HowItWorksFilm } from "@/components/landing/how-it-works-film";
 import { JourneyScene } from "@/components/landing/journey-scene";
+import { LandingDiscovery } from "@/components/landing/landing-discovery";
 import { LegalFooter } from "@/components/legal/legal-footer";
 import { getMessages } from "@/i18n/get-messages";
 import { getRequestLocale } from "@/i18n/get-request-locale";
@@ -44,7 +45,12 @@ export default async function HomePage() {
     { title: copy.draw, body: copy.drawBody },
     { title: copy.photograph, body: copy.photographBody },
     { title: copy.discover, body: copy.discoverBody }
-  ];
+  ] as const;
+  const howSteps = [
+    { title: copy.howStep1Title, body: copy.howStep1Body },
+    { title: copy.howStep2Title, body: copy.howStep2Body },
+    { title: copy.howStep3Title, body: copy.howStep3Body }
+  ] as const;
 
   return (
     <div className={`landing ${display.variable} ${body.variable}`} lang={locale}>
@@ -88,7 +94,7 @@ export default async function HomePage() {
           <LandingDiscovery />
         </section>
 
-        <section className="landing-close landing-close--phone" aria-labelledby="close-title">
+        <section className="landing-close landing-close--film" aria-labelledby="close-title">
           <div className="landing-close__copy">
             <h2 id="close-title">{copy.closeTitle}</h2>
             <div className="landing-actions">
@@ -97,12 +103,10 @@ export default async function HomePage() {
               </Link>
             </div>
           </div>
-          <DrawingScene
-            labels={{
-              revealFound3d: copy.revealFound3d,
-              spinDetective: copy.spinDetective,
-              returnToPhoto: copy.returnToPhoto
-            }}
+          <HowItWorksFilm
+            steps={howSteps}
+            playLabel={copy.playAnimation}
+            pauseLabel={copy.pauseAnimation}
           />
         </section>
 

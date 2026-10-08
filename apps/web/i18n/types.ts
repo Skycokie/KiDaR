@@ -31,9 +31,12 @@ export type Messages = {
     discoverBody: string;
     closeTitle: string;
     enterCta: string;
-    revealFound3d: string;
-    spinDetective: string;
-    returnToPhoto: string;
+    howStep1Title: string;
+    howStep1Body: string;
+    howStep2Title: string;
+    howStep2Body: string;
+    howStep3Title: string;
+    howStep3Body: string;
   };
   auth: {
     title: string;

@@ -1174,7 +1174,7 @@ body:has(.landing) {
   max-width: 18ch;
 }
 
-/* Hero: centered copy over the large particle story loop; the photo phone sits below. */
+/* Hero: centered copy over the large particle story loop. */
 .landing-hero.landing-hero--stage {
   grid-template-columns: minmax(0, 1fr);
   justify-items: center;
@@ -1202,29 +1202,202 @@ body:has(.landing) {
   justify-content: center;
 }
 
-/* Closing block: call to action on the left, the photo phone on the right. */
-.landing-close.landing-close--phone {
+/* Closing block: title + CTA, then the full-width how-it-works film. */
+.landing-close.landing-close--film {
   max-width: none;
-  align-items: center;
-  gap: 40px;
+  justify-items: center;
+  text-align: center;
+  gap: 28px;
 }
 
 .landing-close__copy {
   display: grid;
   gap: 18px;
+  justify-items: center;
 }
 
-.landing-close--phone .detective-hero {
-  margin-top: 0;
+.landing-close--film h2 {
+  margin-inline: auto;
+}
+
+.landing-close--film .landing-actions {
+  justify-content: center;
+}
+
+.how-film {
+  display: grid;
+  gap: 22px;
+  width: min(100%, 1100px);
+  margin-inline: auto;
+}
+
+.how-film__frame {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  border: 1px solid rgba(243, 239, 230, 0.14);
+  border-radius: 22px;
+  background: #0d1017;
+  box-shadow: 0 28px 64px rgba(0, 0, 0, 0.38);
+}
+
+.how-film__media,
+.how-film__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.how-film__play {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(8, 10, 14, 0.72);
+  color: #f3efe6;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transform: translateX(-50%);
+  -webkit-tap-highlight-color: transparent;
+  backdrop-filter: blur(8px);
+}
+
+.how-film__play:focus-visible {
+  outline: 2px solid var(--warm, #f2b84b);
+  outline-offset: 3px;
+}
+
+.how-film__steps {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.how-film__step {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card);
+}
+
+.how-film__step-n {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(242, 184, 75, 0.14);
+  color: var(--warm);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.how-film__step strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 1rem;
+}
+
+.how-film__step p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
 }
 
 @media (min-width: 700px) {
-  .landing-close.landing-close--phone {
-    grid-template-columns: minmax(0, 1fr) 300px;
+  .how-film__steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+}
+
+/* SVG fallback beats when the film files are missing. */
+.how-film__beat {
+  opacity: 0;
+}
+
+.how-film__svg[data-playing="false"] .how-film__beat--qr {
+  opacity: 1;
+}
+
+.how-film__svg[data-playing="true"] .how-film__beat--photo {
+  animation: how-beat-photo 12s ease-in-out infinite;
+}
+
+.how-film__svg[data-playing="true"] .how-film__beat--upload {
+  animation: how-beat-upload 12s ease-in-out infinite;
+}
+
+.how-film__svg[data-playing="true"] .how-film__beat--qr {
+  animation: how-beat-qr 12s ease-in-out infinite;
+}
+
+.how-film__svg[data-playing="true"] .how-film__flash {
+  animation: how-flash 12s ease-in-out infinite;
+}
+
+.how-film__svg[data-playing="true"] .how-film__ar-rooster {
+  animation: how-rooster-bounce 12s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes how-beat-photo {
+  0%, 28% { opacity: 1; }
+  34%, 100% { opacity: 0; }
+}
+
+@keyframes how-beat-upload {
+  0%, 30% { opacity: 0; }
+  36%, 60% { opacity: 1; }
+  66%, 100% { opacity: 0; }
+}
+
+@keyframes how-beat-qr {
+  0%, 62% { opacity: 0; }
+  68%, 100% { opacity: 1; }
+}
+
+@keyframes how-flash {
+  0%, 12%, 22%, 100% { opacity: 0; }
+  15%, 18% { opacity: 0.35; }
+}
+
+@keyframes how-rooster-bounce {
+  0%, 68% { transform: translateY(12px) scale(0.85); opacity: 0.4; }
+  76%, 90% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(4px) scale(0.98); opacity: 0.95; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .how-film__svg[data-playing="true"] .how-film__beat--photo,
+  .how-film__svg[data-playing="true"] .how-film__beat--upload,
+  .how-film__svg[data-playing="true"] .how-film__beat--qr,
+  .how-film__svg[data-playing="true"] .how-film__flash,
+  .how-film__svg[data-playing="true"] .how-film__ar-rooster {
+    animation: none;
   }
 
-  .landing-close--phone .detective-hero {
-    margin-inline: 0;
+  .how-film__svg[data-playing="true"] .how-film__beat--qr,
+  .how-film__svg[data-playing="false"] .how-film__beat--qr {
+    opacity: 1;
   }
 }
 
