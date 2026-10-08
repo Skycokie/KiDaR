@@ -31,6 +31,32 @@ function cropClass(variant: StudioWorldCard["visualVariant"]): string {
   return variant;
 }
 
+function WorldPosterArt({
+  world,
+  art
+}: {
+  world: StudioWorldCard;
+  art: ReturnType<typeof resolveArt>;
+}) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const preview = world.preview?.kind === "safe-preview" ? world.preview : null;
+
+  if (preview && failedSrc !== preview.src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        className="studio-art"
+        src={preview.src}
+        alt={preview.alt}
+        loading="lazy"
+        decoding="async"
+        onError={() => setFailedSrc(preview.src)}
+      />
+    );
+  }
+  return <Artwork id={`world-${world.id}`} kind={art} />;
+}
+
 function resolveArt(world: StudioWorldCard, sourceKind: StudioWorldsResult["kind"]) {
   if (sourceKind === "fixtures") {
     const fixture = FIXTURE_PROJECTS.find((item) => item.id === world.id);
@@ -302,12 +328,7 @@ function WorldsGallery({
               .join(". ");
             const body = (
               <>
-                {world.preview?.kind === "safe-preview" ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="studio-art" src={world.preview.src} alt={world.preview.alt} />
-                ) : (
-                  <Artwork id={`world-${world.id}`} kind={art} />
-                )}
+                <WorldPosterArt world={world} art={art} />
                 <span className="world-poster__shade" />
                 <span className="world-poster__copy">
                   <strong>{world.title}</strong>

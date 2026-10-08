@@ -126,6 +126,11 @@ export function fixtureStudioWorlds(locale: Locale = "ro"): StudioWorldCard[] {
     status: project.status,
     updatedLabel: copy[project.key].line,
     visualVariant:
-      project.crop === "panorama" ? "landscape" : (project.crop as StudioWorldVisualVariant)
+      project.crop === "panorama" ? "landscape" : (project.crop as StudioWorldVisualVariant),
+    preview: {
+      kind: "safe-preview",
+      src: `/demo/studio/worlds/${project.key}.webp`,
+      alt: copy[project.key].title
+    }
   }));
 }
