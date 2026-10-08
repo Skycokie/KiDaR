@@ -1,11 +1,20 @@
 import { NextResponse } from "next/server";
-import { mergeSettings, validateSceneSettingsPatch, type ProjectSettingsPatch } from "@kidar/core";
+import {
+  collectCharacterVoiceAudioPaths,
+  collectUnpublishKeys,
+  computeUnpublishInputHash,
+  mergeSettings,
+  projectNeedsUnpublish,
+  validateSceneSettingsPatch,
+  type ProjectSettingsPatch
+} from "@kidar/core";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import {
   deleteProjectDocument,
   getProjectForOwner,
   updateProjectDocument
 } from "@/lib/appwrite/db";
+import { enqueueJob } from "@/lib/appwrite/jobs";
 import {
   APPWRITE_ASSETS_BUCKET,
   APPWRITE_SOURCE_BUCKET,
@@ -87,13 +96,49 @@ export async function DELETE(_request: Request, { params }: Context) {
   const project = await getProjectForOwner(params.projectId, user.$id);
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
+  const settings = project.settings ?? {};
+  if (
+    projectNeedsUnpublish({
+      slug: project.slug,
+      publicHtmlUrl: settings.publicHtmlUrl,
+      publicExperienceUrl: settings.publicExperienceUrl
+    })
+  ) {
+    const keys = collectUnpublishKeys({
+      slug: project.slug,
+      publicBaseUrl: process.env.R2_PUBLIC_BASE_URL,
+      publicHtmlUrl: settings.publicHtmlUrl,
+      publicQrUrl: settings.publicQrUrl,
+      publicPdfUrl: settings.publicPdfUrl
+    });
+    if (keys.length) {
+      try {
+        await enqueueJob({
+          projectId: project.id,
+          type: "unpublish",
+          inputHash: computeUnpublishInputHash(keys),
+          ownerId: user.$id,
+          payload: {
+            source: "studio_delete",
+            slug: project.slug,
+            keys
+          }
+        });
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : "Unpublish enqueue failed";
+        return NextResponse.json({ error: message }, { status: 500 });
+      }
+    }
+  }
+
   const sourceIds = [project.source_image_path].filter((path): path is string => Boolean(path));
   if (sourceIds.length) await deleteStorageFiles(APPWRITE_SOURCE_BUCKET, sourceIds);
 
   const assetIds = [
-    project.settings?.uploadModelPath,
-    project.settings?.logoPath,
-    project.settings?.soundPath
+    settings.uploadModelPath,
+    settings.logoPath,
+    settings.soundPath,
+    ...collectCharacterVoiceAudioPaths(settings.characterVoices)
   ].filter((path): path is string => Boolean(path));
   if (assetIds.length) await deleteStorageFiles(APPWRITE_ASSETS_BUCKET, assetIds);
 

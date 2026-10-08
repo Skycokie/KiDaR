@@ -155,6 +155,16 @@ export type {
 } from "./character-voice";
 
 export {
+  collectCharacterVoiceAudioPaths,
+  collectUnpublishKeys,
+  computeUnpublishInputHash,
+  isAllowedUnpublishKey,
+  objectKeyFromPublicUrl,
+  projectNeedsUnpublish
+} from "./project-cleanup";
+export type { UnpublishKeyInput } from "./project-cleanup";
+
+export {
   FIGURE_STAGING_ENVIRONMENT,
   FIGURE_STAGING_BUCKET_NAME,
   FIGURE_STAGING_KEY_PREFIX,

@@ -13,6 +13,7 @@ import { handlePopoutJobFailure, runPopoutBuildStage } from "./popout/stage";
 import { handleFigurineJobFailure, runFigurineBuildStage } from "./figurine/stage";
 import { handleMindJobFailure, runMindCompileStage } from "./mindar/stage";
 import { handlePageRenderJobFailure, runPageRenderStage } from "./pagerender/stage";
+import { handleUnpublishJobFailure, runUnpublishStage } from "./unpublish/stage";
 
 function pollIntervalMs(): number {
   const raw = Number(process.env.WORKER_POLL_INTERVAL_MS || 1000);
@@ -122,6 +123,21 @@ async function processClaimedJob(job: PipelineJob): Promise<void> {
     return;
   }
 
+  if (job.type === "unpublish") {
+    try {
+      await runUnpublishStage(job);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message.includes("Lock token mismatch") || error.name === "JobLockMismatchError")
+      ) {
+        return;
+      }
+      await handleUnpublishJobFailure(job, error);
+    }
+    return;
+  }
+
   await failUnsupportedJob(job);
 }
 
@@ -137,7 +153,7 @@ export async function runWorkerOnce(): Promise<"processed" | "idle"> {
 export async function runWorkerLoop(signal?: AbortSignal): Promise<void> {
   let emptyStreak = 0;
   console.log(
-    `[worker] polling for popout_build|figurine_build|mind_compile|page_render jobs every ${pollIntervalMs()}ms (backoff when idle)`
+    `[worker] polling for popout_build|figurine_build|mind_compile|page_render|unpublish jobs every ${pollIntervalMs()}ms (backoff when idle)`
   );
   while (!signal?.aborted) {
     try {

@@ -154,6 +154,15 @@ export const en: Messages = {
       updatedYesterday: "updated yesterday",
       updatedOn: "updated {date}",
       status: { draft: "In progress", ready: "Ready", published: "Published" },
+      delete: "Delete",
+      deleteConfirmTitle: "Delete this surprise?",
+      deleteConfirmBody: "It leaves your account and frees a slot on the free plan.",
+      deleteConfirmPublished:
+        "The public link and QR code will stop working. Anyone with the code will no longer open the experience.",
+      deleteConfirmAction: "Delete permanently",
+      deleteCancel: "Cancel",
+      deleteError: "We couldn’t delete the surprise. Try again.",
+      deleting: "Deleting…",
       fixtures: {
         aurora: { title: "Aurora", line: "A pencil dragon steps out of the night." },
         garden: { title: "The hidden garden", line: "The illustrated page opens like a gate." },

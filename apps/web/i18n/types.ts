@@ -156,6 +156,14 @@ export type Messages = {
       /** `{date}` is replaced with a short localized date. */
       updatedOn: string;
       status: { draft: string; ready: string; published: string };
+      delete: string;
+      deleteConfirmTitle: string;
+      deleteConfirmBody: string;
+      deleteConfirmPublished: string;
+      deleteConfirmAction: string;
+      deleteCancel: string;
+      deleteError: string;
+      deleting: string;
       fixtures: {
         aurora: { title: string; line: string };
         garden: { title: string; line: string };

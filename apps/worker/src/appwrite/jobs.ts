@@ -339,6 +339,13 @@ export async function downloadAssetFile(fileId: string): Promise<Uint8Array | nu
   }
 }
 
+/** Read the raw payload bag for a job (slug/keys for unpublish, dependsOn, etc.). */
+export async function getJobPayloadBag(jobId: string): Promise<JobPayloadBag> {
+  const { databases, databaseId, jobsCollection } = createWorkerAppwrite();
+  const doc = await databases.getDocument(databaseId, jobsCollection, jobId);
+  return parsePayloadBag(doc.payload);
+}
+
 export async function getProjectRecord(projectId: string): Promise<{
   sourceImagePath: string | null;
   mode: "popout" | "gallery" | "upload" | "figurine_3d";
