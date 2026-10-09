@@ -12,7 +12,9 @@ export const en: Messages = {
     description: "Turn a drawing into a figure you can discover in your world.",
     discoverCta: "Discover kidAR",
     studioCta: "Enter Studio",
-    originalArtNote: "Original illustrations created for kidAR.",
+    originalArtNote: "Art © kidAR",
+    playAnimation: "Play animation",
+    pauseAnimation: "Pause animation",
     processTitle: "From a drawing, into a new world.",
     draw: "Draw",
     drawBody: "Create a character in your own style.",
@@ -22,9 +24,12 @@ export const en: Messages = {
     discoverBody: "Look at the figure and explore it in your space.",
     closeTitle: "A small idea can become a big world.",
     enterCta: "Enter kidAR",
-    revealFound3d: "Show the found object in 3D",
-    spinDetective: "Lift and spin the yellow detective",
-    returnToPhoto: "Send the object back into the picture"
+    howStep1Title: "Photograph a scene",
+    howStep1Body: "Take a clear photo of a drawing or a real moment.",
+    howStep2Title: "Upload the photo",
+    howStep2Body: "kidAR builds a 3D figure from what you captured.",
+    howStep3Title: "Get a QR for 3D AR",
+    howStep3Body: "Scan the code and discover the figure in your space."
   },
   auth: {
     title: "Enter kidAR",
@@ -149,6 +154,15 @@ export const en: Messages = {
       updatedYesterday: "updated yesterday",
       updatedOn: "updated {date}",
       status: { draft: "In progress", ready: "Ready", published: "Published" },
+      delete: "Delete",
+      deleteConfirmTitle: "Delete this surprise?",
+      deleteConfirmBody: "It leaves your account and frees a slot on the free plan.",
+      deleteConfirmPublished:
+        "The public link and QR code will stop working. Anyone with the code will no longer open the experience.",
+      deleteConfirmAction: "Delete permanently",
+      deleteCancel: "Cancel",
+      deleteError: "We couldn't delete the surprise. Try again.",
+      deleting: "Deleting…",
       fixtures: {
         aurora: { title: "Aurora", line: "A pencil dragon steps out of the night." },
         garden: { title: "The hidden garden", line: "The illustrated page opens like a gate." },

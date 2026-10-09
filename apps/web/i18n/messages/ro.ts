@@ -12,7 +12,9 @@ export const ro: Messages = {
     description: "Transformă un desen într-o figurină pe care o poți descoperi în lumea ta.",
     discoverCta: "Descoperă kidAR",
     studioCta: "Intră în Studio",
-    originalArtNote: "Ilustrații originale create pentru kidAR.",
+    originalArtNote: "Ilustrații © kidAR",
+    playAnimation: "Pornește animația",
+    pauseAnimation: "Oprește animația",
     processTitle: "Din desen, într-o lume nouă.",
     draw: "Desenează",
     drawBody: "Creează un personaj în stilul tău.",
@@ -22,9 +24,12 @@ export const ro: Messages = {
     discoverBody: "Privește figurina și exploreaz-o în spațiul tău.",
     closeTitle: "O idee mică poate deveni o lume mare.",
     enterCta: "Intră în kidAR",
-    revealFound3d: "Arată obiectul găsit în 3D",
-    spinDetective: "Ridică și învârte detectivul galben",
-    returnToPhoto: "Trimite obiectul înapoi în poză"
+    howStep1Title: "Fotografiază o scenă",
+    howStep1Body: "Fă o poză clară a unui desen sau a unui moment real.",
+    howStep2Title: "Încarcă poza",
+    howStep2Body: "kidAR construiește o figurină 3D din ce ai capturat.",
+    howStep3Title: "Primești QR pentru AR 3D",
+    howStep3Body: "Scanează codul și descoperă figurina în spațiul tău."
   },
   auth: {
     title: "Intră în kidAR",
@@ -149,6 +154,15 @@ export const ro: Messages = {
       updatedYesterday: "actualizat ieri",
       updatedOn: "actualizat {date}",
       status: { draft: "În lucru", ready: "Pregătit", published: "Publicat" },
+      delete: "Șterge",
+      deleteConfirmTitle: "Ștergi această surpriză?",
+      deleteConfirmBody: "Surpriza dispare din cont și eliberezi un loc din planul gratuit.",
+      deleteConfirmPublished:
+        "Linkul și QR-ul public nu vor mai funcționa. Oricine are codul nu mai poate deschide experiența.",
+      deleteConfirmAction: "Șterge definitiv",
+      deleteCancel: "Anulează",
+      deleteError: "Nu am putut șterge surpriza. Reîncearcă.",
+      deleting: "Se șterge…",
       fixtures: {
         aurora: { title: "Aurora", line: "Un dragon de creion iese din noapte." },
         garden: { title: "Grădina ascunsă", line: "Pagina ilustrată se deschide ca o poartă." },
