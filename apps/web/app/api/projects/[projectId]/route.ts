@@ -135,29 +135,43 @@ export async function DELETE(_request: Request, { params }: Context) {
             keys
           }
         });
-      } catch (cause) {
-        const message = cause instanceof Error ? cause.message : "Unpublish enqueue failed";
-        return NextResponse.json({ error: message }, { status: 500 });
+      } catch {
+        // Best-effort: free the free-plan slot even if CDN cleanup enqueue fails
+        // (e.g. Appwrite step enum missing "unpublish"). Orphaned public keys are
+        // worse than a stuck surprise the owner cannot delete.
       }
     }
   }
 
   const sourceIds = [project.source_image_path].filter((path): path is string => Boolean(path));
-  if (sourceIds.length) await deleteStorageFiles(APPWRITE_SOURCE_BUCKET, sourceIds);
-
   const assetIds = [
     settings.uploadModelPath,
     settings.logoPath,
     settings.soundPath,
     ...collectCharacterVoiceAudioPaths(settings.characterVoices)
   ].filter((path): path is string => Boolean(path));
-  if (assetIds.length) await deleteStorageFiles(APPWRITE_ASSETS_BUCKET, assetIds);
 
   try {
-    await deleteProjectDocument(params.projectId);
+    if (sourceIds.length) await deleteStorageFiles(APPWRITE_SOURCE_BUCKET, sourceIds);
+    if (assetIds.length) await deleteStorageFiles(APPWRITE_ASSETS_BUCKET, assetIds);
+  } catch {
+    // Storage cleanup is best-effort.
+  }
+
+  try {
+    await deleteProjectDocument(project.id);
     return new NextResponse(null, { status: 204 });
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "Delete failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const code =
+      cause && typeof cause === "object" && "type" in cause
+        ? String((cause as { type?: unknown }).type ?? "delete_failed")
+        : "delete_failed";
+    console.error("[projects.DELETE] deleteProjectDocument failed", {
+      projectId: project.id,
+      code,
+      message
+    });
+    return NextResponse.json({ error: message, code }, { status: 500 });
   }
 }
