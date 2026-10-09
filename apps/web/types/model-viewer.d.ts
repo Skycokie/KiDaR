@@ -8,6 +8,7 @@ type ModelViewerProps = DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLEleme
   ar?: boolean;
   "ar-modes"?: string;
   "touch-action"?: string;
+  "auto-rotate"?: boolean;
   poster?: string;
 };
 

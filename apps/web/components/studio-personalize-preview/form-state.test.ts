@@ -312,7 +312,10 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(isPersonalizeWriteBlocked("/api/projects/x/figurine")).toBe(false);
     expect(isPersonalizeWriteBlocked("/api/projects/x/voices/primary")).toBe(false);
     expect(isPersonalizeWriteBlocked("/api/projects/x/voices/primary/audio")).toBe(false);
-    expect(isPersonalizeWriteBlocked("/api/publish")).toBe(true);
+    expect(isPersonalizeWriteBlocked("/api/publish")).toBe(false);
+    expect(isPersonalizeWriteBlocked("/api/projects/x/publish")).toBe(false);
+    expect(isPersonalizeWriteBlocked("/api/projects/x/qr?download=1")).toBe(false);
+    expect(isPersonalizeWriteBlocked("/api/projects/x/publish/extra")).toBe(true);
   });
 
   it("setArLive opens the AR stage with a local overlay flag", () => {
@@ -334,7 +337,7 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(isPersonalizeWriteBlocked("/api/projects/x/figurine")).toBe(false);
     expect(isPersonalizeWriteBlocked("/api/projects/x/voices/primary")).toBe(false);
     expect(isPersonalizeWriteBlocked("/api/projects/x/asset")).toBe(true);
-    expect(isPersonalizeWriteBlocked("/api/publish")).toBe(true);
+    expect(isPersonalizeWriteBlocked("/api/checkout")).toBe(true);
     expect(PERSONALIZE_BACK_HREF).toBe("/studio");
     expect(PERSONALIZE_STUDIO_HREF).toBe("/studio-preview/personalizeaza");
     expect(PERSONALIZE_CAMERA_HREF).toBe("/studio-preview/personalizeaza/camera");

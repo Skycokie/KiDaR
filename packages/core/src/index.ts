@@ -1,4 +1,21 @@
 export type Plan = "free" | "paid";
+import { normalizeArDecorList, AR_DECOR_MAX, isKnownArDecorId } from "./ar-decor";
+export {
+  AR_DECOR_MAX,
+  AR_DECOR_MARKER_SPAN,
+  AR_DECOR_DEFAULT_SCALE,
+  AR_DECOR_GLB_PATH,
+  clampDecorPercent,
+  clampDecorAngleDeg,
+  stagePercentToMarkerPosition,
+  decorGlbPublicUrl,
+  normalizeArDecorList,
+  studioDecorToArProps,
+  resolveArDecorProps,
+  decorHashIdentity,
+  isKnownArDecorId
+} from "./ar-decor";
+export type { ArDecorProp, ArDecorResolved } from "./ar-decor";
 export {
   alphaMaskFromRgba,
   cleanAlphaMask,
@@ -54,7 +71,9 @@ export { PublicStorageConfigError } from "./storage-error";
 export {
   resolvePublicStorageConfig,
   createUnimplementedPublicStorage,
-  createPublicArtifactStorage
+  createPublicArtifactStorage,
+  publishStorageEnv,
+  publishPublicBaseUrl
 } from "./storage";
 export type {
   PublicStorageProviderId,
@@ -226,6 +245,7 @@ export {
   redactFigureRecord,
   evaluateFigureBudget,
   buildFigureAuditEvent,
+  publishLifecycleFromProjectStatus,
   decideFigurePublish
 } from "./figure-hardening";
 export type {
@@ -321,6 +341,8 @@ export {
   pageArtifactKey,
   experiencePointerKey,
   consumerArUrl,
+  cameraViewUrl,
+  resolveCameraViewModel,
   pageRenderPipelineLabel,
   requiredJobsForMode,
   pageRenderDependsOn,
@@ -333,7 +355,7 @@ export {
   mapSettingsToArPageConfig,
   selectClickableCta
 } from "./page-render";
-export type { PageRenderDependsOn, MapArPageInput } from "./page-render";
+export type { PageRenderDependsOn, MapArPageInput, CameraViewModelResult } from "./page-render";
 
 export { PublishPlanError, planPublishJobs } from "./publish-plan";
 export type { PublishPlanInput, PublishPlan } from "./publish-plan";
@@ -374,6 +396,11 @@ export interface SceneSettings {
    * or reparent it to the phone camera so it stays on screen (`follow`).
    */
   arAnchorMode?: "marker" | "follow";
+  /**
+   * Studio decor props for AR (marker-anchored). yaw/pitch are degrees.
+   * Empty/absent = no props in the AR page.
+   */
+  decor?: import("./ar-decor").ArDecorProp[];
 }
 
 export type StartTransformPatch = {
@@ -385,6 +412,8 @@ export type StartTransformPatch = {
 export type SceneSettingsPatch = {
   startTransform?: StartTransformPatch;
   arAnchorMode?: "marker" | "follow";
+  /** Replace (not merge) the decor list. Pass [] to clear. */
+  decor?: import("./ar-decor").ArDecorProp[];
 };
 
 export interface ProjectSettings {
@@ -432,6 +461,8 @@ export interface ProjectSettings {
   publicQrUrl?: string;
   publicPdfUrl?: string;
   publicExperienceUrl?: string;
+  /** ISO time the owner last accepted publish terms server-side; not part of inputHash. */
+  publishTermsAcceptedAt?: string;
   /** Optional AR start pose. Absent on older projects — no migration. */
   scene?: SceneSettings;
 }
@@ -497,7 +528,12 @@ function mergeScene(
   if (scene.arAnchorMode !== "marker" && scene.arAnchorMode !== "follow") {
     delete scene.arAnchorMode;
   }
-  if (!scene.startTransform && !scene.arAnchorMode) return undefined;
+  if ("decor" in patch) {
+    const decor = normalizeArDecorList(patch.decor);
+    if (decor.length > 0) scene.decor = decor;
+    else delete scene.decor;
+  }
+  if (!scene.startTransform && !scene.arAnchorMode && !scene.decor?.length) return undefined;
   return scene;
 }
 
@@ -560,6 +596,24 @@ export function validateSceneSettingsPatch(scene: unknown): string | null {
   if ("arAnchorMode" in scene && scene.arAnchorMode !== undefined) {
     if (scene.arAnchorMode !== "marker" && scene.arAnchorMode !== "follow") {
       return 'settings.scene.arAnchorMode must be "marker" or "follow"';
+    }
+  }
+  if ("decor" in scene && scene.decor !== undefined) {
+    if (!Array.isArray(scene.decor)) return "settings.scene.decor must be an array";
+    if (scene.decor.length > AR_DECOR_MAX) {
+      return `settings.scene.decor must have at most ${AR_DECOR_MAX} items`;
+    }
+    for (let i = 0; i < scene.decor.length; i += 1) {
+      const item = scene.decor[i];
+      if (!isPlainObject(item)) return `settings.scene.decor[${i}] must be an object`;
+      if (typeof item.id !== "string" || !isKnownArDecorId(item.id)) {
+        return `settings.scene.decor[${i}].id is not a known decor asset`;
+      }
+      for (const axis of ["x", "y", "yaw", "pitch"] as const) {
+        if (!(axis in item) || item[axis] === undefined) continue;
+        const message = validateFiniteAxis(item[axis], `settings.scene.decor[${i}].${axis}`);
+        if (message) return message;
+      }
     }
   }
   if (!("startTransform" in scene) || scene.startTransform === undefined) return null;
