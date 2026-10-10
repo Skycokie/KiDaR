@@ -219,6 +219,7 @@ export type {
 
 export {
   FIGURE_FLAG_GENERATION,
+  FIGURE_FLAG_GENERATION_ALIAS,
   FIGURE_FLAG_AR,
   FIGURE_FLAG_PUBLISH,
   FIGURE_GLB_CONTENT_TYPE,
@@ -228,6 +229,7 @@ export {
   FIGURE_LIMITS,
   FIGURE_AUDIT_EVENTS,
   readFigureFeatureFlags,
+  isFigureGenerationEnabled,
   isFigureLifecycle,
   canFigureTransition,
   assertFigureTransition,

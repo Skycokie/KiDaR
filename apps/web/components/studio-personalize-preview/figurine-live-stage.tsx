@@ -1,17 +1,16 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useStudioI18n } from "@/components/i18n/studio-i18n";
 import { FigurineGlbStage } from "./figurine-glb-stage";
-import {
-  readFigurineStatus,
-  shouldPollFigurine,
-  type FigurineStatusView
-} from "./generate-figurine";
+import { shouldPollFigurine } from "./generate-figurine";
+import { useFigurineStatusPoll } from "./use-figurine-status-poll";
 
 /**
  * Loads the owner Tripo figurine into the personalize stage.
  * Falls back to the local clay mock until a GLB exists.
+ * Keeps polling until a model URL arrives or the job fails — including after
+ * a regenerate click that happened while the stage was already mounted.
  */
 export function FigurineLiveStage({
   projectId,
@@ -30,31 +29,10 @@ export function FigurineLiveStage({
   volume: number;
   fallback: ReactNode;
 }) {
-  const [status, setStatus] = useState<FigurineStatusView | null>(null);
+  // keepAlive: observe regenerates started from FigurineGenerateCard.
+  const { status } = useFigurineStatusPoll(projectId, 0, true);
   const { messages } = useStudioI18n();
   const COPY = messages.personalize;
-
-  useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setInterval> | null = null;
-
-    const pull = async () => {
-      const result = await readFigurineStatus(projectId);
-      if (cancelled || !result.ok) return;
-      setStatus(result.status);
-      if (!shouldPollFigurine(result.status.job) && timer) {
-        clearInterval(timer);
-        timer = null;
-      }
-    };
-
-    void pull();
-    timer = setInterval(() => void pull(), 2500);
-    return () => {
-      cancelled = true;
-      if (timer) clearInterval(timer);
-    };
-  }, [projectId]);
 
   if (status?.modelUrl) {
     return (

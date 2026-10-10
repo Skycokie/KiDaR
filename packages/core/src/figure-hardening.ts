@@ -14,6 +14,8 @@ import {
 import { FIGURE_STAGING_MAX_USDZ_BYTES } from "./figure-staging";
 
 export const FIGURE_FLAG_GENERATION = "FIGURE_GENERATION_ENABLED";
+/** Product alias used on Vercel (`FIGURINE_3D_ENABLED`). Same gate as generation. */
+export const FIGURE_FLAG_GENERATION_ALIAS = "FIGURINE_3D_ENABLED";
 export const FIGURE_FLAG_AR = "FIGURE_AR_ENABLED";
 export const FIGURE_FLAG_PUBLISH = "FIGURE_PUBLISH_ENABLED";
 
@@ -72,11 +74,24 @@ export function isExplicitTrue(value: string | undefined | null): boolean {
   return value === "true";
 }
 
+/**
+ * Generation gate: exact `FIGURE_GENERATION_ENABLED=true`, or the product alias
+ * `FIGURINE_3D_ENABLED` as `true` / `1` (Vercel rollout flag).
+ * Either flag alone is enough so web + worker stay in sync.
+ */
+export function isFigureGenerationEnabled(
+  env: Record<string, string | undefined>
+): boolean {
+  if (isExplicitTrue(env[FIGURE_FLAG_GENERATION])) return true;
+  const alias = env[FIGURE_FLAG_GENERATION_ALIAS];
+  return alias === "1" || alias === "true";
+}
+
 export function readFigureFeatureFlags(
   env: Record<string, string | undefined>
 ): FigureFeatureFlags {
   return {
-    generation: isExplicitTrue(env[FIGURE_FLAG_GENERATION]),
+    generation: isFigureGenerationEnabled(env),
     ar: isExplicitTrue(env[FIGURE_FLAG_AR]),
     publish: isExplicitTrue(env[FIGURE_FLAG_PUBLISH])
   };

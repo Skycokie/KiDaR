@@ -1,14 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useStudioI18n } from "@/components/i18n/studio-i18n";
-import {
-  readFigurineStatus,
-  shouldPollFigurine,
-  startFigurineGeneration,
-  type FigurineClientError,
-  type FigurineStatusView
-} from "./generate-figurine";
+import { shouldPollFigurine, startFigurineGeneration } from "./generate-figurine";
+import { useFigurineStatusPoll } from "./use-figurine-status-poll";
 
 export function FigurineGenerateCard({
   projectId,
@@ -17,39 +12,11 @@ export function FigurineGenerateCard({
   projectId?: string | null;
   hasDrawing: boolean;
 }) {
-  const [status, setStatus] = useState<FigurineStatusView | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<FigurineClientError | "">("");
+  const [pollEpoch, setPollEpoch] = useState(0);
+  const { status, error, setStatus, setError } = useFigurineStatusPoll(projectId, pollEpoch);
   const { messages } = useStudioI18n();
   const COPY = messages.personalize;
-
-  useEffect(() => {
-    if (!projectId) return;
-    let cancelled = false;
-    let timer: ReturnType<typeof setInterval> | null = null;
-
-    const pull = async () => {
-      const result = await readFigurineStatus(projectId);
-      if (cancelled) return;
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      setError("");
-      setStatus(result.status);
-      if (!shouldPollFigurine(result.status.job) && timer) {
-        clearInterval(timer);
-        timer = null;
-      }
-    };
-
-    void pull();
-    timer = setInterval(() => void pull(), 2500);
-    return () => {
-      cancelled = true;
-      if (timer) clearInterval(timer);
-    };
-  }, [projectId]);
 
   if (!projectId) {
     return <p className="studio-ws__muted">{COPY.figurineNeedsProject}</p>;
@@ -91,6 +58,8 @@ export function FigurineGenerateCard({
                 publicUrl: null
               }
             }));
+            // Restart the poll loop — a prior idle GET may have cleared the interval.
+            setPollEpoch((epoch) => epoch + 1);
           })();
         }}
       >
