@@ -24,8 +24,19 @@ export const CREATOR_PRESET_COPY: Record<
 
 export const SOURCE_MAX_BYTES = 10 * 1024 * 1024;
 export const SOURCE_SMALL_BYTES = 50 * 1024;
-export const SOURCE_ACCEPT = "image/jpeg,image/png";
+/** Phone libraries often offer HEIC/WebP; we convert those to JPEG before upload. */
+export const SOURCE_ACCEPT =
+  "image/jpeg,image/png,image/heic,image/heif,image/webp,.jpg,.jpeg,.png,.heic,.heif,.webp";
 export const MISSION_MESSAGE_MAX = 80;
+
+const SOURCE_RASTER_TYPES = new Set(["image/jpeg", "image/png"]);
+const SOURCE_CONVERTIBLE_TYPES = new Set([
+  "image/heic",
+  "image/heif",
+  "image/webp",
+  "image/gif",
+  "image/bmp"
+]);
 
 export type ExperienceChoice = "popout" | "gallery";
 
@@ -76,7 +87,24 @@ export function mimeFromFileName(name?: string): string {
   const lower = (name ?? "").toLowerCase();
   if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
   if (lower.endsWith(".png")) return "image/png";
+  if (lower.endsWith(".heic") || lower.endsWith(".heif")) return "image/heic";
+  if (lower.endsWith(".webp")) return "image/webp";
+  if (lower.endsWith(".gif")) return "image/gif";
+  if (lower.endsWith(".bmp")) return "image/bmp";
   return "";
+}
+
+export function resolveSourceMime(file: { type?: string; name?: string }): string {
+  if (file.type && file.type !== "application/octet-stream") return file.type.toLowerCase();
+  return mimeFromFileName(file.name);
+}
+
+export function isSourceRasterMime(type: string): boolean {
+  return SOURCE_RASTER_TYPES.has(type);
+}
+
+export function isSourceConvertibleMime(type: string): boolean {
+  return SOURCE_CONVERTIBLE_TYPES.has(type);
 }
 
 export function validateSourceImage(file: { type?: string; size: number; name?: string }): {
@@ -84,8 +112,8 @@ export function validateSourceImage(file: { type?: string; size: number; name?: 
   code?: "type" | "size";
   small: boolean;
 } {
-  const type = file.type && file.type !== "application/octet-stream" ? file.type : mimeFromFileName(file.name);
-  if (type !== "image/jpeg" && type !== "image/png") {
+  const type = resolveSourceMime(file);
+  if (!isSourceRasterMime(type) && !isSourceConvertibleMime(type)) {
     return { ok: false, code: "type", small: false };
   }
   if (file.size > SOURCE_MAX_BYTES) {

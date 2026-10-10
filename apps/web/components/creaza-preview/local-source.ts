@@ -3,7 +3,8 @@
  * Never uploads — Object URLs must be revoked by the caller/shell.
  */
 
-import { mimeFromFileName, validateSourceImage } from "@/lib/simple-creator";
+import { resolveSourceMime, validateSourceImage } from "@/lib/simple-creator";
+import { normalizeSourceFile } from "./normalize-source-file";
 
 export type LocalSourceImage = {
   file: File;
@@ -36,19 +37,23 @@ function readImageDimensions(objectUrl: string): Promise<{ width: number; height
 
 /**
  * Validate + create an in-memory preview URL.
+ * Converts HEIC/WebP from phone libraries to JPEG when needed.
  * Does not touch the network.
  */
 export async function buildLocalSourceImage(file: File): Promise<LocalSourceBuildResult> {
-  const validation = validateSourceImage(file);
+  const normalized = await normalizeSourceFile(file);
+  if (!normalized.ok) {
+    return { ok: false, code: normalized.code };
+  }
+
+  const ready = normalized.file;
+  const validation = validateSourceImage(ready);
   if (!validation.ok) {
     return { ok: false, code: validation.code ?? "type" };
   }
 
-  const objectUrl = URL.createObjectURL(file);
-  const mimeType =
-    file.type && file.type !== "application/octet-stream"
-      ? file.type
-      : mimeFromFileName(file.name);
+  const objectUrl = URL.createObjectURL(ready);
+  const mimeType = resolveSourceMime(ready) || "image/jpeg";
 
   let width: number | undefined;
   let height: number | undefined;
@@ -64,11 +69,11 @@ export async function buildLocalSourceImage(file: File): Promise<LocalSourceBuil
     ok: true,
     smallWarning: validation.small,
     image: {
-      file,
+      file: ready,
       objectUrl,
-      name: file.name || "poza.jpg",
+      name: ready.name || "poza.jpg",
       mimeType,
-      sizeBytes: file.size,
+      sizeBytes: ready.size,
       width,
       height
     }
