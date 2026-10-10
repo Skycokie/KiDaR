@@ -672,3 +672,9 @@ export async function generateUniqueSlug(
 
   return candidate;
 }
+
+export {
+  UPLOAD_ARTIFACT_KIND,
+  UploadModelError,
+  uploadArtifactKey
+} from "./upload-model";
