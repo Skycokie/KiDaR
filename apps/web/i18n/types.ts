@@ -358,6 +358,31 @@ export type Messages = {
     figurineRegenerate: string;
     figurinePreparing: string;
     figurineNeedsProject: string;
+    importNeedsProject: string;
+    importSupport: string;
+    importTabsLabel: string;
+    importTabGallery: string;
+    importTabFile: string;
+    importSearchLabel: string;
+    importSearchPlaceholder: string;
+    importSearch: string;
+    importSearching: string;
+    importGalleryEmpty: string;
+    importSelected: string;
+    importNeedsCdn: string;
+    importFileHint: string;
+    importFileLabel: string;
+    importFilePick: string;
+    importFileBusy: string;
+    importCurrent: string;
+    importPickHint: string;
+    importErrors: {
+      auth: string;
+      network: string;
+      invalid: string;
+      too_large: string;
+      generic: string;
+    };
     figurineNeedsDrawing: string;
     figurineDisclosure: string;
     voiceHeading: string;
@@ -481,6 +506,7 @@ export type Messages = {
       modes: {
         popout: { label: string; hint: string };
         figurine: { label: string; hint: string };
+        import: { label: string; hint: string };
       };
       styles: {
         preserve: { label: string; hint: string };

@@ -84,6 +84,7 @@ import {
 import { IdeaPromptCard } from "./idea-prompt-card";
 import type { PromptLanguage } from "./idea-prompt";
 import { FigurineGenerateCard } from "./figurine-generate-card";
+import { ImportModelCard, type ImportedModelInfo } from "./import-model-card";
 import { VoiceCard, type VoiceDraft } from "./voice-card";
 import {
   readCharacterVoiceStatus,
@@ -323,6 +324,8 @@ function Inspector({
   dispatch,
   drawingSrc,
   projectId,
+  importedModel,
+  onImportedModel,
   onVoiceChange,
   onVoiceDraftChange,
   onPlayVoice
@@ -331,6 +334,8 @@ function Inspector({
   dispatch: (action: Action) => void;
   drawingSrc?: string | null;
   projectId?: string | null;
+  importedModel: ImportedModelInfo | null;
+  onImportedModel: (info: ImportedModelInfo | null) => void;
   onVoiceChange?: (status: VoiceStatusView | null) => void;
   onVoiceDraftChange?: (draft: VoiceDraft | null) => void;
   onPlayVoice: (url: string) => void;
@@ -402,6 +407,13 @@ function Inspector({
         </div>
         {state.transformMode === "figurine" ? (
           <FigurineGenerateCard projectId={projectId} hasDrawing={hasDrawing} />
+        ) : null}
+        {state.transformMode === "import" ? (
+          <ImportModelCard
+            projectId={projectId}
+            selected={importedModel}
+            onSelected={onImportedModel}
+          />
         ) : null}
 
         <p className="studio-ws__section-label">{COPY.giveLife}</p>
@@ -730,7 +742,21 @@ export function PersonalizePreviewShell({
     ideaPrompt: initialIdeaPrompt,
     decor: projectContext?.decor ?? []
   };
-  const [state, dispatch] = useReducer(reducer, createWorkspaceState(orbitSeed));
+  const [state, dispatch] = useReducer(reducer, orbitSeed, (seed) => {
+    const seeded = createWorkspaceState(seed);
+    return projectContext?.importedModelUrl ? setTransformMode(seeded, "import") : seeded;
+  });
+  const [importedModel, setImportedModel] = useState<ImportedModelInfo | null>(() =>
+    projectContext?.importedModelUrl
+      ? {
+          modelUrl: projectContext.importedModelUrl,
+          publicUrl: projectContext.importedModelUrl,
+          promoted: true,
+          label: COPY.choices.modes.import.label,
+          source: "gallery"
+        }
+      : null
+  );
   const [interaction, interactDispatch] = useReducer(reduceInteraction, createInteractionState());
   const [save, saveDispatch] = useReducer(startSaveReducer, {
     status: "idle",
@@ -1226,6 +1252,7 @@ export function PersonalizePreviewShell({
               transformMode={state.transformMode}
               drawingSrc={drawingSrc}
               projectId={projectId}
+              importedModelUrl={importedModel?.modelUrl ?? null}
               interaction={interaction}
               spokenMessage={spokenMessage}
               onCharacterClick={onCharacterClick}
@@ -1352,6 +1379,8 @@ export function PersonalizePreviewShell({
             dispatch={dispatch}
             drawingSrc={drawingSrc}
             projectId={projectId}
+            importedModel={importedModel}
+            onImportedModel={setImportedModel}
             onVoiceChange={setVoiceStatus}
             onVoiceDraftChange={setVoiceDraft}
             onPlayVoice={playVoiceClip}
