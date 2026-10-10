@@ -31,20 +31,27 @@ describe("consent records", () => {
     const first = withConsent({ theme: "dark" }, "parent", NOW);
     const both = withConsent(first, "voice", new Date("2026-10-08T00:00:00.000Z"));
     expect(both.theme).toBe("dark");
-    expect(consentStatus(both)).toEqual({ parent: true, voice: true });
+    expect(consentStatus(both)).toEqual({ parent: true, voice: true, ai: false });
     expect(readConsent(both).parent?.at).toBe(NOW.toISOString());
   });
 
   it("requires a fresh consent when the policy version changes", () => {
     const stale = { consent: { parent: { version: "2020-01-01", at: NOW.toISOString() } } };
     expect(hasValidConsent(stale, "parent")).toBe(false);
-    expect(consentStatus(stale)).toEqual({ parent: false, voice: false });
+    expect(consentStatus(stale)).toEqual({ parent: false, voice: false, ai: false });
   });
 
   it("only accepts known consent kinds", () => {
     expect(isConsentKind("parent")).toBe(true);
     expect(isConsentKind("voice")).toBe(true);
+    expect(isConsentKind("ai")).toBe(true);
     expect(isConsentKind("marketing")).toBe(false);
     expect(isConsentKind(undefined)).toBe(false);
+  });
+
+  it("records ai consent without invalidating parent/voice", () => {
+    const withParent = withConsent({}, "parent", NOW);
+    const withAi = withConsent(withParent, "ai", NOW);
+    expect(consentStatus(withAi)).toEqual({ parent: true, voice: false, ai: true });
   });
 });

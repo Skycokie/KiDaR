@@ -38,6 +38,12 @@ describe("local Studio idea prompt", () => {
       motion: "float",
       lighting: "studio"
     });
+    expect(interpretIdeaPrompt("the fish is swiming", "en")).toMatchObject({ motion: "float" });
+    expect(interpretIdeaPrompt("sa inoate printre stele")).toMatchObject({
+      motion: "float",
+      decor: "stars"
+    });
+    expect(interpretIdeaPrompt("follow the camera", "en")).toMatchObject({ motion: "follow" });
   });
 
   it("keeps the last match in a category and ignores lookalike fragments", () => {

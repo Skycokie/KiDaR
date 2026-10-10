@@ -41,12 +41,13 @@ const RULES: Rule[] = [
   {
     category: "motion",
     value: "float",
-    phrases: ["pluteste", "pluteasca", "zboara", "in aer"]
+    phrases: ["pluteste", "pluteasca", "zboara", "in aer", "inoata", "inoate", "inot", "swim"]
   },
   { category: "motion", value: "dance", phrases: ["danseaza", "danseze"] },
   { category: "motion", value: "jump", phrases: ["sare", "sara", "salta"] },
   { category: "motion", value: "wave", phrases: ["saluta", "face cu mana"] },
   { category: "motion", value: "still", phrases: ["linistit", "sta"] },
+  { category: "motion", value: "follow", phrases: ["urmeaza", "urmareste", "camera"] },
   { category: "decor", value: "stars", phrases: ["stele", "stea", "spatiu", "cosmos"] },
   { category: "decor", value: "grass", phrases: ["iarba", "gradina"] },
   { category: "decor", value: "tree", phrases: ["copac", "padure"] },
@@ -68,11 +69,12 @@ const RULES: Rule[] = [
 ];
 
 const ENGLISH_RULES: Rule[] = [
-  { category: "motion", value: "float", phrases: ["in the air", "float", "fly"] },
+  { category: "motion", value: "float", phrases: ["in the air", "float", "fly", "swim", "swimming", "swiming"] },
   { category: "motion", value: "dance", phrases: ["dance"] },
   { category: "motion", value: "jump", phrases: ["jump"] },
   { category: "motion", value: "wave", phrases: ["wave"] },
   { category: "motion", value: "still", phrases: ["still", "calm"] },
+  { category: "motion", value: "follow", phrases: ["follow", "follow me", "camera"] },
   { category: "decor", value: "stars", phrases: ["stars", "space"] },
   { category: "decor", value: "grass", phrases: ["garden", "grass"] },
   { category: "decor", value: "tree", phrases: ["tree"] },

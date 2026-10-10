@@ -107,7 +107,25 @@ export const ro: Messages = {
     ],
     needsDrawing: "Adaugă o poză sau un desen ca să aplici o idee în previzualizare.",
     suggestionsLabel: "Încearcă o idee",
-    honest: "Aceasta schimbă doar previzualizarea. Figurina 3D se pregătește separat."
+    honest: "Aceasta schimbă doar previzualizarea. Figurina 3D se pregătește separat.",
+    thinking: "Se gândește…",
+    privacyHint: "Nu scrie nume, adrese sau numere de telefon.",
+    consentLabel:
+      "Sunt de acord ca acest text scurt să fie trimis către furnizorul AI ca să aleagă setările din Studio. În acest pas nu se încarcă desenul.",
+    consentAccept: "Salvează și continuă",
+    suggest3d: "Vrei o figurină 3D din desen? Deschide Figurină 3D și confirmă generarea.",
+    errors: {
+      auth: "Autentifică-te ca să folosești chatul de idei.",
+      flag_off: "Chatul AI nu este disponibil încă. Cuvintele-cheie locale rămân active.",
+      consent_parent: "Confirmă mai întâi că ești părinte sau tutore.",
+      consent_ai: "Acceptă consimțământul pentru chatul AI ca să continui.",
+      consent_save: "Nu am putut salva consimțământul. Încearcă din nou.",
+      rate_limited: "Prea multe idei momentan. Încearcă mai târziu.",
+      store: "Chatul AI este temporar indisponibil.",
+      network: "Problemă de rețea. Am aplicat cuvintele-cheie locale.",
+      blocked: "Această idee nu poate fi folosită. Încearcă una mai prietenoasă.",
+      generic: "Ceva nu a mers. Încearcă din nou."
+    }
   },
   accessibility: {
     skipToContent: "Sari la conținut",

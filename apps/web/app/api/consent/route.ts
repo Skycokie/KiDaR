@@ -17,7 +17,7 @@ export async function GET() {
   return NextResponse.json({ version: CONSENT_VERSION, consent: consentStatus(user.prefs) });
 }
 
-/** Records a consent (`{ "kind": "parent" | "voice" }`) with version and timestamp. */
+/** Records a consent (`{ "kind": "parent" | "voice" | "ai" }`) with version and timestamp. */
 export async function POST(request: Request) {
   const user = await getLoggedInUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

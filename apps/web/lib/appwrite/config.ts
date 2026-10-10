@@ -11,6 +11,9 @@ export const APPWRITE_PROJECTS_COLLECTION =
 export const APPWRITE_JOBS_COLLECTION = process.env.APPWRITE_JOBS_COLLECTION ?? "jobs";
 export const APPWRITE_SCAN_EVENTS_COLLECTION =
   process.env.APPWRITE_SCAN_EVENTS_COLLECTION ?? "scan_events";
+/** Per-account AI chat rate-limit counters (server API key only). */
+export const APPWRITE_AI_USAGE_COLLECTION =
+  process.env.APPWRITE_AI_USAGE_COLLECTION ?? "ai_usage";
 
 export const APPWRITE_SOURCE_BUCKET =
   process.env.APPWRITE_SOURCE_BUCKET ?? "source-drawings";

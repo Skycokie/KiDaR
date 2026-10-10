@@ -417,6 +417,71 @@ export function resetIdeaPrompt(state: PersonalizeState): PersonalizeState {
   return { ...state, ideaPrompt: "", ideaResult: null, ideaNotice: null };
 }
 
+/**
+ * Applies structured settings from the Studio AI assistant (or local fallback).
+ * Builds an IdeaPromptResult so the existing result UI keeps working.
+ */
+export function applyAssistantSettings(
+  state: PersonalizeState,
+  input: {
+    prompt: string;
+    reply?: string | null;
+    motion?: AnimationId | null;
+    decor?: DecorId | null;
+    palette?: PaletteId | null;
+    lighting?: LightingId | null;
+    locale?: PromptLanguage;
+  }
+): PersonalizeState {
+  const locale = input.locale ?? "ro";
+  const text = limitIdeaPrompt(input.prompt);
+  const motion = input.motion ?? undefined;
+  const decor = input.decor ?? undefined;
+  const palette = input.palette ?? undefined;
+  const lighting = input.lighting ?? undefined;
+  const recognized = Boolean(motion || decor || palette || lighting);
+  const messages = getMessages(locale);
+  const COPY = messages.personalize;
+  const lines: string[] = [];
+  if (motion) lines.push(`${messages.studio.steps.motion}: ${COPY.choices.animations[motion].label}`);
+  if (decor) lines.push(`${messages.studio.steps.decor}: ${COPY.choices.decor[decor].label}`);
+  if (palette) lines.push(`${COPY.paletteSection}: ${COPY.choices.palettes[palette].label}`);
+  if (lighting) lines.push(`${COPY.lightingSection}: ${COPY.choices.lightings[lighting].label}`);
+  if (input.reply?.trim()) lines.unshift(input.reply.trim());
+
+  const ideaResult: IdeaPromptResult = {
+    recognized,
+    text,
+    motion,
+    decor,
+    palette,
+    lighting,
+    lines
+  };
+
+  if (!recognized) {
+    return {
+      ...state,
+      ideaPrompt: text,
+      ideaResult,
+      ideaNotice: input.reply?.trim() || null
+    };
+  }
+
+  return {
+    ...state,
+    ideaPrompt: text,
+    ideaResult,
+    ideaNotice: null,
+    animation: motion ?? state.animation,
+    arAnchorMode: arAnchorModeFromAnimation(motion ?? state.animation),
+    decor: decor ? [createDecorInstance(decor)] : state.decor,
+    palette: palette ?? state.palette,
+    lighting: lighting ?? state.lighting,
+    originalColors: palette === undefined ? state.originalColors : palette === "original"
+  };
+}
+
 export function setContextStory(state: PersonalizeState, value: string): PersonalizeState {
   return { ...state, contextStory: limitContextStory(value), contextNotice: null };
 }

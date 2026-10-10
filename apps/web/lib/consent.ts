@@ -5,6 +5,8 @@
  *           that the child's drawing is processed (upload, 3D generation, publishing).
  * `voice`:  the account holder agreed that a recorded or uploaded voice is stored and
  *           played on the public AR page.
+ * `ai`:     the account holder agreed that short chat text may be sent to the AI
+ *           provider to choose Studio settings (no drawings or images in v1).
  *
  * A record is only valid for the current CONSENT_VERSION. Bump the version whenever the
  * privacy policy changes in a way that needs a fresh confirmation.
@@ -12,7 +14,7 @@
 
 export const CONSENT_VERSION = "2026-10-07";
 
-export const CONSENT_KINDS = ["parent", "voice"] as const;
+export const CONSENT_KINDS = ["parent", "voice", "ai"] as const;
 export type ConsentKind = (typeof CONSENT_KINDS)[number];
 
 export type ConsentRecord = { version: string; at: string };
@@ -70,6 +72,7 @@ export type ConsentStatus = Record<ConsentKind, boolean>;
 export function consentStatus(prefs: unknown): ConsentStatus {
   return {
     parent: hasValidConsent(prefs, "parent"),
-    voice: hasValidConsent(prefs, "voice")
+    voice: hasValidConsent(prefs, "voice"),
+    ai: hasValidConsent(prefs, "ai")
   };
 }
