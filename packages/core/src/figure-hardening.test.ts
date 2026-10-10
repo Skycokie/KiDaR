@@ -15,6 +15,7 @@ import {
   stripFailedFigureFields,
   evaluateFigureBudget,
   figureDeliveryForStatus,
+  isFigureGenerationEnabled,
   readFigureFeatureFlags,
   redactFigureRecord,
   validateFigureModel,
@@ -79,6 +80,20 @@ describe("figure feature flags", () => {
     expect(readFigureFeatureFlags({ FIGURE_GENERATION_ENABLED: "1" }).generation).toBe(false);
     expect(readFigureFeatureFlags({ FIGURE_GENERATION_ENABLED: "yes" }).generation).toBe(false);
     expect(readFigureFeatureFlags({ FIGURE_GENERATION_ENABLED: "true" }).generation).toBe(true);
+  });
+
+  it("treats FIGURINE_3D_ENABLED as a generation alias", () => {
+    expect(isFigureGenerationEnabled({ FIGURINE_3D_ENABLED: "true" })).toBe(true);
+    expect(isFigureGenerationEnabled({ FIGURINE_3D_ENABLED: "1" })).toBe(true);
+    expect(isFigureGenerationEnabled({ FIGURINE_3D_ENABLED: "TRUE" })).toBe(false);
+    expect(isFigureGenerationEnabled({ FIGURINE_3D_ENABLED: "yes" })).toBe(false);
+    expect(
+      isFigureGenerationEnabled({
+        FIGURE_GENERATION_ENABLED: "false",
+        FIGURINE_3D_ENABLED: "true"
+      })
+    ).toBe(true);
+    expect(readFigureFeatureFlags({ FIGURINE_3D_ENABLED: "1" }).generation).toBe(true);
   });
 });
 
