@@ -107,7 +107,25 @@ export const en: Messages = {
     ],
     needsDrawing: "Add a photo or drawing to apply an idea in the preview.",
     suggestionsLabel: "Try an idea",
-    honest: "This only changes the preview. The 3D figure is prepared separately."
+    honest: "This only changes the preview. The 3D figure is prepared separately.",
+    thinking: "Thinking…",
+    privacyHint: "Do not write names, addresses, or phone numbers.",
+    consentLabel:
+      "I agree that this short text may be sent to our AI provider to choose Studio settings. No drawing is uploaded in this step.",
+    consentAccept: "Save and continue",
+    suggest3d: "Want a 3D figure from your drawing? Open Figurine 3D and confirm generation.",
+    errors: {
+      auth: "Sign in to use the idea chat.",
+      flag_off: "AI chat is not available yet. Local keywords still work.",
+      consent_parent: "Confirm you are a parent or guardian first.",
+      consent_ai: "Accept AI chat consent to continue.",
+      consent_save: "Could not save consent. Try again.",
+      rate_limited: "Too many ideas for now. Try again later.",
+      store: "AI chat is temporarily unavailable.",
+      network: "Network issue. Applied local keywords instead.",
+      blocked: "That idea cannot be used. Try a friendlier one.",
+      generic: "Something went wrong. Try again."
+    }
   },
   accessibility: {
     skipToContent: "Skip to content",

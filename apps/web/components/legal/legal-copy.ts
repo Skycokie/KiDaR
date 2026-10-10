@@ -130,6 +130,10 @@ const roPrivacy: LegalDoc = {
             "Tripo (Tripo3D)",
             "Generarea modelului 3D din desen, doar când această funcție este activă. Desenul este trimis furnizorului numai în acest scop"
           ],
+          [
+            "OpenAI",
+            "Chatul de idei din Studio: textul scurt pe care îl scrii este trimis doar când ai consimțit și funcția este activă. Nu trimitem desene sau imagini în acest pas. Răspunsul alege setări din Studio (mișcare, decor, culori, lumină)"
+          ],
           ["Stripe", "Plăți"]
         ]
       }
@@ -137,7 +141,8 @@ const roPrivacy: LegalDoc = {
     {
       heading: "6. Transferuri în afara Spațiului Economic European",
       paragraphs: [
-        "Unii furnizori pot prelucra date în afara SEE, de exemplu în Statele Unite. În acest caz ne bazăm pe decizii de adecvare (de exemplu Cadrul UE-SUA de confidențialitate a datelor) sau pe clauze contractuale standard aprobate de Comisia Europeană."
+        "Unii furnizori pot prelucra date în afara SEE, de exemplu în Statele Unite. În acest caz ne bazăm pe decizii de adecvare (de exemplu Cadrul UE-SUA de confidențialitate a datelor) sau pe clauze contractuale standard aprobate de Comisia Europeană.",
+        "OpenAI prelucrează date în Statele Unite. Folosim chatul AI doar pe baza consimțământului tău explicit și doar pentru textul pe care îl trimiți în Studio."
       ]
     },
     {
@@ -146,7 +151,8 @@ const roPrivacy: LegalDoc = {
         "Contul și conținutul proiectelor: cât timp contul există sau până ștergi proiectul.",
         "Ștergerea contului și a tuturor datelor asociate: la cerere, în cel mult 30 de zile.",
         "Jurnalele serverelor: pe perioade scurte, stabilite de furnizorii de găzduire.",
-        "Documentele de plată și contabile: perioada impusă de legislația contabilă și fiscală aplicabilă."
+        "Documentele de plată și contabile: perioada impusă de legislația contabilă și fiscală aplicabilă.",
+        "Mesajele din chatul AI: nu le stocăm ca istoric de conversație în kidAR; pot exista jurnale scurte la furnizor, conform politicii lor."
       ]
     },
     {
@@ -257,6 +263,10 @@ const enPrivacy: LegalDoc = {
             "Tripo (Tripo3D)",
             "Generating the 3D model from the drawing, only when this feature is enabled. The drawing is sent to the provider for this purpose only"
           ],
+          [
+            "OpenAI",
+            "Studio idea chat: the short text you type is sent only when you have consented and the feature is enabled. We do not send drawings or images in this step. The reply chooses Studio settings (motion, decor, colours, lighting)"
+          ],
           ["Stripe", "Payments"]
         ]
       }
@@ -264,7 +274,8 @@ const enPrivacy: LegalDoc = {
     {
       heading: "6. Transfers outside the European Economic Area",
       paragraphs: [
-        "Some providers may process data outside the EEA, for example in the United States. In that case we rely on adequacy decisions (such as the EU-US Data Privacy Framework) or on standard contractual clauses approved by the European Commission."
+        "Some providers may process data outside the EEA, for example in the United States. In that case we rely on adequacy decisions (such as the EU-US Data Privacy Framework) or on standard contractual clauses approved by the European Commission.",
+        "OpenAI processes data in the United States. We use the AI chat only with your explicit consent and only for the text you send in Studio."
       ]
     },
     {
@@ -273,7 +284,8 @@ const enPrivacy: LegalDoc = {
         "Account and project content: as long as the account exists or until you delete the project.",
         "Deleting your account and all associated data: on request, within 30 days at most.",
         "Server logs: for short periods set by the hosting providers.",
-        "Payment and accounting records: for the period required by applicable accounting and tax law."
+        "Payment and accounting records: for the period required by applicable accounting and tax law.",
+        "AI chat messages: we do not store a conversation history in kidAR; short logs may exist at the provider under their policy."
       ]
     },
     {

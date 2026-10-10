@@ -109,6 +109,23 @@ export type Messages = {
     needsDrawing: string;
     suggestionsLabel: string;
     honest: string;
+    thinking: string;
+    privacyHint: string;
+    consentLabel: string;
+    consentAccept: string;
+    suggest3d: string;
+    errors: {
+      auth: string;
+      flag_off: string;
+      consent_parent: string;
+      consent_ai: string;
+      consent_save: string;
+      rate_limited: string;
+      store: string;
+      network: string;
+      blocked: string;
+      generic: string;
+    };
   };
   accessibility: {
     skipToContent: string;

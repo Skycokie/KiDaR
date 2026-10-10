@@ -41,6 +41,7 @@ import {
   type TransformModeId
 } from "./fixtures";
 import {
+  applyAssistantSettings,
   applyIdeaPrompt,
   createInitialPersonalizeState,
   createWorkspaceState,
@@ -143,6 +144,16 @@ type Action =
   | { type: "decorOrbit"; key: string; yaw: number; pitch: number }
   | { type: "idea"; value: string }
   | { type: "applyIdea"; locale?: PromptLanguage }
+  | {
+      type: "applyAssistant";
+      prompt: string;
+      reply: string;
+      motion: AnimationId | null;
+      decor: DecorId | null;
+      palette: PaletteId | null;
+      lighting: LightingId | null;
+      locale?: PromptLanguage;
+    }
   | { type: "resetIdea" }
   | { type: "camera"; id: CameraPresetId }
   | { type: "grid" }
@@ -194,6 +205,16 @@ function reducer(state: PersonalizeState, action: Action): PersonalizeState {
       return setIdeaPrompt(state, action.value);
     case "applyIdea":
       return applyIdeaPrompt(state, state.ideaPrompt, action.locale ?? "ro");
+    case "applyAssistant":
+      return applyAssistantSettings(state, {
+        prompt: action.prompt,
+        reply: action.reply,
+        motion: action.motion,
+        decor: action.decor,
+        palette: action.palette,
+        lighting: action.lighting,
+        locale: action.locale ?? "ro"
+      });
     case "resetIdea":
       return resetIdeaPrompt(state);
     case "camera":
@@ -306,15 +327,30 @@ function ideaCard(
   state: PersonalizeState,
   dispatch: (action: Action) => void,
   locked: boolean,
-  locale: PromptLanguage
+  locale: PromptLanguage,
+  projectId?: string | null
 ) {
   return (
     <IdeaPromptCard
       state={state}
       locked={locked}
+      projectId={projectId}
       onChange={(value) => dispatch({ type: "idea", value })}
-      onApply={() => dispatch({ type: "applyIdea", locale })}
+      onApplyLocal={() => dispatch({ type: "applyIdea", locale })}
+      onApplyAssistant={(input) =>
+        dispatch({
+          type: "applyAssistant",
+          prompt: input.prompt,
+          reply: input.reply,
+          motion: input.motion,
+          decor: input.decor,
+          palette: input.palette,
+          lighting: input.lighting,
+          locale
+        })
+      }
       onReset={() => dispatch({ type: "resetIdea" })}
+      onSuggest3d={() => dispatch({ type: "transform", id: "figurine" })}
     />
   );
 }
@@ -349,7 +385,7 @@ function Inspector({
       <div className="studio-ws__inspector-block">
         <h2>{messages.studio.steps.drawing}</h2>
         <p className="studio-ws__muted">{hasDrawing ? COPY.drawingReady : COPY.emptyDrawing}</p>
-        {hasDrawing ? null : ideaCard(state, dispatch, true, locale)}
+        {hasDrawing ? null : ideaCard(state, dispatch, true, locale, projectId)}
         <div className={`studio-ws__drawing-card${drawingSrc ? " has-photo" : ""}`}>
           {drawingSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -374,7 +410,7 @@ function Inspector({
   if (state.stage === "personajul") {
     return (
       <div className="studio-ws__inspector-block">
-        {showIdea ? ideaCard(state, dispatch, !hasDrawing, locale) : null}
+        {showIdea ? ideaCard(state, dispatch, !hasDrawing, locale, projectId) : null}
         <h2>{messages.studio.steps.character}</h2>
         <p className="studio-ws__section-label">{COPY.modeSection}</p>
         <div className="studio-ws__mode-cards" role="group" aria-label={COPY.modeSection}>

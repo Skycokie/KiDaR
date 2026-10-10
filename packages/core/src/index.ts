@@ -431,6 +431,8 @@ export interface ProjectSettings {
   uploadModelPath?: string;
   /** Public HTTPS GLB from completed figurine_build (R2); never a source-bucket URL. */
   figurineModelUrl?: string;
+  /** Moderated text prompt for FIGURE_TEXT_3D_ENABLED jobs (worker Tripo text-to-model). */
+  figurineTextPrompt?: string;
   /**
    * Per-subject generation records (MVP: usually one). Mutable generation state
    * lives here + job payload — not browser-only storage.
