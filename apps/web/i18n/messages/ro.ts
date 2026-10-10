@@ -391,6 +391,31 @@ export const ro: Messages = {
     figurineRegenerate: "Generează din nou",
     figurinePreparing: "Modelăm figurina…",
     figurineNeedsProject: "Pornește lumea din Atelier ca să generăm figurina din desenul tău.",
+    importNeedsProject: "Leagă un proiect ca să aduci o figurină din altă parte.",
+    importSupport: "Caută în galeria liberă sau adu propriul fișier .glb.",
+    importTabsLabel: "Sursa figurinei",
+    importTabGallery: "Galerie",
+    importTabFile: "Fișierul meu",
+    importSearchLabel: "Caută în galerie",
+    importSearchPlaceholder: "dragon, personaj, pisică…",
+    importSearch: "Caută",
+    importSearching: "Căutăm…",
+    importGalleryEmpty: "Nicio figurină. Încearcă alt cuvânt.",
+    importSelected: "Figurina a fost aleasă pentru această lume.",
+    importNeedsCdn: "Previzualizarea e gata. AR pe telefon are nevoie de stocare publică pentru fișier.",
+    importFileHint: "Alege un .glb de până la 25 MB.",
+    importFileLabel: "Figurina mea",
+    importFilePick: "Alege .glb",
+    importFileBusy: "Aducem fișierul…",
+    importCurrent: "Pe scenă: {name}",
+    importPickHint: "Alege din galerie sau propriul .glb ca să-l vezi pe scenă.",
+    importErrors: {
+      auth: "Autentifică-te ca să aduci o figurină.",
+      network: "Problemă de rețea. Încearcă din nou.",
+      invalid: "Fișierul nu este un .glb valid.",
+      too_large: "Fișierul e prea mare (max 25 MB).",
+      generic: "Nu am putut aduce figurina. Încearcă din nou."
+    },
     figurineNeedsDrawing: "Adaugă un desen din Atelier ca să generăm figurina 3D.",
     figurineDisclosure:
       "Modelul 3D este generat dintr-o singură imagine. Detaliile nevăzute, inclusiv spatele, sunt interpretate.",
@@ -515,7 +540,8 @@ export const ro: Messages = {
     choices: {
       modes: {
         popout: { label: "Pop-out din desen", hint: "Ridicat din hârtie, ușor plat" },
-        figurine: { label: "Figurină 3D", hint: "Personaj 3D din desen, cu Tripo" }
+        figurine: { label: "Figurină 3D", hint: "Personaj 3D din desen, cu Tripo" },
+        import: { label: "Din altă parte", hint: "Galerie sau propriul .glb" }
       },
       styles: {
         preserve: { label: "Păstrează desenul", hint: "Linii și culori din original" },

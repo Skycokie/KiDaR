@@ -50,8 +50,13 @@ async function loadOwnedPreview(projectId: string | undefined): Promise<{
   if (!project) return { drawingSrc: null, projectContext: null };
   const offset = project.settings?.offset;
   const rotation = project.settings?.scene?.startTransform?.rotation;
+  const importedModelUrl =
+    (typeof project.settings?.galleryModelUrl === "string" && project.settings.galleryModelUrl) ||
+    (typeof project.settings?.uploadModelUrl === "string" && project.settings.uploadModelUrl) ||
+    null;
   const projectContext: PreviewProjectContext = {
     projectId: project.id,
+    importedModelUrl,
     scale:
       typeof project.settings?.scale === "number" && Number.isFinite(project.settings.scale)
         ? project.settings.scale

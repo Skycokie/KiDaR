@@ -391,6 +391,31 @@ export const en: Messages = {
     figurineRegenerate: "Generate again",
     figurinePreparing: "Shaping the figure…",
     figurineNeedsProject: "Start the world from Studio so we can generate the figure from your drawing.",
+    importNeedsProject: "Link a project to bring a figure from elsewhere.",
+    importSupport: "Search a free gallery or bring your own .glb file.",
+    importTabsLabel: "Figure source",
+    importTabGallery: "Gallery",
+    importTabFile: "My file",
+    importSearchLabel: "Search gallery",
+    importSearchPlaceholder: "dragon, character, cat…",
+    importSearch: "Search",
+    importSearching: "Searching…",
+    importGalleryEmpty: "No figures matched. Try another word.",
+    importSelected: "Figure selected for this world.",
+    importNeedsCdn: "Preview is ready. Phone AR needs public storage for this file.",
+    importFileHint: "Choose a .glb up to 25 MB.",
+    importFileLabel: "My figure",
+    importFilePick: "Choose .glb",
+    importFileBusy: "Bringing the file…",
+    importCurrent: "On stage: {name}",
+    importPickHint: "Pick a gallery figure or your .glb to see it on stage.",
+    importErrors: {
+      auth: "Sign in to bring a figure.",
+      network: "Network issue. Try again.",
+      invalid: "That file is not a valid .glb.",
+      too_large: "File is too large (max 25 MB).",
+      generic: "We couldn’t bring that figure. Try again."
+    },
     figurineNeedsDrawing: "Add a drawing from Studio to generate the 3D figure.",
     figurineDisclosure:
       "The 3D model is generated from a single image. Unseen details, including the back, are interpreted.",
@@ -515,7 +540,8 @@ export const en: Messages = {
     choices: {
       modes: {
         popout: { label: "Pop-out from the drawing", hint: "Lifted from paper, slightly flat" },
-        figurine: { label: "3D figure", hint: "3D character from the drawing, with Tripo" }
+        figurine: { label: "3D figure", hint: "3D character from the drawing, with Tripo" },
+        import: { label: "From elsewhere", hint: "Gallery search or your own .glb" }
       },
       styles: {
         preserve: { label: "Keep the drawing", hint: "Lines and colors from the original" },

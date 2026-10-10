@@ -36,6 +36,8 @@ export type StudioDecorForSave = {
 
 export type PreviewProjectContext = {
   projectId: string;
+  /** Public HTTPS GLB already on the project (gallery / promoted file). */
+  importedModelUrl?: string | null;
   scale: number;
   offset: { x: number; y: number; z: number };
   /** Model rotation.y / rotation.x. Stored z is ignored by the orbit UI. */

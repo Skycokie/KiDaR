@@ -19,7 +19,7 @@ export type StudioStageId =
   | "vocea"
   | "testeaza";
 
-export type TransformModeId = "popout" | "figurine";
+export type TransformModeId = "popout" | "figurine" | "import";
 export type StylePresetId = "preserve" | "clay" | "painted";
 export type AnimationId = "wave" | "float" | "dance" | "jump" | "still" | "follow";
 /** AR tracking after image detect: stay on marker, or stick to the phone camera. */
@@ -69,7 +69,8 @@ export const STAGES: ChoiceOption<StudioStageId>[] = [
 
 export const TRANSFORM_MODES: ChoiceOption<TransformModeId>[] = [
   { id: "popout" },
-  { id: "figurine" }
+  { id: "figurine" },
+  { id: "import" }
 ];
 
 export const STYLE_PRESETS: ChoiceOption<StylePresetId>[] = [

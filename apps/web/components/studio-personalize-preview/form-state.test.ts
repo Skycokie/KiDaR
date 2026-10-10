@@ -419,6 +419,8 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(poster).toContain("FigurineFixtureFigure");
     expect(poster).toContain("FigurineDrawingShell");
     expect(shell).toContain("FigurineGenerateCard");
+    expect(shell).toContain("ImportModelCard");
+    expect(poster).toContain("FigurineGlbStage");
     expect(poster).toContain("figurineVolumeScale");
     expect(poster).toContain("popoutExtrusionPx");
     const removedHint = "Rotește lumea pentru a vedea straturile.";

@@ -58,6 +58,8 @@ describe("i18n coverage", () => {
     "components/studio-personalize-preview/idea-prompt-card.tsx",
     "components/studio-personalize-preview/voice-card.tsx",
     "components/studio-personalize-preview/figurine-generate-card.tsx",
+    "components/studio-personalize-preview/import-model-card.tsx",
+    "components/studio-personalize-preview/import-model-client.ts",
     "components/studio-personalize-preview/garden-poster.tsx",
     "components/studio-personalize-preview/form-state.ts",
     "components/studio-personalize-preview/generate-figurine.ts",

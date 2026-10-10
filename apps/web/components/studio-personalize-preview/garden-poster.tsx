@@ -28,6 +28,11 @@ const FigurineLiveStage = dynamic(
   { ssr: false }
 );
 
+const FigurineGlbStage = dynamic(
+  () => import("./figurine-glb-stage").then((mod) => mod.FigurineGlbStage),
+  { ssr: false }
+);
+
 const StageGlbProp = dynamic(
   () => import("./stage-glb-prop").then((mod) => mod.StageGlbProp),
   { ssr: false }
@@ -328,12 +333,15 @@ export function GardenPoster({
   onDecorActivate,
   onDecorMove,
   onDecorOrbit,
-  onDecorRemove
+  onDecorRemove,
+  importedModelUrl = null
 }: {
   state: PersonalizeState;
   transformMode: TransformModeId;
   drawingSrc?: string | null;
   projectId?: string | null;
+  /** Public or signed GLB from gallery / file import. */
+  importedModelUrl?: string | null;
   /** Compact copy for the AR step. Skips a second WebGL cutout. */
   mirror?: boolean;
   interaction?: InteractionState;
@@ -347,9 +355,11 @@ export function GardenPoster({
 }) {
   const scale = state.zoom / 100;
   const isFigurine = transformMode === "figurine";
+  const isImport = transformMode === "import";
   const isPopout = transformMode === "popout";
-  // Pop-out: shallow paper lift. Figurine: steeper Volum response.
-  const volumeScale = isFigurine
+  const usesFigurineVolume = isFigurine || isImport;
+  // Pop-out: shallow paper lift. Figurine/import: steeper Volum response.
+  const volumeScale = usesFigurineVolume
     ? figurineVolumeScale(state.volume)
     : 0.72 + state.volume / 180;
   const hasDrawing = Boolean(drawingSrc);
@@ -408,9 +418,9 @@ export function GardenPoster({
         {
           "--studio-zoom": String(scale),
           "--studio-volume": String(volumeScale),
-          "--studio-light": String(isFigurine ? Math.min(1, state.light / 100 + 0.18) : state.light / 100),
+          "--studio-light": String(usesFigurineVolume ? Math.min(1, state.light / 100 + 0.18) : state.light / 100),
           "--studio-shadow": String(
-            isFigurine
+            usesFigurineVolume
               ? Math.min(1, state.shadow / 100 + 0.28)
               : Math.max(0.18, state.shadow / 100 * 0.85)
           ),
@@ -444,6 +454,12 @@ export function GardenPoster({
 
       {isFigurine && !projectId ? (
         <p className="studio-stage__mode-hint studio-stage__mode-hint--figurine">{COPY.figurineNeedsProject}</p>
+      ) : null}
+      {isImport && !projectId ? (
+        <p className="studio-stage__mode-hint studio-stage__mode-hint--import">{COPY.importNeedsProject}</p>
+      ) : null}
+      {isImport && projectId && !importedModelUrl ? (
+        <p className="studio-stage__mode-hint studio-stage__mode-hint--import">{COPY.importPickHint}</p>
       ) : null}
 
       <div className="studio-stage__play">
@@ -497,6 +513,29 @@ export function GardenPoster({
         ) : null}
 
         {isFigurine && !hasDrawing ? <FigurineFixtureFigure volume={state.volume} /> : null}
+
+        {isImport && importedModelUrl && !mirror ? (
+          <FigurineGlbStage
+            modelUrl={importedModelUrl}
+            yaw={state.orbitYaw}
+            pitch={state.orbitPitch}
+            roll={state.orbitRoll}
+            zoom={state.zoom}
+            volume={state.volume}
+          />
+        ) : null}
+
+        {isImport && (!importedModelUrl || mirror) ? (
+          hasDrawing ? (
+            <FigurineDrawingShell
+              drawingSrc={drawingSrc!}
+              volume={state.volume}
+              preserveOutline={state.preserveOutline}
+            />
+          ) : (
+            <FigurineFixtureFigure volume={state.volume} />
+          )
+        ) : null}
         </div>
       </div>
 
