@@ -206,11 +206,13 @@ export async function updateProjectDocument(
 
 export async function deleteProjectDocument(projectId: string): Promise<void> {
   const { databases } = createAdminClient();
-  await databases.deleteDocument(
-    APPWRITE_DATABASE_ID,
-    APPWRITE_PROJECTS_COLLECTION,
-    projectId
-  );
+  // Object-style call matches node-appwrite v29; positional still works but
+  // mis-ordered args are harder to spot when Appwrite deprecates them.
+  await databases.deleteDocument({
+    databaseId: APPWRITE_DATABASE_ID,
+    collectionId: APPWRITE_PROJECTS_COLLECTION,
+    documentId: projectId
+  });
 }
 
 export async function createJobDocument(data: {

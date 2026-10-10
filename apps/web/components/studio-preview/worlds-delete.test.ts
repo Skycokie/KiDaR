@@ -25,5 +25,7 @@ describe("Studio world delete", () => {
     expect(routeSource).toMatch(/projectNeedsUnpublish/);
     expect(routeSource).toMatch(/type:\s*"unpublish"/);
     expect(routeSource).toMatch(/enqueueJob/);
+    // Unpublish enqueue must not block deleting the project document.
+    expect(routeSource).not.toMatch(/Unpublish enqueue failed/);
   });
 });

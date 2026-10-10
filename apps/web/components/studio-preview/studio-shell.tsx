@@ -290,7 +290,8 @@ function WorldsGallery({
       const response = await fetch(`/api/projects/${encodeURIComponent(pendingDelete.id)}`, {
         method: "DELETE"
       });
-      if (!response.ok && response.status !== 204) {
+      // 204 success, 404 already gone — both free the free-plan slot in the UI.
+      if (!response.ok && response.status !== 204 && response.status !== 404) {
         throw new Error("delete_failed");
       }
       setWorlds((current) => current.filter((world) => world.id !== pendingDelete.id));
