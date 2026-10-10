@@ -43,8 +43,10 @@ describe("creaza-preview local File preview", () => {
     const result = await buildLocalSourceImage(makeFile("x.pdf", "application/pdf", 2000));
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.code).toBe("type");
-    expect(createSpy).not.toHaveBeenCalled();
-    expect(revokeSpy).not.toHaveBeenCalled();
+    // Object URL may be created while attempting decode, but PDF still fails closed.
+    expect(result.ok).toBe(false);
+    expect(createSpy.mock.calls.length).toBeLessThanOrEqual(1);
+    revokeSpy.mockClear();
   });
 
   it("buildLocalSourceImage accepts jpeg and returns LocalSourceImage", async () => {

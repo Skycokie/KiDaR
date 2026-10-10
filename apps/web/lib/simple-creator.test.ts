@@ -55,11 +55,14 @@ describe("source image validation", () => {
     expect(validateSourceImage({ type: "", size: 80_000, name: "page.JPG" }).ok).toBe(true);
   });
 
-  it("rejects invalid types and files over 10 MB", () => {
+  it("accepts convertible phone types and rejects invalid types / oversized files", () => {
+    expect(validateSourceImage({ type: "image/heic", size: 1000, name: "page.heic" })).toEqual({
+      ok: true,
+      small: true
+    });
     expect(validateSourceImage({ type: "image/gif", size: 1000, name: "page.gif" })).toEqual({
-      ok: false,
-      code: "type",
-      small: false
+      ok: true,
+      small: true
     });
     expect(validateSourceImage({ type: "application/pdf", size: 1000, name: "page.pdf" }).ok).toBe(
       false
