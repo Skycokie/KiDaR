@@ -14,9 +14,50 @@ const published: typeof fetch = async (url) => {
 describe("loadCameraView", () => {
   it("hydrates a published world with the character GLB and a desktop QR", async () => {
     const state = await loadCameraView({ slug: "cocos", modelParam: model, env, fetchImpl: published });
-    expect(state).toMatchObject({ kind: "ready", slug: "cocos", arPageHref: "/ar/cocos", modelUrl: model });
+    expect(state).toMatchObject({
+      kind: "ready",
+      slug: "cocos",
+      arPageHref: "/ar/cocos",
+      modelUrl: model,
+      rotation: { x: 0, y: 0, z: 180 },
+      orientation: "0deg 180deg 0deg"
+    });
     if (state.kind !== "ready") throw new Error("expected ready");
     expect(state.qrDataUrl).toMatch(/^data:image\/png;base64,/);
+  });
+
+  it("applies the Studio start pose from rx/ry/rz query params", async () => {
+    const state = await loadCameraView({
+      slug: "cocos",
+      modelParam: model,
+      rx: "11.3",
+      ry: "-10.2",
+      rz: "180",
+      env,
+      fetchImpl: published
+    });
+    expect(state).toMatchObject({
+      kind: "ready",
+      rotation: { x: 11.3, y: -10.2, z: 180 },
+      orientation: "-10.2deg 191.3deg 0deg"
+    });
+  });
+
+  it("ignores invalid pose params and keeps the upright MindAR baseline", async () => {
+    const state = await loadCameraView({
+      slug: "cocos",
+      modelParam: model,
+      rx: "nope",
+      ry: "",
+      rz: undefined,
+      env,
+      fetchImpl: published
+    });
+    expect(state).toMatchObject({
+      kind: "ready",
+      rotation: { x: 0, y: 0, z: 180 },
+      orientation: "0deg 180deg 0deg"
+    });
   });
 
   it("is not public until the R2 pointer exists", async () => {

@@ -12,15 +12,26 @@ export const metadata: Metadata = {
 
 type PageProps = {
   params: { slug: string };
-  searchParams?: { model?: string | string[] };
+  searchParams?: {
+    model?: string | string[];
+    rx?: string | string[];
+    ry?: string | string[];
+    rz?: string | string[];
+  };
 };
+
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 export default async function ArCameraPage({ params, searchParams }: PageProps) {
   const copy = getMessages(getRequestLocale()).ar;
-  const rawModel = searchParams?.model;
   const state = await loadCameraView({
     slug: params.slug,
-    modelParam: Array.isArray(rawModel) ? rawModel[0] : rawModel,
+    modelParam: firstParam(searchParams?.model),
+    rx: firstParam(searchParams?.rx),
+    ry: firstParam(searchParams?.ry),
+    rz: firstParam(searchParams?.rz),
     env: process.env
   });
 
@@ -44,6 +55,7 @@ export default async function ArCameraPage({ params, searchParams }: PageProps) 
   return (
     <CameraViewClient
       modelUrl={state.modelUrl}
+      orientation={state.orientation}
       qrDataUrl={state.qrDataUrl}
       arPageHref={state.arPageHref}
       copy={copy}

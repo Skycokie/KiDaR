@@ -343,7 +343,11 @@ export {
   pageArtifactKey,
   experiencePointerKey,
   consumerArUrl,
+  CAMERA_VIEW_DEFAULT_ROTATION,
   cameraViewUrl,
+  cameraViewOrientation,
+  normalizeCameraViewRotation,
+  resolveCameraViewPose,
   resolveCameraViewModel,
   pageRenderPipelineLabel,
   requiredJobsForMode,
@@ -357,7 +361,12 @@ export {
   mapSettingsToArPageConfig,
   selectClickableCta
 } from "./page-render";
-export type { PageRenderDependsOn, MapArPageInput, CameraViewModelResult } from "./page-render";
+export type {
+  PageRenderDependsOn,
+  MapArPageInput,
+  CameraViewModelResult,
+  CameraViewRotation
+} from "./page-render";
 
 export { PublishPlanError, planPublishJobs } from "./publish-plan";
 export type { PublishPlanInput, PublishPlan } from "./publish-plan";

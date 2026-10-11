@@ -6,6 +6,8 @@ import { cameraViewPlatform, type CameraViewPlatform } from "@/lib/camera-view";
 
 type Props = {
   modelUrl: string | null;
+  /** model-viewer orientation: "yawDeg pitchDeg rollDeg" (YXZ). */
+  orientation: string;
   qrDataUrl: string | null;
   arPageHref: string;
   copy: Messages["ar"];
@@ -20,7 +22,8 @@ const shell = {
   display: "grid",
   gap: "1rem",
   alignContent: "start",
-  justifyItems: "center"
+  justifyItems: "center",
+  overflow: "hidden"
 } as const;
 
 const pill = {
@@ -34,7 +37,7 @@ const pill = {
   fontWeight: 600
 } as const;
 
-export function CameraViewClient({ modelUrl, qrDataUrl, arPageHref, copy }: Props) {
+export function CameraViewClient({ modelUrl, orientation, qrDataUrl, arPageHref, copy }: Props) {
   const [platform, setPlatform] = useState<CameraViewPlatform | null>(null);
   const [viewerReady, setViewerReady] = useState(false);
 
@@ -75,12 +78,25 @@ export function CameraViewClient({ modelUrl, qrDataUrl, arPageHref, copy }: Prop
         <model-viewer
           src={modelUrl}
           alt={copy.cameraTitle}
+          orientation={orientation}
           camera-controls
+          camera-orbit="auto auto auto"
+          field-of-view="30deg"
+          min-camera-orbit="auto auto 40%"
+          max-camera-orbit="auto auto 200%"
+          interaction-prompt="auto"
           {...(desktop
             ? { "auto-rotate": true }
             : { ar: true, "ar-modes": "webxr scene-viewer quick-look" })}
-          touch-action="pan-y"
-          style={{ width: "100%", maxWidth: "32rem", height: "60vh", background: "#1a1f2a", borderRadius: 16 }}
+          touch-action="none"
+          style={{
+            width: "100%",
+            maxWidth: "min(32rem, 100%)",
+            height: "min(60vh, 28rem)",
+            background: "#1a1f2a",
+            borderRadius: 16,
+            touchAction: "none"
+          }}
         >
           {!desktop ? (
             <button

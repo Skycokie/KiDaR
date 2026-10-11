@@ -201,7 +201,8 @@ export async function runPageRenderStage(
     arAnchorMode: mapped.arAnchorMode,
     props: mapped.props,
     cameraViewUrl: cameraViewUrl(deps.appOrigin, project.slug, mapped.modelUrl, {
-      allowLocalOrigins: deps.allowLocalOrigins
+      allowLocalOrigins: deps.allowLocalOrigins,
+      rotation: mapped.rotation
     })
   });
   assertPublicHtmlBundle(html, { modelUrl: mapped.modelUrl, targetUrl: mapped.targetUrl });

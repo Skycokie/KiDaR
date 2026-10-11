@@ -1,10 +1,13 @@
 import {
+  cameraViewOrientation,
   consumerArUrl,
   generateArQrPng,
   publishPublicBaseUrl,
   resolveCameraViewModel,
+  resolveCameraViewPose,
   resolveExperienceRedirect,
-  safeExperienceSlug
+  safeExperienceSlug,
+  type CameraViewRotation
 } from "@kidar/core";
 
 export type CameraViewPlatform = "ios" | "android" | "desktop";
@@ -29,6 +32,10 @@ export type CameraViewState =
       arPageHref: string;
       /** Character GLB only; null renders the missing-asset fallback. */
       modelUrl: string | null;
+      /** Studio / A-Frame start pose; defaults to upright MindAR baseline. */
+      rotation: CameraViewRotation;
+      /** `<model-viewer orientation>` string (yaw pitch roll). */
+      orientation: string;
       /** QR of the public /ar/{slug} page for desktop guidance. */
       qrDataUrl: string | null;
     };
@@ -40,6 +47,9 @@ export type CameraViewState =
 export async function loadCameraView(input: {
   slug: string;
   modelParam: string | null | undefined;
+  rx?: string | null;
+  ry?: string | null;
+  rz?: string | null;
   env: Record<string, string | undefined>;
   fetchImpl?: typeof fetch;
 }): Promise<CameraViewState> {
@@ -64,6 +74,11 @@ export async function loadCameraView(input: {
     publicBaseUrl,
     allowLocalOrigins: allowLocalAssets
   });
+  const rotation = resolveCameraViewPose({
+    rx: input.rx,
+    ry: input.ry,
+    rz: input.rz
+  });
 
   let qrDataUrl: string | null = null;
   const appUrl = input.env.NEXT_PUBLIC_APP_URL;
@@ -84,6 +99,8 @@ export async function loadCameraView(input: {
     slug,
     arPageHref: `/ar/${slug}`,
     modelUrl: model.ok ? model.modelUrl : null,
+    rotation,
+    orientation: cameraViewOrientation(rotation),
     qrDataUrl
   };
 }
