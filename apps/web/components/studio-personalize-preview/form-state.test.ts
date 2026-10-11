@@ -20,6 +20,7 @@ import {
   LATERAL_ORBIT_YAW,
   nudgeOrbit,
   nudgeOrbitFromScreen,
+  orbitEulerToQuat,
   orbitDeltaFromPointer,
   ORBIT_DRAG_DEG_PER_PX,
   ORBIT_PITCH_MAX,
@@ -238,39 +239,68 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(reset.orbitRoll).toBe(0);
   });
 
-  it("keeps arrow axes on the photo after planar roll", () => {
-    let state = createInitialPersonalizeState();
-    state = { ...state, orbitRoll: 90, orbitYaw: 0, orbitPitch: 0 };
-    // Local left after 90° roll becomes a pitch change — not stuck on initial yaw.
-    const left = nudgeOrbitFromScreen(state, -ORBIT_YAW_STEP, 0, 0, true);
-    expect(Math.abs(left.orbitYaw)).toBeLessThan(0.001);
-    expect(left.orbitPitch).toBeCloseTo(ORBIT_YAW_STEP, 5);
-    expect(left.orbitRoll).toBeCloseTo(90, 5);
-    // Local up after roll becomes yaw.
-    const up = nudgeOrbitFromScreen(state, 0, ORBIT_PITCH_STEP, 0, true);
-    expect(up.orbitYaw).toBeCloseTo(ORBIT_PITCH_STEP, 5);
-    expect(Math.abs(up.orbitPitch)).toBeLessThan(0.001);
-    // Unrolled: arrows still map to yaw / pitch directly.
-    const flat = nudgeOrbitFromScreen(
-      { ...state, orbitRoll: 0 },
-      -ORBIT_YAW_STEP,
-      ORBIT_PITCH_STEP,
-      0,
-      true
-    );
-    expect(flat.orbitYaw).toBeCloseTo(-ORBIT_YAW_STEP, 5);
-    expect(flat.orbitPitch).toBeCloseTo(ORBIT_PITCH_STEP, 5);
-    // Roll stays on the photo plane after a prior yaw/pitch pose.
-    const rolled = nudgeOrbitFromScreen(
-      { ...createInitialPersonalizeState(), orbitYaw: -32, orbitPitch: 8, orbitRoll: 0 },
-      0,
-      0,
-      ORBIT_ROLL_STEP,
-      true
-    );
-    expect(rolled.orbitYaw).toBeCloseTo(-32, 5);
-    expect(rolled.orbitPitch).toBeCloseTo(8, 5);
-    expect(rolled.orbitRoll).toBeCloseTo(ORBIT_ROLL_STEP, 5);
+  it("drag follows the finger in screen space for any pose, including upside down", () => {
+    type V = { x: number; y: number; z: number };
+    type Q = { x: number; y: number; z: number; w: number };
+    const rotate = (q: Q, v: V): V => {
+      // v' = q * v * q^-1 (unit quaternion)
+      const t = {
+        x: 2 * (q.y * v.z - q.z * v.y),
+        y: 2 * (q.z * v.x - q.x * v.z),
+        z: 2 * (q.x * v.y - q.y * v.x)
+      };
+      return {
+        x: v.x + q.w * t.x + (q.y * t.z - q.z * t.y),
+        y: v.y + q.w * t.y + (q.z * t.x - q.x * t.z),
+        z: v.z + q.w * t.z + (q.x * t.y - q.y * t.x)
+      };
+    };
+    const conj = (q: Q): Q => ({ x: -q.x, y: -q.y, z: -q.z, w: q.w });
+    const poses = [
+      { orbitYaw: 0, orbitPitch: 0, orbitRoll: 0 },
+      { orbitYaw: 180, orbitPitch: 0, orbitRoll: 0 },
+      { orbitYaw: 90, orbitPitch: 30, orbitRoll: 0 },
+      { orbitYaw: 0, orbitPitch: 120, orbitRoll: 0 },
+      { orbitYaw: 0, orbitPitch: 0, orbitRoll: 180 },
+      { orbitYaw: -134, orbitPitch: -8, orbitRoll: 180 }
+    ];
+    // Where the model surface facing the viewer / the model's right edge ends up on screen.
+    const front: V = { x: 0, y: 0, z: 1 };
+    const right: V = { x: 1, y: 0, z: 0 };
+    const moved = (pose: (typeof poses)[number], sx: number, sy: number, sr: number, point: V) => {
+      const base = { ...createInitialPersonalizeState(), ...pose };
+      const next = nudgeOrbitFromScreen(base, sx, sy, sr, true);
+      const q0 = orbitEulerToQuat(base.orbitYaw, base.orbitPitch, base.orbitRoll);
+      const q1 = orbitEulerToQuat(next.orbitYaw, next.orbitPitch, next.orbitRoll);
+      const model = rotate(conj(q0), point);
+      const before = rotate(q0, model);
+      const after = rotate(q1, model);
+      return { dx: after.x - before.x, dy: after.y - before.y };
+    };
+    for (const pose of poses) {
+      expect(moved(pose, 10, 0, 0, front).dx).toBeGreaterThan(0.05); // drag right -> moves right
+      expect(moved(pose, -10, 0, 0, front).dx).toBeLessThan(-0.05); // drag left -> moves left
+      expect(moved(pose, 0, 10, 0, front).dy).toBeGreaterThan(0.05); // drag up -> moves up
+      expect(moved(pose, 0, -10, 0, front).dy).toBeLessThan(-0.05); // drag down -> moves down
+      expect(moved(pose, 0, 0, 10, right).dy).toBeLessThan(-0.05); // clockwise -> right edge goes down
+    }
+  });
+
+  it("uses the Three / AR convention at rest: right = +yaw, up = -pitch", () => {
+    const state = createInitialPersonalizeState();
+    const base = { ...state, orbitYaw: 0, orbitPitch: 0, orbitRoll: 0 };
+    expect(nudgeOrbitFromScreen(base, ORBIT_YAW_STEP, 0, 0, true).orbitYaw).toBeCloseTo(ORBIT_YAW_STEP, 5);
+    expect(nudgeOrbitFromScreen(base, 0, ORBIT_PITCH_STEP, 0, true).orbitPitch).toBeCloseTo(-ORBIT_PITCH_STEP, 5);
+    expect(nudgeOrbitFromScreen(base, 0, -ORBIT_PITCH_STEP, 0, true).orbitPitch).toBeCloseTo(ORBIT_PITCH_STEP, 5);
+    expect(nudgeOrbitFromScreen(base, 0, 0, ORBIT_ROLL_STEP, true).orbitRoll).toBeCloseTo(-ORBIT_ROLL_STEP, 5);
+  });
+
+  it("stays well defined with the model pointing straight up", () => {
+    const base = { ...createInitialPersonalizeState(), orbitYaw: 30, orbitPitch: -90, orbitRoll: 0 };
+    const next = nudgeOrbitFromScreen(base, 4, 0, 0, true);
+    for (const value of [next.orbitYaw, next.orbitPitch, next.orbitRoll]) {
+      expect(Number.isFinite(value)).toBe(true);
+    }
   });
 
   it("auto-rotate starts off and reset returns the upright 3/4 view", () => {

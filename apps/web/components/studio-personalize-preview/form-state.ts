@@ -636,7 +636,7 @@ function quatFromAxisAngle(ax: number, ay: number, az: number, angleRad: number)
   return { x: (ax / len) * s, y: (ay / len) * s, z: (az / len) * s, w: Math.cos(h) };
 }
 
-/** Match CSS `rotateY(yaw) rotateX(pitch) rotateZ(roll)` → R = Ry * Rx * Rz. */
+/** Three / A-Frame Euler YXZ (the values saved for the AR page) → R = Ry * Rx * Rz. */
 export function orbitEulerToQuat(yawDeg: number, pitchDeg: number, rollDeg: number): Quat {
   const qy = quatFromAxisAngle(0, 1, 0, (yawDeg * Math.PI) / 180);
   const qx = quatFromAxisAngle(1, 0, 0, (pitchDeg * Math.PI) / 180);
@@ -654,10 +654,16 @@ export function orbitQuatToEuler(
   // R = Ry * Rx * Rz  (same extraction as ZXY extrinsic / matching our product)
   const sinP = 2 * (w * x - y * z);
   const pitch = (Math.asin(Math.min(1, Math.max(-1, sinP))) * 180) / Math.PI;
-  const yaw =
+  let yaw =
     (Math.atan2(2 * (w * y + z * x), 1 - 2 * (x * x + y * y)) * 180) / Math.PI;
-  const roll =
+  let roll =
     (Math.atan2(2 * (w * z + x * y), 1 - 2 * (x * x + z * z)) * 180) / Math.PI;
+  if (Math.abs(sinP) > 0.99999) {
+    // Straight up / down: yaw and roll turn about the same axis (gimbal lock).
+    // Same fallback as Three's Euler.setFromRotationMatrix: roll 0, whole turn on yaw.
+    roll = 0;
+    yaw = (Math.atan2(2 * (w * y - x * z), 1 - 2 * (y * y + z * z)) * 180) / Math.PI;
+  }
   return {
     yaw: nearestAngle(prior.yaw, yaw),
     pitch: nearestAngle(prior.pitch, pitch),
@@ -666,8 +672,13 @@ export function orbitQuatToEuler(
 }
 
 /**
- * Apply arrow/drag intent in the photo's local frame so controls follow
- * the drawing after any yaw / pitch / roll mix (not the initial placement).
+ * Apply a drag in SCREEN space: the model always follows the finger, whatever
+ * yaw / pitch / roll it already has (upside down, turned around, rolled).
+ * The orbit is stored in Three / A-Frame terms (Euler YXZ, the same values the AR
+ * page uses): +yaw turns the front to the right, +pitch tips the front DOWN,
+ * +roll turns counter-clockwise. So "up" is a negative X turn and "clockwise" a
+ * negative Z turn. The previous local-frame version (q * delta) inverted
+ * left/right and up/down once the model was flipped or tilted.
  * screenX: +right · screenY: +up · screenRoll: +CW on the photo plane
  */
 export function nudgeOrbitFromScreen(
@@ -683,13 +694,15 @@ export function nudgeOrbitFromScreen(
     delta = quatMul(delta, quatFromAxisAngle(0, 1, 0, (screenX * Math.PI) / 180));
   }
   if (screenY !== 0) {
-    delta = quatMul(delta, quatFromAxisAngle(1, 0, 0, (screenY * Math.PI) / 180));
+    // Screen-up moves the front up: a negative turn about the world X axis.
+    delta = quatMul(delta, quatFromAxisAngle(1, 0, 0, (-screenY * Math.PI) / 180));
   }
   if (screenRoll !== 0) {
-    delta = quatMul(delta, quatFromAxisAngle(0, 0, 1, (screenRoll * Math.PI) / 180));
+    // Clockwise as the viewer sees it: a negative turn about the world Z axis.
+    delta = quatMul(delta, quatFromAxisAngle(0, 0, 1, (-screenRoll * Math.PI) / 180));
   }
-  // Local (photo) frame: q' = q * Δ — axes move with the drawing.
-  const next = orbitQuatToEuler(quatMul(current, delta), {
+  // World (screen) frame: q' = delta * q, so the drag is not rotated by the model's own pose.
+  const next = orbitQuatToEuler(quatMul(delta, current), {
     yaw: state.orbitYaw,
     pitch: state.orbitPitch,
     roll: state.orbitRoll

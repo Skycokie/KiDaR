@@ -123,6 +123,8 @@ export function FigurineGlbStage({
           const pose = poseRef.current;
           const volumeScale = 0.82 + pose.volume / 280;
           const zoomScale = 0.7 + pose.zoom / 250;
+          // Same Euler order as the drag math (form-state) and the popout stage / AR page.
+          pivot.rotation.order = "YXZ";
           pivot.rotation.set(
             THREE.MathUtils.degToRad(pose.pitch),
             THREE.MathUtils.degToRad(pose.yaw),

@@ -1712,10 +1712,26 @@
   place-items: center;
   transform-origin: 50% 62%;
   transform-style: preserve-3d;
+  /* Orbit values are stored in Three / A-Frame terms (+pitch tips the front down,
+     +roll is counter-clockwise). CSS rotateX / rotateZ use the opposite sign on a
+     y-down screen, so flip them here: the flat fallback then turns exactly like the
+     3D scene and the AR page. */
   transform: scale(var(--studio-zoom, 1)) perspective(780px)
-    rotateY(var(--studio-yaw, 0deg)) rotateX(var(--studio-pitch, 0deg))
-    rotateZ(var(--studio-roll, 0deg));
+    rotateY(var(--studio-yaw, 0deg)) rotateX(calc(var(--studio-pitch, 0deg) * -1))
+    rotateZ(calc(var(--studio-roll, 0deg) * -1));
   transition: transform 0.2s var(--ease);
+}
+
+/* A WebGL model rotates and zooms itself from the same values: don't rotate its
+   canvas a second time with CSS (that doubled and fought the drag). */
+.studio-stage__orbit:has(.studio-stage__figurine-canvas) {
+  transform: none;
+  transition: none;
+}
+
+/* While a finger / mouse is dragging, follow it instantly; the 0.2s ease felt heavy. */
+.studio-ws__viewport[data-dragging="yes"] .studio-stage__orbit {
+  transition: none;
 }
 
 /* —— Pop-out layered paper extrusion (CSS/SVG fallback, not GLB) —— */
