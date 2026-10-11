@@ -815,6 +815,8 @@ export function PersonalizePreviewShell({
   const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const narratorPlayedRef = useRef(false);
   const dragRef = useRef({ active: false, pointerId: -1, lastX: 0, lastY: 0 });
+  // Pointer moves arrive faster than frames: sum them and update the state once per frame.
+  const pendingDragRef = useRef({ dx: 0, dy: 0, frame: 0 });
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = useRef<{ distance: number } | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -1047,6 +1049,27 @@ export function PersonalizePreviewShell({
     };
   }, []);
 
+  useEffect(() => {
+    const dragBuffer = pendingDragRef.current;
+    return () => {
+      if (dragBuffer.frame) window.cancelAnimationFrame(dragBuffer.frame);
+    };
+  }, []);
+
+  const flushOrbitDrag = () => {
+    const pending = pendingDragRef.current;
+    if (pending.frame) {
+      window.cancelAnimationFrame(pending.frame);
+      pending.frame = 0;
+    }
+    const { dx, dy } = pending;
+    pending.dx = 0;
+    pending.dy = 0;
+    if (dx === 0 && dy === 0) return;
+    const delta = orbitDeltaFromPointer(dx, dy);
+    dispatch({ type: "orbit", yaw: delta.yaw, pitch: delta.pitch, user: true });
+  };
+
   const markDragging = (active: boolean) => {
     const el = viewportRef.current;
     if (!el) return;
@@ -1109,11 +1132,14 @@ export function PersonalizePreviewShell({
     dragRef.current.lastX = event.clientX;
     dragRef.current.lastY = event.clientY;
     if (dx === 0 && dy === 0) return;
-    const delta = orbitDeltaFromPointer(dx, dy);
-    dispatch({ type: "orbit", yaw: delta.yaw, pitch: delta.pitch, user: true });
+    const pending = pendingDragRef.current;
+    pending.dx += dx;
+    pending.dy += dy;
+    if (!pending.frame) pending.frame = window.requestAnimationFrame(flushOrbitDrag);
   };
 
   const onViewportPointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    flushOrbitDrag();
     pointersRef.current.delete(event.pointerId);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);

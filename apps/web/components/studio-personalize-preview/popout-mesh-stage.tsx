@@ -198,7 +198,8 @@ export function PopoutMeshStage({
     const frameCamera = () => {
       const { yaw: yawDeg, pitch: pitchDeg, roll: rollDeg, zoom: zoomPct } = viewRef.current;
       const radius = 5.4 / Math.max(0.45, zoomPct / 100);
-      // Fixed camera; object rotation matches CSS rotateY/rotateX/rotateZ (Three YXZ).
+      // Fixed camera; Three YXZ rotation (same values as the AR page). The CSS orbit
+      // flips the X / Z sign so the flat fallback shows the exact same pose.
       camera.position.set(focus.x, focus.y, focus.z + radius);
       camera.up.set(0, 1, 0);
       camera.lookAt(focus);
