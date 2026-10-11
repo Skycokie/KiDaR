@@ -95,22 +95,99 @@ export function consumerArUrl(appOrigin: string, slug: string, options?: { allow
   return `${origin.origin}${path}`;
 }
 
+/** MindAR image-target baseline: Pop-out GLB needs 180° about Z to stand upright. */
+export const CAMERA_VIEW_DEFAULT_ROTATION = { x: 0, y: 0, z: 180 } as const;
+
+export type CameraViewRotation = { x: number; y: number; z: number };
+
+function clampCameraViewAngle(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(-360, Math.min(360, value));
+}
+
+/**
+ * Normalize a Studio / A-Frame start pose for the camera view URL.
+ * Missing or invalid axes fall back to the MindAR baseline (z = 180).
+ */
+export function normalizeCameraViewRotation(
+  rotation?: Partial<CameraViewRotation> | null
+): CameraViewRotation {
+  const x =
+    typeof rotation?.x === "number" && Number.isFinite(rotation.x)
+      ? clampCameraViewAngle(rotation.x)
+      : CAMERA_VIEW_DEFAULT_ROTATION.x;
+  const y =
+    typeof rotation?.y === "number" && Number.isFinite(rotation.y)
+      ? clampCameraViewAngle(rotation.y)
+      : CAMERA_VIEW_DEFAULT_ROTATION.y;
+  const z =
+    typeof rotation?.z === "number" && Number.isFinite(rotation.z)
+      ? clampCameraViewAngle(rotation.z)
+      : CAMERA_VIEW_DEFAULT_ROTATION.z;
+  return { x, y, z };
+}
+
+/**
+ * Parse `rx` / `ry` / `rz` query params. Invalid values are ignored so old
+ * camera links (no pose params) still get the upright MindAR baseline.
+ */
+export function resolveCameraViewPose(input: {
+  rx?: string | null;
+  ry?: string | null;
+  rz?: string | null;
+}): CameraViewRotation {
+  const parse = (raw: string | null | undefined): number | undefined => {
+    if (raw == null || raw === "") return undefined;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : undefined;
+  };
+  return normalizeCameraViewRotation({
+    x: parse(input.rx),
+    y: parse(input.ry),
+    z: parse(input.rz)
+  });
+}
+
+/**
+ * `<model-viewer orientation>` string: yaw / pitch / roll in degrees (YXZ).
+ *
+ * Studio / A-Frame store the MindAR marker pose (Ry·Rx·Rz with z≈180 so the
+ * pop-out GLB matches the drawing). Free-standing model-viewer has no marker
+ * plane, so that baseline flip must land on X instead of Z: Ry(yaw)·Rx(pitch+180).
+ * Verified against a published pop-out GLB (upright with `0deg 180deg 0deg`).
+ */
+export function cameraViewOrientation(rotation?: Partial<CameraViewRotation> | null): string {
+  const r = normalizeCameraViewRotation(rotation);
+  const zNorm = ((r.z % 360) + 360) % 360;
+  if (Math.abs(zNorm - 180) <= 1) {
+    return `${r.y}deg ${r.x + 180}deg 0deg`;
+  }
+  return `${r.y}deg ${r.x}deg ${r.z}deg`;
+}
+
 /**
  * App page for the character-only camera view (Scene Viewer / Quick Look / desktop orbit).
  * Carries the already-public character GLB URL; decor is never part of this view.
+ * Optional `rotation` becomes `rx` / `ry` / `rz` so the viewer matches the Studio start pose.
  */
 export function cameraViewUrl(
   appOrigin: string,
   slug: string,
   modelUrl: string,
-  options?: { allowLocalOrigins?: boolean }
+  options?: { allowLocalOrigins?: boolean; rotation?: Partial<CameraViewRotation> | null }
 ): string {
   const model = assertPublicAbsoluteUrl(modelUrl, {
     allowLocalOrigins: options?.allowLocalOrigins,
     label: "modelUrl"
   });
   const base = consumerArUrl(appOrigin, slug, options);
-  return `${base}/camera?model=${encodeURIComponent(model.href)}`;
+  const pose = normalizeCameraViewRotation(options?.rotation);
+  const params = new URLSearchParams();
+  params.set("model", model.href);
+  params.set("rx", String(pose.x));
+  params.set("ry", String(pose.y));
+  params.set("rz", String(pose.z));
+  return `${base}/camera?${params.toString()}`;
 }
 
 export type CameraViewModelResult =

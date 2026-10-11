@@ -7,8 +7,10 @@ import { renderArPage } from "./templates/ar-page";
 import {
   arePageRenderDependenciesSatisfied,
   assertPublicHtmlBundle,
+  cameraViewOrientation,
   cameraViewUrl,
   consumerArUrl,
+  resolveCameraViewPose,
   resolveCameraViewModel,
   experiencePointerKey,
   mapSettingsToArPageConfig,
@@ -358,11 +360,35 @@ describe("settings to AR page mapping", () => {
 describe("camera view (character-only)", () => {
   const model = "https://cdn.example.com/models/p1/abc/popout.glb";
 
-  it("builds an app URL under /ar/{slug}/camera that carries only the character GLB", () => {
-    const url = cameraViewUrl("https://kidar.example", "Demo Slug", model);
-    expect(url).toBe(
-      `https://kidar.example/ar/demo-slug/camera?model=${encodeURIComponent(model)}`
-    );
+  it("builds an app URL under /ar/{slug}/camera that carries the character GLB and start pose", () => {
+    const url = cameraViewUrl("https://kidar.example", "Demo Slug", model, {
+      rotation: { x: 11.3, y: -10.2, z: 180 }
+    });
+    const parsed = new URL(url);
+    expect(parsed.origin + parsed.pathname).toBe("https://kidar.example/ar/demo-slug/camera");
+    expect(parsed.searchParams.get("model")).toBe(model);
+    expect(parsed.searchParams.get("rx")).toBe("11.3");
+    expect(parsed.searchParams.get("ry")).toBe("-10.2");
+    expect(parsed.searchParams.get("rz")).toBe("180");
+  });
+
+  it("defaults the camera pose to the MindAR upright baseline when rotation is omitted", () => {
+    const url = cameraViewUrl("https://kidar.example", "demo-slug", model);
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get("rx")).toBe("0");
+    expect(parsed.searchParams.get("ry")).toBe("0");
+    expect(parsed.searchParams.get("rz")).toBe("180");
+    // Marker baseline z=180 becomes free-standing pitch+180 for model-viewer.
+    expect(cameraViewOrientation(null)).toBe("0deg 180deg 0deg");
+    expect(resolveCameraViewPose({})).toEqual({ x: 0, y: 0, z: 180 });
+    expect(resolveCameraViewPose({ rx: "bad", ry: "20", rz: "" })).toEqual({ x: 0, y: 20, z: 180 });
+    expect(resolveCameraViewPose({ rx: "999", ry: "-999", rz: "45" })).toEqual({
+      x: 360,
+      y: -360,
+      z: 45
+    });
+    expect(cameraViewOrientation({ x: 11.3, y: -10.2, z: 180 })).toBe("-10.2deg 191.3deg 0deg");
+    expect(cameraViewOrientation({ x: 10, y: 20, z: 45 })).toBe("20deg 10deg 45deg");
   });
 
   it("accepts only GLBs on the public artifact origin", () => {
