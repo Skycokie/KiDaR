@@ -5,6 +5,31 @@ import { MindCompileError, assertSupportedSourceImage } from "@kidar/core";
 
 export type CompileTargetsMindFn = (imageBytes: Uint8Array) => Promise<Uint8Array>;
 
+/**
+ * Longest edge fed to the MindAR OfflineCompiler. Phone photos are 8-12 MP; the CPU
+ * compiler cost grows with pixel count (minutes for a 12 MP photo vs seconds at ~1 MP),
+ * and the job lock TTL is 5 minutes. Tracking quality is unaffected at this size.
+ */
+export const MIND_COMPILE_MAX_EDGE = 1024;
+
+/** Size to draw the source at so its longest edge is at most `maxEdge` (never upscales). */
+export function fitWithinMaxEdge(
+  width: number,
+  height: number,
+  maxEdge: number = MIND_COMPILE_MAX_EDGE
+): { width: number; height: number; scaled: boolean } {
+  const longest = Math.max(width, height);
+  if (!(longest > maxEdge) || !(width > 0) || !(height > 0)) {
+    return { width, height, scaled: false };
+  }
+  const ratio = maxEdge / longest;
+  return {
+    width: Math.max(1, Math.round(width * ratio)),
+    height: Math.max(1, Math.round(height * ratio)),
+    scaled: true
+  };
+}
+
 type OfflineCompilerCtor = new () => {
   compileImageTargets(
     images: unknown[],
@@ -64,8 +89,17 @@ export async function compileTargetsMind(imageBytes: Uint8Array): Promise<Uint8A
     }
 
     try {
+      let target: { width: number; height: number } = image;
+      const fit = fitWithinMaxEdge(image.width, image.height);
+      if (fit.scaled) {
+        const { createCanvas } = await import("canvas");
+        const canvas = createCanvas(fit.width, fit.height);
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(image as never, 0, 0, fit.width, fit.height);
+        target = canvas;
+      }
       const compiler = new OfflineCompiler();
-      await compiler.compileImageTargets([image], () => undefined);
+      await compiler.compileImageTargets([target], () => undefined);
       const exported = compiler.exportData();
       const bytes =
         exported instanceof Uint8Array

@@ -7,7 +7,27 @@ import {
   mindArtifactKey,
   type PipelineJob
 } from "@kidar/core";
-import { describeMindCompileInvocation } from "./compile";
+import { MIND_COMPILE_MAX_EDGE, describeMindCompileInvocation, fitWithinMaxEdge } from "./compile";
+
+describe("fitWithinMaxEdge", () => {
+  it("downscales a 12 MP landscape photo to the max edge, keeping the ratio", () => {
+    expect(fitWithinMaxEdge(4032, 3024)).toEqual({ width: 1024, height: 768, scaled: true });
+  });
+
+  it("downscales portrait photos on the height", () => {
+    expect(fitWithinMaxEdge(3024, 4032)).toEqual({ width: 768, height: 1024, scaled: true });
+  });
+
+  it("never upscales small images", () => {
+    expect(fitWithinMaxEdge(800, 600)).toEqual({ width: 800, height: 600, scaled: false });
+    expect(fitWithinMaxEdge(MIND_COMPILE_MAX_EDGE, 500).scaled).toBe(false);
+  });
+
+  it("keeps at least 1px on extreme aspect ratios and ignores invalid sizes", () => {
+    expect(fitWithinMaxEdge(10000, 2)).toEqual({ width: 1024, height: 1, scaled: true });
+    expect(fitWithinMaxEdge(0, 0).scaled).toBe(false);
+  });
+});
 import { runMindCompileStage } from "./stage";
 import { MemoryPublicArtifactStorage } from "../storage/public";
 
