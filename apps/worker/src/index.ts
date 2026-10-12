@@ -144,7 +144,7 @@ async function processClaimedJob(job: PipelineJob): Promise<void> {
 
 /** Process at most one eligible job (tests / one-shot runs). */
 export async function runWorkerOnce(): Promise<"processed" | "idle"> {
-  // No-op unless KIDAR_RUNTIME_ENV=staging; then refuses unsafe (production-like) config.
+  // No-op unless KIDAR_WORKER_ENV=staging; then refuses unsafe (production-like) config.
   assertWorkerRuntimeGuard();
   const job = await claimNextJob();
   if (!job) return "idle";

@@ -3,12 +3,14 @@
  *
  * The worker claims jobs from whichever Appwrite project its environment points
  * to, so the only thing separating a staging worker from the production queue is
- * its configuration. When KIDAR_RUNTIME_ENV=staging this guard refuses to start
+ * its configuration. When KIDAR_WORKER_ENV=staging this guard refuses to start
  * unless the configuration is provably a test setup. It never reads or logs the
  * values of secrets: violations name variables only.
  *
- * Outside staging (variable unset or any other value) the guard is a no-op, so
- * the production worker behaves exactly as before.
+ * The marker is a worker-specific variable on purpose. KIDAR_RUNTIME_ENV is already
+ * used by the web app (and may already be set on existing worker services), so it
+ * is NOT consulted here. Outside staging (variable unset or any other value) the
+ * guard is a no-op, so an existing worker behaves exactly as before.
  */
 
 import {
@@ -21,7 +23,7 @@ import {
 
 type Env = Record<string, string | undefined>;
 
-export const WORKER_RUNTIME_ENV_VAR = "KIDAR_RUNTIME_ENV";
+export const WORKER_RUNTIME_ENV_VAR = "KIDAR_WORKER_ENV";
 export const WORKER_STAGING_RUNTIME = "staging";
 export const WORKER_PRODUCTION_APPWRITE_GUARD_VAR = "KIDAR_PRODUCTION_APPWRITE_PROJECT_ID";
 /** Text-to-3D flag (web + worker); kept here to avoid importing web code. */

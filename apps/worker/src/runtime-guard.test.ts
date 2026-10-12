@@ -11,7 +11,7 @@ const STAGING_ID = "staging-project-id";
 
 function safeStagingEnv(): Record<string, string | undefined> {
   return {
-    KIDAR_RUNTIME_ENV: "staging",
+    KIDAR_WORKER_ENV: "staging",
     KIDAR_PRODUCTION_APPWRITE_PROJECT_ID: PROD_ID,
     NEXT_PUBLIC_APPWRITE_PROJECT_ID: STAGING_ID,
     APPWRITE_PROJECT_ID: STAGING_ID,
@@ -35,7 +35,19 @@ describe("worker runtime guard", () => {
         FIGURE_GENERATION_ENABLED: "true"
       })
     ).toEqual([]);
-    expect(() => assertWorkerRuntimeGuard({ KIDAR_RUNTIME_ENV: "production" })).not.toThrow();
+    expect(() => assertWorkerRuntimeGuard({ KIDAR_WORKER_ENV: "production" })).not.toThrow();
+  });
+
+  it("does not react to KIDAR_RUNTIME_ENV, which existing worker services may already set", () => {
+    const env = {
+      KIDAR_RUNTIME_ENV: "staging",
+      APPWRITE_PROJECT_ID: PROD_ID,
+      TRIPO_API_KEY: "x",
+      FIGURE_GENERATION_ENABLED: "true"
+    };
+    expect(isStagingWorkerRuntime(env)).toBe(false);
+    expect(listStagingWorkerViolations(env)).toEqual([]);
+    expect(() => assertWorkerRuntimeGuard(env)).not.toThrow();
   });
 
   it("accepts a safe staging configuration", () => {
@@ -45,7 +57,7 @@ describe("worker runtime guard", () => {
   });
 
   it("treats the staging marker case-insensitively and trims it", () => {
-    expect(isStagingWorkerRuntime({ KIDAR_RUNTIME_ENV: " Staging " })).toBe(true);
+    expect(isStagingWorkerRuntime({ KIDAR_WORKER_ENV: " Staging " })).toBe(true);
   });
 
   it("refuses when the production guard variable is missing", () => {
