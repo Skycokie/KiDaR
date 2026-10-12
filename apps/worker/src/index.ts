@@ -8,6 +8,7 @@ import {
   type PipelineJob
 } from "@kidar/core";
 import { claimNextJob, downloadAssetFile, failJob, markProjectStatus } from "./appwrite/jobs";
+import { assertWorkerRuntimeGuard } from "./runtime-guard";
 import { createWorkerPublicStorage } from "./storage/public";
 import { handlePopoutJobFailure, runPopoutBuildStage } from "./popout/stage";
 import { handleFigurineJobFailure, runFigurineBuildStage } from "./figurine/stage";
@@ -143,6 +144,8 @@ async function processClaimedJob(job: PipelineJob): Promise<void> {
 
 /** Process at most one eligible job (tests / one-shot runs). */
 export async function runWorkerOnce(): Promise<"processed" | "idle"> {
+  // No-op unless KIDAR_RUNTIME_ENV=staging; then refuses unsafe (production-like) config.
+  assertWorkerRuntimeGuard();
   const job = await claimNextJob();
   if (!job) return "idle";
   await processClaimedJob(job);
@@ -151,6 +154,8 @@ export async function runWorkerOnce(): Promise<"processed" | "idle"> {
 
 /** Polling loop for Railway / local worker. */
 export async function runWorkerLoop(signal?: AbortSignal): Promise<void> {
+  // Fail closed before the first poll: a misconfigured staging worker must not touch any queue.
+  assertWorkerRuntimeGuard();
   let emptyStreak = 0;
   console.log(
     `[worker] polling for popout_build|figurine_build|mind_compile|page_render|unpublish jobs every ${pollIntervalMs()}ms (backoff when idle)`
