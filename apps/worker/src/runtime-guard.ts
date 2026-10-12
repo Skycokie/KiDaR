@@ -101,6 +101,16 @@ export function listStagingWorkerViolations(env: Env = process.env): string[] {
   if (present(env.R2_PUBLIC_BASE_URL)) {
     violations.push("R2_PUBLIC_BASE_URL must not be set in staging");
   }
+  // publishStorageEnv() lets PUBLISH_R2_* override R2_BUCKET / R2_PUBLIC_BASE_URL for every
+  // public write the worker does, so they could silently redirect staging to a public bucket.
+  if (present(env.PUBLISH_R2_BUCKET)) {
+    violations.push("PUBLISH_R2_BUCKET must not be set in staging (it overrides R2_BUCKET for public writes)");
+  }
+  if (present(env.PUBLISH_R2_PUBLIC_BASE_URL)) {
+    violations.push(
+      "PUBLISH_R2_PUBLIC_BASE_URL must not be set in staging (it overrides R2_PUBLIC_BASE_URL for public writes)"
+    );
+  }
 
   if (present(env.TRIPO_API_KEY)) {
     violations.push("TRIPO_API_KEY must not be set in staging");

@@ -84,6 +84,15 @@ describe("worker runtime guard", () => {
     expect(listStagingWorkerViolations(env).join(" ")).toContain("R2_PUBLIC_BASE_URL");
   });
 
+  it("refuses PUBLISH_R2_* overrides that would redirect public writes", () => {
+    const bucket = { ...safeStagingEnv(), PUBLISH_R2_BUCKET: "some-public-bucket" };
+    expect(listStagingWorkerViolations(bucket).join(" ")).toContain("PUBLISH_R2_BUCKET must not be set");
+    const url = { ...safeStagingEnv(), PUBLISH_R2_PUBLIC_BASE_URL: "https://cdn.example.test" };
+    expect(listStagingWorkerViolations(url).join(" ")).toContain("PUBLISH_R2_PUBLIC_BASE_URL must not be set");
+    const blank = { ...safeStagingEnv(), PUBLISH_R2_BUCKET: "  ", PUBLISH_R2_PUBLIC_BASE_URL: "" };
+    expect(listStagingWorkerViolations(blank)).toEqual([]);
+  });
+
   it("refuses a Tripo key", () => {
     const env = { ...safeStagingEnv(), TRIPO_API_KEY: "tripo-secret" };
     expect(listStagingWorkerViolations(env).join(" ")).toContain("TRIPO_API_KEY");
