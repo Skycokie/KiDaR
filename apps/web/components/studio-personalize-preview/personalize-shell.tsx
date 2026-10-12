@@ -1161,6 +1161,13 @@ export function PersonalizePreviewShell({
     markDragging(false);
   };
 
+  // "Vezi scena în AR" opens the publish dialog: it builds the world (link + QR) or,
+  // when already built, shows the page to open on the phone. Gated by the same flags as Publică.
+  const openSceneInAr = () => {
+    if (!projectId) return;
+    dispatch({ type: "publish", open: true });
+  };
+
   const renderPublish = () => (
     <button
       type="button"
@@ -1256,7 +1263,13 @@ export function PersonalizePreviewShell({
               {COPY.savedLocal}
             </span>
             {renderPublish()}
-            <button type="button" className="studio-ws__btn-primary" disabled title={COPY.sceneHelper}>
+            <button
+              type="button"
+              className="studio-ws__btn-primary"
+              disabled={!projectId}
+              title={projectId ? COPY.publishPrepareTitle : COPY.sceneHelper}
+              onClick={openSceneInAr}
+            >
               {COPY.seeSceneInAr}
             </button>
           </div>
@@ -1265,7 +1278,13 @@ export function PersonalizePreviewShell({
           <>
             <p className="studio-ws__saved studio-ws__saved--sheet">{COPY.savedLocal}</p>
             {renderPublish()}
-            <button type="button" className="studio-ws__btn-primary" disabled title={COPY.sceneHelper}>
+            <button
+              type="button"
+              className="studio-ws__btn-primary"
+              disabled={!projectId}
+              title={projectId ? COPY.publishPrepareTitle : COPY.sceneHelper}
+              onClick={openSceneInAr}
+            >
               {COPY.seeSceneInAr}
             </button>
           </>
@@ -1469,7 +1488,13 @@ export function PersonalizePreviewShell({
           <SlidersHorizontal size={17} strokeWidth={1.75} aria-hidden />
           {COPY.rightNavOpen}
         </button>
-        <button type="button" className="studio-ws__dock-cta" disabled title={COPY.sceneHelper}>
+        <button
+          type="button"
+          className="studio-ws__dock-cta"
+          disabled={!projectId}
+          title={projectId ? COPY.publishPrepareTitle : COPY.sceneHelper}
+          onClick={openSceneInAr}
+        >
           {COPY.seeSceneInAr}
         </button>
       </nav>
