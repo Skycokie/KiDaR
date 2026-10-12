@@ -7,7 +7,16 @@ export function figurineApiPath(projectId: string): string {
   return `/api/projects/${encodeURIComponent(projectId)}/figurine`;
 }
 
-export type FigurineClientError = "auth" | "gated" | "source" | "active" | "generic" | "network";
+import { canConfirmGeneration, CURRENT_GENERATION_COST, type GenerationCost } from "./generation-cost";
+
+export type FigurineClientError =
+  | "auth"
+  | "gated"
+  | "source"
+  | "active"
+  | "cost_unverified"
+  | "generic"
+  | "network";
 
 export type FigurineJobView = {
   status: string;
@@ -91,6 +100,8 @@ export function interpretStartFigurineResponse(
     return { ok: true, label: typeof data.label === "string" ? data.label : "" };
   }
   if (status === 401) return { ok: false, error: "auth" };
+  // Server refusal (409) must not be mistaken for an active job.
+  if (error === "cost_unverified") return { ok: false, error: "cost_unverified" };
   if (status === 409 || error === "active_job") return { ok: false, error: "active" };
   if (
     status === 403 ||
@@ -124,9 +135,15 @@ export async function readFigurineStatus(projectId: string): Promise<
   }
 }
 
-export async function startFigurineGeneration(projectId: string): Promise<
-  { ok: true; label: string } | { ok: false; error: FigurineClientError }
-> {
+/**
+ * Starts the paid figurine job. Refuses (no request at all) while the cost cannot be verified
+ * from a real source, so a confirmation dialog can never start a job by itself.
+ */
+export async function startFigurineGeneration(
+  projectId: string,
+  cost: GenerationCost = CURRENT_GENERATION_COST
+): Promise<{ ok: true; label: string } | { ok: false; error: FigurineClientError }> {
+  if (!canConfirmGeneration(cost)) return { ok: false, error: "cost_unverified" };
   try {
     const response = await fetch(figurineApiPath(projectId), {
       method: "POST",

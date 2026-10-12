@@ -4,15 +4,27 @@ import { getProjectForOwner } from "@/lib/appwrite/db";
 import { hasValidConsent } from "@/lib/consent";
 import { runStudioAssistant } from "@/lib/ai/assistant";
 import { isStudioAiChatEnabled } from "@/lib/ai/feature";
-import { ASSISTANT_PROMPT_MAX, limitAssistantPrompt } from "@/lib/ai/schema";
-import { consumeAiChatQuota } from "@/lib/ai/usage";
+import {
+  ASSISTANT_BODY_MAX,
+  ASSISTANT_HISTORY_MAX,
+  ASSISTANT_PROMPT_MAX,
+  parseAssistantHistory,
+  stripLinks
+} from "@/lib/ai/schema";
+import { AI_CHAT_DAY_LIMIT, AI_CHAT_HOUR_LIMIT, consumeAiChatQuota } from "@/lib/ai/usage";
 
 type Context = { params: { projectId: string } };
 
 /**
- * Studio AI assistant — chooses motion/decor/palette/lighting from free text.
- * Never starts paid 3D generation; may return intent=suggest_3d for the UI to confirm.
- * Flag STUDIO_AI_CHAT_ENABLED must be on. Falls back to local keywords when AI fails.
+ * Studio AI chat — text only. Chooses motion/decor/palette/lighting and may return plain-text
+ * suggestions (improved prompt, style directions) from the user's message plus a short
+ * in-memory history sent by the client (never stored here).
+ *
+ * Request (backward compatible): { prompt, locale?, history?: [{ role, content }] }.
+ * Never receives or forwards images, urls or storage paths. Never starts 3D generation:
+ * intent=suggest_3d is only a pointer for the UI.
+ * Fail-closed: moderation or provider unavailable → explicit error, nothing is forwarded.
+ * Flag STUDIO_AI_CHAT_ENABLED must be on.
  */
 export async function POST(request: Request, { params }: Context) {
   const user = await getLoggedInUser();
@@ -32,13 +44,39 @@ export async function POST(request: Request, { params }: Context) {
   const project = await getProjectForOwner(params.projectId, user.$id);
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
-  const body = (await request.json().catch(() => ({}))) as {
-    prompt?: string;
-    locale?: string;
-  };
-  const prompt = limitAssistantPrompt(typeof body.prompt === "string" ? body.prompt : "");
-  if (!prompt.trim()) {
+  // Validate everything before touching the quota: invalid input must never cost a message.
+  const rawText = await request.text().catch(() => "");
+  if (rawText.length > ASSISTANT_BODY_MAX) {
+    return NextResponse.json({ error: "payload_too_large" }, { status: 413 });
+  }
+  let body: { prompt?: unknown; locale?: unknown; history?: unknown } = {};
+  try {
+    const parsed: unknown = rawText ? JSON.parse(rawText) : {};
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      body = parsed as typeof body;
+    }
+  } catch {
+    body = {};
+  }
+
+  if (body.prompt !== undefined && typeof body.prompt !== "string") {
+    return NextResponse.json({ error: "prompt_invalid" }, { status: 400 });
+  }
+  const rawPrompt = typeof body.prompt === "string" ? body.prompt.replace(/\u0000/g, "") : "";
+  if (!rawPrompt.trim()) {
     return NextResponse.json({ error: "prompt_required", max: ASSISTANT_PROMPT_MAX }, { status: 400 });
+  }
+  if (rawPrompt.length > ASSISTANT_PROMPT_MAX) {
+    return NextResponse.json({ error: "prompt_too_long", max: ASSISTANT_PROMPT_MAX }, { status: 400 });
+  }
+  const prompt = stripLinks(rawPrompt);
+  if (!prompt) {
+    return NextResponse.json({ error: "prompt_required", max: ASSISTANT_PROMPT_MAX }, { status: 400 });
+  }
+
+  const history = parseAssistantHistory(body.history);
+  if (!history.ok) {
+    return NextResponse.json({ error: "history_invalid", max: ASSISTANT_HISTORY_MAX }, { status: 400 });
   }
   const locale = body.locale === "en" ? "en" : "ro";
 
@@ -55,10 +93,20 @@ export async function POST(request: Request, { params }: Context) {
     );
   }
 
-  const result = await runStudioAssistant(
-    { prompt, locale },
-    { moderationFailOpen: true }
-  );
+  const usage = {
+    hourCount: quota.hourCount,
+    dayCount: quota.dayCount,
+    hourLimit: AI_CHAT_HOUR_LIMIT,
+    dayLimit: AI_CHAT_DAY_LIMIT
+  };
+
+  const result = await runStudioAssistant({ prompt, locale, history: history.history });
+
+  if (!result.ok) {
+    // Fixed, safe codes only: never the provider's raw message.
+    const status = result.error === "moderation_unavailable" ? 503 : 502;
+    return NextResponse.json({ error: result.error }, { status });
+  }
 
   return NextResponse.json({
     source: result.source,
@@ -70,6 +118,7 @@ export async function POST(request: Request, { params }: Context) {
       palette: result.reply.palette ?? null,
       lighting: result.reply.lighting ?? null
     },
-    usage: { hourCount: quota.hourCount, dayCount: quota.dayCount }
+    suggestions: result.reply.suggestions ?? [],
+    usage
   });
 }

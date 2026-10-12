@@ -1,73 +1,62 @@
 /**
- * Orchestrates Studio AI assistant: moderate → LLM → whitelist, else local keyword fallback.
+ * Orchestrates the Studio AI assistant: moderate → LLM → whitelist.
+ *
+ * Fail-closed by design:
+ * - moderation unavailable or ambiguous → the model is never called;
+ * - provider unavailable or unusable output → an explicit error, never a local imitation
+ *   of an AI answer and never a fallback that forwards the text anywhere else.
  */
 
-import {
-  interpretIdeaPrompt,
-  type PromptLanguage
-} from "@/components/studio-personalize-preview/idea-prompt";
 import { moderateText, type ModerationDeps } from "./moderation";
 import { createOpenAiStudioProvider, type ChatLocale, type StudioAiProvider } from "./provider";
 import {
   limitAssistantPrompt,
-  type AssistantIntent,
+  type AssistantHistoryMessage,
   type AssistantReply
 } from "./schema";
 
-export type AssistantSource = "ai" | "local" | "blocked";
-
-export type RunAssistantResult = {
-  source: AssistantSource;
-  reply: AssistantReply;
-};
+export type RunAssistantResult =
+  | { ok: true; source: "ai"; reply: AssistantReply }
+  | { ok: true; source: "blocked"; reply: AssistantReply }
+  | { ok: false; error: "moderation_unavailable" | "provider_unavailable" };
 
 export type RunAssistantDeps = {
   provider?: StudioAiProvider;
   moderation?: ModerationDeps;
-  /** When moderation fails (network), fall back to local instead of blocking. */
-  moderationFailOpen?: boolean;
 };
 
-function localAsReply(prompt: string, locale: PromptLanguage): AssistantReply {
-  const idea = interpretIdeaPrompt(prompt, locale);
-  return {
-    reply: "",
-    intent: "none",
-    motion: idea.motion,
-    decor: idea.decor,
-    palette: idea.palette,
-    lighting: idea.lighting
-  };
-}
+const BLOCKED_REPLY: AssistantReply = { reply: "", intent: "none" };
 
-function emptyReply(intent: AssistantIntent = "none"): AssistantReply {
-  return { reply: "", intent };
+/** Everything that would reach the model is moderated together, history included. */
+function moderationInput(prompt: string, history: readonly AssistantHistoryMessage[]): string {
+  return [...history.map((turn) => turn.content), prompt].join("\n");
 }
 
 export async function runStudioAssistant(
-  input: { prompt: string; locale: ChatLocale },
+  input: { prompt: string; locale: ChatLocale; history?: readonly AssistantHistoryMessage[] },
   deps: RunAssistantDeps = {}
 ): Promise<RunAssistantResult> {
   const prompt = limitAssistantPrompt(input.prompt);
   const locale = input.locale === "en" ? "en" : "ro";
+  const history = input.history ?? [];
 
-  if (!prompt.trim()) {
-    return { source: "local", reply: emptyReply() };
+  const moderation = await moderateText(moderationInput(prompt, history), deps.moderation);
+  if (!moderation.ok) {
+    return { ok: false, error: "moderation_unavailable" };
   }
-
-  const moderation = await moderateText(prompt, deps.moderation);
-  if (moderation.ok && moderation.flagged) {
-    return { source: "blocked", reply: emptyReply() };
-  }
-  if (!moderation.ok && deps.moderationFailOpen === false) {
-    return { source: "blocked", reply: emptyReply() };
+  if (moderation.flagged) {
+    return { ok: true, source: "blocked", reply: BLOCKED_REPLY };
   }
 
   const provider = deps.provider ?? createOpenAiStudioProvider();
-  const ai = await provider.complete({ prompt, locale });
-  if (ai) {
-    return { source: "ai", reply: ai };
+  let reply: AssistantReply | null = null;
+  try {
+    reply = await provider.complete({ prompt, locale, history });
+  } catch {
+    reply = null;
   }
-
-  return { source: "local", reply: localAsReply(prompt, locale) };
+  if (!reply) {
+    return { ok: false, error: "provider_unavailable" };
+  }
+  return { ok: true, source: "ai", reply };
 }

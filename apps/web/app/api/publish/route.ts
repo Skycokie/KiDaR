@@ -7,12 +7,15 @@ import {
   readFigureFeatureFlags,
   createPublicArtifactStorage,
   publishStorageEnv,
-  type JobType
+  type JobType,
+  type PipelineJob
 } from "@kidar/core";
 import { jobInputHashForType } from "@kidar/core/hash";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import { getProjectForOwner, updateProjectDocument } from "@/lib/appwrite/db";
-import { enqueueJob } from "@/lib/appwrite/jobs";
+import { enqueueJob, listProjectJobsWindow } from "@/lib/appwrite/jobs";
+import { FIGURINE_COST_UNVERIFIED_BODY, verifyFigurineCost } from "@/lib/figurine-cost";
+import { selectReusableFigurineBuild } from "@/lib/figurine-reuse";
 import {
   pageRenderIdentityFor,
   planProjectPublish,
@@ -58,19 +61,45 @@ export async function POST(request: Request) {
   }
 
   try {
-    createPublicArtifactStorage(publishStorageEnv(process.env));
+    const storage = createPublicArtifactStorage(publishStorageEnv(process.env));
 
     const inputHash = publishContentHash(project);
     const plan = planProjectPublish(project, inputHash, process.env);
     const pageRenderIdentity = pageRenderIdentityFor(project, process.env);
 
+    let jobTypes = plan.jobs as JobType[];
+    let dependsOn = plan.dependsOn;
+    let reusedFigurine: PipelineJob | null = null;
+
+    // Cost gate: publishing must never create a new `figurine_build` (paid Tripo) while the
+    // cost is unverified. The only way through is to reuse a finished model the server can
+    // prove belongs to this project, its current source and the accepted pipeline (see
+    // lib/figurine-reuse.ts). Then no figurine_build is enqueued and page_render depends on
+    // that exact job's hash. Everything here is read-only and runs before every write and
+    // enqueue; nothing from the request or from owner-writable settings is authority.
+    if (jobTypes.includes("figurine_build") && verifyFigurineCost().status !== "verified") {
+      reusedFigurine = selectReusableFigurineBuild({
+        project,
+        windowJobs: await listProjectJobsWindow(project.id),
+        publicUrlForKey: (key) => storage.getPublicUrl(key)
+      });
+      if (!reusedFigurine) {
+        return NextResponse.json(FIGURINE_COST_UNVERIFIED_BODY, { status: 409 });
+      }
+      jobTypes = jobTypes.filter((type) => type !== "figurine_build");
+      dependsOn = { ...plan.dependsOn, figurine_build: reusedFigurine.inputHash };
+    }
+
     await updateProjectDocument(project.id, {
       settings: { ...project.settings, publishTermsAcceptedAt: new Date().toISOString() }
     });
 
-    const jobs = [];
+    const jobs: Array<{ type: JobType; enqueue: string; job: PipelineJob }> = [];
+    if (reusedFigurine) {
+      jobs.push({ type: "figurine_build", enqueue: "reused", job: reusedFigurine });
+    }
     let anyActive = false;
-    for (const type of plan.jobs as JobType[]) {
+    for (const type of jobTypes) {
       const enqueued = await enqueueJob({
         projectId: project.id,
         type,
@@ -78,7 +107,7 @@ export async function POST(request: Request) {
         ownerId: user.$id,
         payload: {
           source: "studio",
-          dependsOn: type === "page_render" ? plan.dependsOn : undefined
+          dependsOn: type === "page_render" ? dependsOn : undefined
         }
       });
       jobs.push({ type, enqueue: enqueued.kind, job: enqueued.job });

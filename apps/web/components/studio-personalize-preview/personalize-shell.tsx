@@ -82,7 +82,8 @@ import {
   toggleGrid,
   type PersonalizeState
 } from "./form-state";
-import { IdeaPromptCard } from "./idea-prompt-card";
+import { CreationChat } from "./creation-chat";
+import { RightPanelTabs, type RightPanelTab } from "./right-panel-tabs";
 import type { PromptLanguage } from "./idea-prompt";
 import { FigurineGenerateCard } from "./figurine-generate-card";
 import { ImportModelCard, type ImportedModelInfo } from "./import-model-card";
@@ -118,6 +119,7 @@ import {
   startSavePresentation
 } from "./save-start-transform";
 import "./personalize-preview.css";
+import "./creation-chat.css";
 
 function pointerSpan(points: Map<number, { x: number; y: number }>): number {
   const pts = [...points.values()];
@@ -323,38 +325,6 @@ function StageNav({
   );
 }
 
-function ideaCard(
-  state: PersonalizeState,
-  dispatch: (action: Action) => void,
-  locked: boolean,
-  locale: PromptLanguage,
-  projectId?: string | null
-) {
-  return (
-    <IdeaPromptCard
-      state={state}
-      locked={locked}
-      projectId={projectId}
-      onChange={(value) => dispatch({ type: "idea", value })}
-      onApplyLocal={() => dispatch({ type: "applyIdea", locale })}
-      onApplyAssistant={(input) =>
-        dispatch({
-          type: "applyAssistant",
-          prompt: input.prompt,
-          reply: input.reply,
-          motion: input.motion,
-          decor: input.decor,
-          palette: input.palette,
-          lighting: input.lighting,
-          locale
-        })
-      }
-      onReset={() => dispatch({ type: "resetIdea" })}
-      onSuggest3d={() => dispatch({ type: "transform", id: "figurine" })}
-    />
-  );
-}
-
 function Inspector({
   state,
   dispatch,
@@ -379,13 +349,11 @@ function Inspector({
   const { locale, messages } = useStudioI18n();
   const COPY = messages.personalize;
   const hasDrawing = Boolean(drawingSrc);
-  const showIdea = state.stage === "personajul";
   if (state.stage === "desenul") {
     return (
       <div className="studio-ws__inspector-block">
         <h2>{messages.studio.steps.drawing}</h2>
         <p className="studio-ws__muted">{hasDrawing ? COPY.drawingReady : COPY.emptyDrawing}</p>
-        {hasDrawing ? null : ideaCard(state, dispatch, true, locale, projectId)}
         <div className={`studio-ws__drawing-card${drawingSrc ? " has-photo" : ""}`}>
           {drawingSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -410,7 +378,6 @@ function Inspector({
   if (state.stage === "personajul") {
     return (
       <div className="studio-ws__inspector-block">
-        {showIdea ? ideaCard(state, dispatch, !hasDrawing, locale, projectId) : null}
         <h2>{messages.studio.steps.character}</h2>
         <p className="studio-ws__section-label">{COPY.modeSection}</p>
         <div className="studio-ws__mode-cards" role="group" aria-label={COPY.modeSection}>
@@ -442,7 +409,7 @@ function Inspector({
           })}
         </div>
         {state.transformMode === "figurine" ? (
-          <FigurineGenerateCard projectId={projectId} hasDrawing={hasDrawing} />
+          <FigurineGenerateCard projectId={projectId} hasDrawing={hasDrawing} drawingSrc={drawingSrc} />
         ) : null}
         {state.transformMode === "import" ? (
           <ImportModelCard
@@ -793,6 +760,7 @@ export function PersonalizePreviewShell({
         }
       : null
   );
+  const [rightTab, setRightTab] = useState<RightPanelTab>("settings");
   const [interaction, interactDispatch] = useReducer(reduceInteraction, createInteractionState());
   const [save, saveDispatch] = useReducer(startSaveReducer, {
     status: "idle",
@@ -1436,16 +1404,41 @@ export function PersonalizePreviewShell({
           <div className="studio-ws__view-controls studio-ws__view-controls--sheet">
             {renderViewControls("sheet")}
           </div>
-          <Inspector
-            state={state}
-            dispatch={dispatch}
-            drawingSrc={drawingSrc}
-            projectId={projectId}
-            importedModel={importedModel}
-            onImportedModel={setImportedModel}
-            onVoiceChange={setVoiceStatus}
-            onVoiceDraftChange={setVoiceDraft}
-            onPlayVoice={playVoiceClip}
+          <RightPanelTabs
+            tab={rightTab}
+            onTab={setRightTab}
+            settings={
+              <Inspector
+                state={state}
+                dispatch={dispatch}
+                drawingSrc={drawingSrc}
+                projectId={projectId}
+                importedModel={importedModel}
+                onImportedModel={setImportedModel}
+                onVoiceChange={setVoiceStatus}
+                onVoiceDraftChange={setVoiceDraft}
+                onPlayVoice={playVoiceClip}
+              />
+            }
+            assistant={
+              <CreationChat
+                projectId={projectId}
+                drawingSrc={drawingSrc}
+                hasDrawing={Boolean(drawingSrc)}
+                onApplySettings={({ prompt, reply, settings }) =>
+                  dispatch({
+                    type: "applyAssistant",
+                    prompt,
+                    reply,
+                    motion: settings.motion,
+                    decor: settings.decor,
+                    palette: settings.palette,
+                    lighting: settings.lighting,
+                    locale: locale === "en" ? "en" : "ro"
+                  })
+                }
+              />
+            }
           />
         </aside>
       </main>

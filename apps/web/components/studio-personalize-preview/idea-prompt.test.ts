@@ -108,14 +108,12 @@ describe("local Studio idea prompt", () => {
   it("limits length and does not call the network", () => {
     const long = interpretIdeaPrompt(`${"plutește ".repeat(80)}stele`);
     expect(long.text.length).toBeLessThanOrEqual(240);
-    const sources = ["idea-prompt.ts", "idea-prompt-card.tsx"]
+    // The chat component reaches the network only through assistant-client, never directly.
+    const sources = ["idea-prompt.ts", "creation-chat.tsx"]
       .map((file) => readFileSync(join(__dirname, file), "utf8"))
       .join("\n");
     expect(sources).not.toMatch(/\bfetch\s*\(/);
     expect(sources).not.toMatch(/XMLHttpRequest|WebSocket|tripo|openai|anthropic/i);
-    expect(readFileSync(join(__dirname, "idea-prompt-card.tsx"), "utf8")).not.toMatch(
-      /suggestionsLabel|studio-idea__chip/
-    );
   });
 
   it("maps English terms without changing Romanian defaults", () => {

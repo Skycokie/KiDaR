@@ -44,7 +44,8 @@ export async function moderateText(
       results?: Array<{ flagged?: boolean; categories?: Record<string, boolean> }>;
     };
     const first = payload.results?.[0];
-    if (!first) return { ok: false, error: "provider" };
+    // Ambiguous answers (no result or no explicit boolean verdict) count as a failure.
+    if (!first || typeof first.flagged !== "boolean") return { ok: false, error: "provider" };
     if (!first.flagged) return { ok: true, flagged: false };
     const categories = Object.entries(first.categories ?? {})
       .filter(([, on]) => on)

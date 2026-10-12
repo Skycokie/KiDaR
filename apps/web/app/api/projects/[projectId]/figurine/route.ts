@@ -17,6 +17,7 @@ import { getProjectForOwner, updateProjectDocument } from "@/lib/appwrite/db";
 import { enqueueJob, findJobByInputHash } from "@/lib/appwrite/jobs";
 import { APPWRITE_SOURCE_BUCKET } from "@/lib/appwrite/config";
 import { isFigurineFeatureEnabled } from "@/lib/figurine-feature";
+import { FIGURINE_COST_UNVERIFIED_BODY, verifyFigurineCost } from "@/lib/figurine-cost";
 import { isFigureText3dEnabled } from "@/lib/ai/feature";
 import { isFigureText3dRequest, limitTextFigurinePrompt } from "@/lib/ai/text-figurine";
 import { moderateText } from "@/lib/ai/moderation";
@@ -171,6 +172,13 @@ export async function POST(request: Request, { params }: Context) {
   }
   if (textMode && !hasValidConsent(user.prefs, "ai")) {
     return NextResponse.json({ error: "consent_required", code: "ai" }, { status: 403 });
+  }
+
+  // Cost gate: last pure check, first thing before any side effect (moderation is an
+  // outbound call; then the project write and the enqueue -> worker -> paid Tripo).
+  // Decided server-side only; nothing from `body` can influence it.
+  if (verifyFigurineCost().status !== "verified") {
+    return NextResponse.json(FIGURINE_COST_UNVERIFIED_BODY, { status: 409 });
   }
 
   const textPrompt = textMode ? limitTextFigurinePrompt(String(body.prompt)) : "";

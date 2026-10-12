@@ -49,6 +49,10 @@ describe("generate-figurine", () => {
       ok: false,
       error: "active"
     });
+    expect(interpretStartFigurineResponse(409, { error: "cost_unverified" })).toEqual({
+      ok: false,
+      error: "cost_unverified"
+    });
     expect(getMessages("ro").personalize.figurineErrors.gated).toMatch(/activată/);
     expect(getMessages("en").personalize.figurineErrors.gated).not.toMatch(/activată/);
   });

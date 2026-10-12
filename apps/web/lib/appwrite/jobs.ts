@@ -157,6 +157,27 @@ export async function findJobByInputHash(params: {
   );
 }
 
+/**
+ * Size of the per-project job window the worker uses to resolve `page_render`
+ * dependencies (`listJobsForProject` in apps/worker). Keep in sync with the worker.
+ */
+export const PROJECT_JOB_WINDOW = 50;
+
+/**
+ * Read-only. The newest jobs of a project across all types, newest first — exactly the
+ * query the worker runs (`listJobsForProject`) when it resolves `page_render` upstreams.
+ * Anything outside this window is invisible to the worker, so it must not be depended on.
+ */
+export async function listProjectJobsWindow(projectId: string): Promise<PipelineJob[]> {
+  const { databases } = createAdminClient();
+  const result = await databases.listDocuments(APPWRITE_DATABASE_ID, APPWRITE_JOBS_COLLECTION, [
+    Query.equal("project_id", projectId),
+    Query.orderDesc("$createdAt"),
+    Query.limit(PROJECT_JOB_WINDOW)
+  ]);
+  return result.documents.map(mapJobDocument);
+}
+
 export type EnqueueJobResult =
   | { kind: "created"; job: PipelineJob }
   | { kind: "existing"; job: PipelineJob }
