@@ -189,6 +189,12 @@ describe("canonical input hashing", () => {
       })
     ).not.toBe(computePageRenderInputHash({ inputHash: shared }));
     expect(
+      computePageRenderInputHash({
+        inputHash: shared,
+        arAnchorMode: "follow"
+      })
+    ).not.toBe(computePageRenderInputHash({ inputHash: shared, arAnchorMode: "marker" }));
+    expect(
       computePopoutInputHash({
         projectId: "p1",
         source,

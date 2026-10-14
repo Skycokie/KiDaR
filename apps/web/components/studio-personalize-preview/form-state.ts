@@ -2,20 +2,42 @@
  * Local-only Studio personalize state. No persistence, no network writes.
  */
 
+import type { Locale } from "@/i18n/config";
+import { getMessages } from "@/i18n/get-messages";
 import {
-  ANIMATIONS,
-  CAMERA_PRESETS,
-  DECOR_ASSETS,
-  STAGES,
-  STYLE_PRESETS,
-  TRANSFORM_MODES,
+  STAGE_MESSAGE_KEY,
   type AnimationId,
+  type ArAnchorMode,
   type CameraPresetId,
   type DecorId,
+  type LightingId,
+  type PaletteId,
   type StudioStageId,
   type StylePresetId,
-  type TransformModeId
+  type TransformModeId,
+  arAnchorModeFromAnimation
 } from "./fixtures";
+import { interpretIdeaPrompt, limitIdeaPrompt, type IdeaPromptResult, type PromptLanguage } from "./idea-prompt";
+import {
+  emptySceneContext,
+  limitContextStory,
+  parseSceneContext,
+  trimContextStory,
+  type SceneContext
+} from "./scene-context";
+
+export type DecorInstance = {
+  key: string;
+  id: DecorId;
+  /** Horizontal position on the stage, 0–100. */
+  x: number;
+  /** Vertical position on the stage, 0–100. */
+  y: number;
+  /** Local GLB orbit yaw (radians). */
+  yaw: number;
+  /** Local GLB orbit pitch (radians). */
+  pitch: number;
+};
 
 export type PersonalizeState = {
   stage: StudioStageId;
@@ -25,11 +47,15 @@ export type PersonalizeState = {
   details: number;
   preserveOutline: boolean;
   stylePreset: StylePresetId;
+  palette: PaletteId;
+  lighting: LightingId;
   originalColors: boolean;
   light: number;
   shadow: number;
   animation: AnimationId;
-  decor: DecorId[];
+  /** AR page anchor after image detect. Derived from animation; persisted on scene save. */
+  arAnchorMode: ArAnchorMode;
+  decor: DecorInstance[];
   cameraPreset: CameraPresetId;
   gridOn: boolean;
   zoom: number;
@@ -46,6 +72,15 @@ export type PersonalizeState = {
   rightOpen: boolean;
   /** Local publish-prep dialog. Never a real publish. */
   publishOpen: boolean;
+  /** Local idea text. Never sent to a provider. */
+  ideaPrompt: string;
+  ideaResult: IdeaPromptResult | null;
+  ideaNotice: string | null;
+  /** Draft story in the Context step textarea. */
+  contextStory: string;
+  /** Applied local SceneContext. Never sent to a provider. */
+  context: SceneContext;
+  contextNotice: string | null;
 };
 
 const STYLE_CYCLE: StylePresetId[] = ["preserve", "clay", "painted"];
@@ -74,6 +109,60 @@ function nearestAngle(current: number, target: number): number {
   return target + cycles * 360;
 }
 
+export function createWorkspaceState(seed: {
+  hasDrawing: boolean;
+  yaw: number | null;
+  pitch: number | null;
+  arAnchorMode?: "marker" | "follow" | null;
+  ideaPrompt?: string;
+  /** Persisted decor (radians); unknown ids are dropped. */
+  decor?: Array<{ id: string; x: number; y: number; yaw: number; pitch: number }>;
+}): PersonalizeState {
+  const next = createInitialPersonalizeState();
+  const placed =
+    seed.yaw == null && seed.pitch == null
+      ? next
+      : {
+          ...next,
+          orbitYaw: seed.yaw ?? next.orbitYaw,
+          orbitPitch: seed.pitch ?? next.orbitPitch
+        };
+  const anchor: ArAnchorMode | null =
+    seed.arAnchorMode === "follow" ? "follow" : seed.arAnchorMode === "marker" ? "marker" : null;
+  const withAnchor: PersonalizeState =
+    anchor == null
+      ? placed
+      : {
+          ...placed,
+          arAnchorMode: anchor,
+          // Keep animation in sync so follow UI and AR anchor stay consistent after reload.
+          animation:
+            anchor === "follow"
+              ? "follow"
+              : placed.animation === "follow"
+                ? "still"
+                : placed.animation
+        };
+  const withIdea = seed.ideaPrompt
+    ? { ...withAnchor, ideaPrompt: limitIdeaPrompt(seed.ideaPrompt) }
+    : withAnchor;
+  const seededDecor = (seed.decor ?? [])
+    .filter((item): item is typeof item & { id: DecorId } =>
+      Object.prototype.hasOwnProperty.call(DECOR_HOME, item.id)
+    )
+    .slice(0, DECOR_MAX)
+    .map((item) => ({
+      ...createDecorInstance(item.id),
+      x: clamp(item.x, 4, 96),
+      y: clamp(item.y, 4, 96),
+      yaw: item.yaw,
+      pitch: item.pitch
+    }));
+  const withDecor = seededDecor.length ? { ...withIdea, decor: seededDecor } : withIdea;
+  if (seed.hasDrawing) return withDecor;
+  return { ...withDecor, stage: "desenul", completedStages: [] };
+}
+
 export function createInitialPersonalizeState(): PersonalizeState {
   return {
     stage: "personajul",
@@ -83,10 +172,13 @@ export function createInitialPersonalizeState(): PersonalizeState {
     details: 48,
     preserveOutline: true,
     stylePreset: "preserve",
+    palette: "original",
+    lighting: "warm",
     originalColors: true,
     light: 58,
     shadow: 36,
     animation: "still",
+    arAnchorMode: "marker",
     decor: [],
     cameraPreset: "threequarter",
     gridOn: true,
@@ -100,12 +192,92 @@ export function createInitialPersonalizeState(): PersonalizeState {
     arLive: false,
     leftOpen: false,
     rightOpen: false,
-    publishOpen: false
+    publishOpen: false,
+    ideaPrompt: "",
+    ideaResult: null,
+    ideaNotice: null,
+    contextStory: "",
+    context: emptySceneContext(),
+    contextNotice: null
   };
 }
 
 function clamp(value: number, min = 0, max = 100): number {
   return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+const DECOR_MAX = 16;
+
+const DECOR_HOME: Record<DecorId, { x: number; y: number }> = {
+  cloud: { x: 20, y: 16 },
+  stars: { x: 74, y: 14 },
+  grass: { x: 28, y: 82 },
+  tree: { x: 78, y: 68 },
+  house: { x: 18, y: 64 },
+  planet: { x: 50, y: 20 },
+  balloons: { x: 82, y: 30 },
+  figureWave: { x: 38, y: 58 },
+  figureFloat: { x: 58, y: 42 },
+  figureDance: { x: 48, y: 62 },
+  figureJump: { x: 62, y: 52 },
+  figureStill: { x: 42, y: 70 },
+  figureFollow: { x: 68, y: 48 }
+};
+
+let decorKeyCounter = 0;
+
+export function createDecorInstance(id: DecorId, index = 0): DecorInstance {
+  decorKeyCounter += 1;
+  const home = DECOR_HOME[id];
+  const drift = index % 5;
+  return {
+    key: `decor-${decorKeyCounter}`,
+    id,
+    x: clamp(home.x + drift * 7 + (index > 4 ? 4 : 0), 8, 92),
+    y: clamp(home.y + (drift % 3) * 6 - (index > 4 ? 4 : 0), 8, 90),
+    yaw: 0,
+    pitch: 0
+  };
+}
+
+export function addDecorInstance(state: PersonalizeState, id: DecorId): PersonalizeState {
+  if (state.decor.length >= DECOR_MAX) return state;
+  const index = state.decor.filter((item) => item.id === id).length;
+  return { ...state, decor: [...state.decor, createDecorInstance(id, index)] };
+}
+
+export function moveDecorInstance(
+  state: PersonalizeState,
+  key: string,
+  x: number,
+  y: number
+): PersonalizeState {
+  return {
+    ...state,
+    decor: state.decor.map((item) =>
+      item.key === key ? { ...item, x: clamp(x, 4, 96), y: clamp(y, 4, 96) } : item
+    )
+  };
+}
+
+export function orbitDecorInstance(
+  state: PersonalizeState,
+  key: string,
+  yaw: number,
+  pitch: number
+): PersonalizeState {
+  return {
+    ...state,
+    decor: state.decor.map((item) => (item.key === key ? { ...item, yaw, pitch } : item))
+  };
+}
+
+export function removeDecorInstance(state: PersonalizeState, key: string): PersonalizeState {
+  return { ...state, decor: state.decor.filter((item) => item.key !== key) };
+}
+
+export function clearDecor(state: PersonalizeState): PersonalizeState {
+  return { ...state, decor: [] };
 }
 
 function withCompleted(state: PersonalizeState, stage: StudioStageId): StudioStageId[] {
@@ -185,15 +357,185 @@ export function setShadow(state: PersonalizeState, shadow: number): PersonalizeS
 }
 
 export function setAnimation(state: PersonalizeState, animation: AnimationId): PersonalizeState {
-  return { ...state, animation };
+  return { ...state, animation, arAnchorMode: arAnchorModeFromAnimation(animation) };
+}
+
+export function setPalette(state: PersonalizeState, palette: PaletteId): PersonalizeState {
+  return {
+    ...state,
+    palette,
+    originalColors: palette === "original"
+  };
+}
+
+export function setLighting(state: PersonalizeState, lighting: LightingId): PersonalizeState {
+  return { ...state, lighting };
+}
+
+export function setDecorSelection(
+  state: PersonalizeState,
+  decor: DecorId | "none"
+): PersonalizeState {
+  if (decor === "none") return clearDecor(state);
+  return addDecorInstance(state, decor);
+}
+
+export function setIdeaPrompt(state: PersonalizeState, value: string): PersonalizeState {
+  return { ...state, ideaPrompt: limitIdeaPrompt(value), ideaNotice: null };
+}
+
+export function applyIdeaPrompt(
+  state: PersonalizeState,
+  raw: string,
+  locale: PromptLanguage = "ro"
+): PersonalizeState {
+  const text = limitIdeaPrompt(raw);
+  if (!text.trim()) {
+    return { ...state, ideaPrompt: text, ideaNotice: getMessages(locale).prompt.empty };
+  }
+  const ideaResult = interpretIdeaPrompt(text, locale);
+  if (!ideaResult.recognized) {
+    return { ...state, ideaPrompt: text, ideaResult, ideaNotice: null };
+  }
+  return {
+    ...state,
+    ideaPrompt: text,
+    ideaResult,
+    ideaNotice: null,
+    animation: ideaResult.motion ?? state.animation,
+    arAnchorMode: arAnchorModeFromAnimation(ideaResult.motion ?? state.animation),
+    decor: ideaResult.decor ? [createDecorInstance(ideaResult.decor)] : state.decor,
+    palette: ideaResult.palette ?? state.palette,
+    lighting: ideaResult.lighting ?? state.lighting,
+    originalColors:
+      ideaResult.palette === undefined ? state.originalColors : ideaResult.palette === "original"
+  };
+}
+
+/** Clears the idea text and summary. Studio selections stay as they are. */
+export function resetIdeaPrompt(state: PersonalizeState): PersonalizeState {
+  return { ...state, ideaPrompt: "", ideaResult: null, ideaNotice: null };
+}
+
+/**
+ * Applies structured settings from the Studio AI assistant (or local fallback).
+ * Builds an IdeaPromptResult so the existing result UI keeps working.
+ */
+export function applyAssistantSettings(
+  state: PersonalizeState,
+  input: {
+    prompt: string;
+    reply?: string | null;
+    motion?: AnimationId | null;
+    decor?: DecorId | null;
+    palette?: PaletteId | null;
+    lighting?: LightingId | null;
+    locale?: PromptLanguage;
+  }
+): PersonalizeState {
+  const locale = input.locale ?? "ro";
+  const text = limitIdeaPrompt(input.prompt);
+  const motion = input.motion ?? undefined;
+  const decor = input.decor ?? undefined;
+  const palette = input.palette ?? undefined;
+  const lighting = input.lighting ?? undefined;
+  const recognized = Boolean(motion || decor || palette || lighting);
+  const messages = getMessages(locale);
+  const COPY = messages.personalize;
+  const lines: string[] = [];
+  if (motion) lines.push(`${messages.studio.steps.motion}: ${COPY.choices.animations[motion].label}`);
+  if (decor) lines.push(`${messages.studio.steps.decor}: ${COPY.choices.decor[decor].label}`);
+  if (palette) lines.push(`${COPY.paletteSection}: ${COPY.choices.palettes[palette].label}`);
+  if (lighting) lines.push(`${COPY.lightingSection}: ${COPY.choices.lightings[lighting].label}`);
+  if (input.reply?.trim()) lines.unshift(input.reply.trim());
+
+  const ideaResult: IdeaPromptResult = {
+    recognized,
+    text,
+    motion,
+    decor,
+    palette,
+    lighting,
+    lines
+  };
+
+  if (!recognized) {
+    return {
+      ...state,
+      ideaPrompt: text,
+      ideaResult,
+      ideaNotice: input.reply?.trim() || null
+    };
+  }
+
+  return {
+    ...state,
+    ideaPrompt: text,
+    ideaResult,
+    ideaNotice: null,
+    animation: motion ?? state.animation,
+    arAnchorMode: arAnchorModeFromAnimation(motion ?? state.animation),
+    decor: decor ? [createDecorInstance(decor)] : state.decor,
+    palette: palette ?? state.palette,
+    lighting: lighting ?? state.lighting,
+    originalColors: palette === undefined ? state.originalColors : palette === "original"
+  };
+}
+
+export function setContextStory(state: PersonalizeState, value: string): PersonalizeState {
+  return { ...state, contextStory: limitContextStory(value), contextNotice: null };
+}
+
+/**
+ * Apply Context story locally. Updates only recognized Studio categories.
+ * Unrecognized text preserves existing selections.
+ */
+export function applyContextStory(
+  state: PersonalizeState,
+  raw: string,
+  locale: Locale = "ro"
+): PersonalizeState {
+  const text = trimContextStory(raw);
+  const COPY = getMessages(locale).personalize;
+  if (!text) {
+    return { ...state, contextStory: limitContextStory(raw), contextNotice: COPY.contextEmpty };
+  }
+  const parsed = parseSceneContext(text, locale);
+  if (!parsed.recognizedStudio) {
+    return {
+      ...state,
+      contextStory: text,
+      context: parsed.context,
+      contextNotice: COPY.contextPreserve
+    };
+  }
+  return {
+    ...state,
+    contextStory: text,
+    context: parsed.context,
+    contextNotice: null,
+    animation: parsed.motion ?? state.animation,
+    arAnchorMode: arAnchorModeFromAnimation(parsed.motion ?? state.animation),
+    decor: parsed.decor ? [createDecorInstance(parsed.decor)] : state.decor,
+    palette: parsed.palette ?? state.palette,
+    lighting: parsed.lighting ?? state.lighting,
+    originalColors:
+      parsed.palette === undefined ? state.originalColors : parsed.palette === "original"
+  };
+}
+
+/** Clears only context story + summary. Motion, decor, palette, lighting stay. */
+export function resetContextStory(state: PersonalizeState): PersonalizeState {
+  return {
+    ...state,
+    contextStory: "",
+    context: emptySceneContext(),
+    contextNotice: null
+  };
 }
 
 export function toggleDecor(state: PersonalizeState, decorId: DecorId): PersonalizeState {
-  const has = state.decor.includes(decorId);
-  return {
-    ...state,
-    decor: has ? state.decor.filter((id) => id !== decorId) : [...state.decor, decorId]
-  };
+  return addDecorInstance(state, decorId);
 }
 
 export function setCameraPreset(
@@ -294,7 +636,7 @@ function quatFromAxisAngle(ax: number, ay: number, az: number, angleRad: number)
   return { x: (ax / len) * s, y: (ay / len) * s, z: (az / len) * s, w: Math.cos(h) };
 }
 
-/** Match CSS `rotateY(yaw) rotateX(pitch) rotateZ(roll)` → R = Ry * Rx * Rz. */
+/** Three / A-Frame Euler YXZ (the values saved for the AR page) → R = Ry * Rx * Rz. */
 export function orbitEulerToQuat(yawDeg: number, pitchDeg: number, rollDeg: number): Quat {
   const qy = quatFromAxisAngle(0, 1, 0, (yawDeg * Math.PI) / 180);
   const qx = quatFromAxisAngle(1, 0, 0, (pitchDeg * Math.PI) / 180);
@@ -312,10 +654,16 @@ export function orbitQuatToEuler(
   // R = Ry * Rx * Rz  (same extraction as ZXY extrinsic / matching our product)
   const sinP = 2 * (w * x - y * z);
   const pitch = (Math.asin(Math.min(1, Math.max(-1, sinP))) * 180) / Math.PI;
-  const yaw =
+  let yaw =
     (Math.atan2(2 * (w * y + z * x), 1 - 2 * (x * x + y * y)) * 180) / Math.PI;
-  const roll =
+  let roll =
     (Math.atan2(2 * (w * z + x * y), 1 - 2 * (x * x + z * z)) * 180) / Math.PI;
+  if (Math.abs(sinP) > 0.99999) {
+    // Straight up / down: yaw and roll turn about the same axis (gimbal lock).
+    // Same fallback as Three's Euler.setFromRotationMatrix: roll 0, whole turn on yaw.
+    roll = 0;
+    yaw = (Math.atan2(2 * (w * y - x * z), 1 - 2 * (y * y + z * z)) * 180) / Math.PI;
+  }
   return {
     yaw: nearestAngle(prior.yaw, yaw),
     pitch: nearestAngle(prior.pitch, pitch),
@@ -324,8 +672,13 @@ export function orbitQuatToEuler(
 }
 
 /**
- * Apply arrow/drag intent in the photo's local frame so controls follow
- * the drawing after any yaw / pitch / roll mix (not the initial placement).
+ * Apply a drag in SCREEN space: the model always follows the finger, whatever
+ * yaw / pitch / roll it already has (upside down, turned around, rolled).
+ * The orbit is stored in Three / A-Frame terms (Euler YXZ, the same values the AR
+ * page uses): +yaw turns the front to the right, +pitch tips the front DOWN,
+ * +roll turns counter-clockwise. So "up" is a negative X turn and "clockwise" a
+ * negative Z turn. The previous local-frame version (q * delta) inverted
+ * left/right and up/down once the model was flipped or tilted.
  * screenX: +right · screenY: +up · screenRoll: +CW on the photo plane
  */
 export function nudgeOrbitFromScreen(
@@ -341,13 +694,15 @@ export function nudgeOrbitFromScreen(
     delta = quatMul(delta, quatFromAxisAngle(0, 1, 0, (screenX * Math.PI) / 180));
   }
   if (screenY !== 0) {
-    delta = quatMul(delta, quatFromAxisAngle(1, 0, 0, (screenY * Math.PI) / 180));
+    // Screen-up moves the front up: a negative turn about the world X axis.
+    delta = quatMul(delta, quatFromAxisAngle(1, 0, 0, (-screenY * Math.PI) / 180));
   }
   if (screenRoll !== 0) {
-    delta = quatMul(delta, quatFromAxisAngle(0, 0, 1, (screenRoll * Math.PI) / 180));
+    // Clockwise as the viewer sees it: a negative turn about the world Z axis.
+    delta = quatMul(delta, quatFromAxisAngle(0, 0, 1, (-screenRoll * Math.PI) / 180));
   }
-  // Local (photo) frame: q' = q * Δ — axes move with the drawing.
-  const next = orbitQuatToEuler(quatMul(current, delta), {
+  // World (screen) frame: q' = delta * q, so the drag is not rotated by the model's own pose.
+  const next = orbitQuatToEuler(quatMul(delta, current), {
     yaw: state.orbitYaw,
     pitch: state.orbitPitch,
     roll: state.orbitRoll
@@ -373,15 +728,17 @@ export function setAutoRotate(state: PersonalizeState, autoRotate: boolean): Per
 export function setVariantIndex(state: PersonalizeState, index: number): PersonalizeState {
   const next = ((index % STYLE_CYCLE.length) + STYLE_CYCLE.length) % STYLE_CYCLE.length;
   const stylePreset = STYLE_CYCLE[next] ?? "preserve";
+  const palette = (["original", "soft", "bright"] as const)[next] ?? "original";
   return {
     ...state,
     variantIndex: next,
     stylePreset,
+    palette,
     originalColors: stylePreset === "preserve",
-    volume: clamp(55 + next * 12),
-    details: clamp(40 + next * 18),
-    light: clamp(50 + next * 10),
-    shadow: clamp(30 + next * 8)
+    volume: clamp(48 + next * 22),
+    details: clamp(32 + next * 28),
+    light: clamp(42 + next * 22),
+    shadow: clamp(24 + next * 22)
   };
 }
 
@@ -444,21 +801,19 @@ export function setRightOpen(state: PersonalizeState, rightOpen: boolean): Perso
   return { ...state, rightOpen, leftOpen: rightOpen ? false : state.leftOpen };
 }
 
-function labelOf<T extends string>(options: { id: T; label: string }[], id: T): string {
-  return options.find((item) => item.id === id)?.label ?? id;
-}
-
 /** Compact summary for live region. */
-export function summarizePersonalize(state: PersonalizeState): string {
+export function summarizePersonalize(state: PersonalizeState, locale: Locale = "ro"): string {
+  const messages = getMessages(locale);
+  const COPY = messages.personalize;
   const parts = [
-    labelOf(STAGES, state.stage),
-    labelOf(TRANSFORM_MODES, state.transformMode),
-    labelOf(STYLE_PRESETS, state.stylePreset),
-    labelOf(ANIMATIONS, state.animation),
-    `variantă ${state.variantIndex + 1}`
+    messages.studio.steps[STAGE_MESSAGE_KEY[state.stage]],
+    COPY.choices.modes[state.transformMode].label,
+    COPY.choices.styles[state.stylePreset].label,
+    COPY.choices.animations[state.animation].label,
+    COPY.variantSummary.replace("{n}", String(state.variantIndex + 1))
   ];
   if (state.decor.length > 0) {
-    parts.push(state.decor.map((id) => labelOf(DECOR_ASSETS, id)).join(", "));
+    parts.push(state.decor.map((item) => COPY.choices.decor[item.id].label).join(", "));
   }
   return parts.join(" · ");
 }
@@ -469,7 +824,10 @@ export function isStageComplete(state: PersonalizeState, stage: StudioStageId): 
 
 /**
  * Paths that must never be called as write endpoints from this preview shell.
- * The one exception is PATCH /api/projects/:projectId for settings.scene.startTransform.
+ * Allowed writes:
+ * - PATCH /api/projects/:projectId (start transform)
+ * - POST /api/projects/:projectId/figurine (Tripo)
+ * - PATCH/POST/DELETE /api/projects/:projectId/voices/... (character voice)
  */
 export function isStartTransformPatchPath(url: string): boolean {
   let path = url.split("?")[0] ?? url;
@@ -482,6 +840,28 @@ export function isStartTransformPatchPath(url: string): boolean {
   return /^\/api\/projects\/[^/]+$/.test(path);
 }
 
+export function isFigurineGeneratePath(url: string): boolean {
+  let path = url.split("?")[0] ?? url;
+  try {
+    path = new URL(url, "http://local.invalid").pathname;
+  } catch {
+    // keep split path
+  }
+  path = path.replace(/\/+$/, "") || "/";
+  return /^\/api\/projects\/[^/]+\/figurine$/.test(path);
+}
+
+export function isCharacterVoicePath(url: string): boolean {
+  let path = url.split("?")[0] ?? url;
+  try {
+    path = new URL(url, "http://local.invalid").pathname;
+  } catch {
+    // keep split path
+  }
+  path = path.replace(/\/+$/, "") || "/";
+  return /^\/api\/projects\/[^/]+\/voices\/[^/]+(?:\/audio)?$/.test(path);
+}
+
 export function isPersonalizeWriteBlocked(url: string): boolean {
   let path = url.split("?")[0] ?? url;
   try {
@@ -491,8 +871,16 @@ export function isPersonalizeWriteBlocked(url: string): boolean {
   }
   path = path.replace(/\/+$/, "") || "/";
   if (isStartTransformPatchPath(path)) return false;
+  if (isFigurineGeneratePath(path)) return false;
+  if (isCharacterVoicePath(path)) return false;
+  if (isPublishWorldPath(path)) return false;
   if (path.startsWith("/api/")) return true;
   return false;
+}
+
+/** Explicit-consent publish, its status, and the owner-only QR PNG. */
+function isPublishWorldPath(path: string): boolean {
+  return path === "/api/publish" || /^\/api\/projects\/[^/]+\/(publish|qr)$/.test(path);
 }
 
 export const FORBIDDEN_PERSISTENCE_APIS = [

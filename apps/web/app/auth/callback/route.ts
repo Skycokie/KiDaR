@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/appwrite/client";
 import { SESSION_COOKIE } from "@/lib/appwrite/config";
 import { ensureProfile } from "@/lib/appwrite/db";
+import { getMessages } from "@/i18n/get-messages";
+import { getRequestLocale } from "@/i18n/get-request-locale";
+import { hrefForLocale } from "@/i18n/locale";
 
 export const dynamic = "force-dynamic";
 
@@ -10,27 +13,150 @@ function wantsCreaza(nextCookie: string | undefined, nextQuery: string | null) {
   return nextCookie === "/creaza" || nextQuery === "/creaza";
 }
 
-function htmlPage(title: string, body: string) {
+function htmlPage(lang: string, title: string, body: string) {
   return `<!DOCTYPE html>
-<html lang="ro">
+<html lang="${lang}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${title}</title>
+    <title>${escapeHtml(title)}</title>
   <style>
-    body { margin: 0; min-height: 100vh; background: #f7f4ee; color: #1b1726;
-      font-family: system-ui, "Segoe UI", sans-serif; font-size: 1.125rem; line-height: 1.45;
-      padding: 1.5rem; }
-    a, button { color: #5b4fe0; }
-    form { margin-top: 1rem; }
-    button {
-      appearance: none; border: 0; background: #5b4fe0; color: #fff;
-      font: inherit; padding: 0.75rem 1.25rem; border-radius: 999px; cursor: pointer;
+    body { margin: 0; background: #0b0e14; }
+    .auth-shell {
+      box-sizing: border-box;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 24px;
+      background:
+        radial-gradient(720px 420px at 88% -4%, rgba(217, 119, 79, 0.14), transparent 58%),
+        linear-gradient(168deg, #11151e 0%, #0b0e14 48%, #080a10 100%);
+      color: #f3efe6;
+      font-family: system-ui, "Segoe UI", sans-serif;
+      font-size: 1.0625rem;
+      line-height: 1.45;
     }
-    small { color: #5c5668; }
+    .auth-shell *, .auth-shell *::before, .auth-shell *::after { box-sizing: border-box; }
+    .auth-card {
+      width: min(420px, 100%);
+      padding: 28px 24px 24px;
+      background: #10141c;
+      border: 1px solid rgba(243, 239, 230, 0.12);
+      border-radius: 18px;
+    }
+    .auth-brand { margin: 0 0 14px; }
+    .kidar-wordmark {
+      --kidar-accent: #8d82ea;
+      --kidar-muted: #a89f93;
+      --kidar-brand: #f3efe6;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.16em;
+      max-width: 100%;
+      color: var(--kidar-brand);
+      line-height: 1;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .kidar-wordmark__eyebrow {
+      display: inline-flex;
+      align-items: baseline;
+      flex-wrap: nowrap;
+      gap: 0.28em;
+      font-size: 0.52rem;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      line-height: 1;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .kidar-wordmark__play { color: var(--kidar-accent); }
+    .kidar-wordmark__with,
+    .kidar-wordmark__subtitle { color: var(--kidar-muted); }
+    .kidar-wordmark__name {
+      color: var(--kidar-brand);
+      font-size: 1.65rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 0.95;
+      text-transform: none;
+    }
+    .kidar-wordmark__subtitle {
+      font-size: 0.52rem;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+    .auth-shell h1 {
+      margin: 0 0 12px;
+      color: #f3efe6;
+      font-family: inherit;
+      font-size: 1.75rem;
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+    .auth-lead, .auth-note { margin: 0 0 20px; color: #a89f93; }
+    .auth-note { margin-bottom: 0; font-size: 0.9375rem; }
+    .auth-btn {
+      display: flex;
+      width: 100%;
+      min-height: 48px;
+      align-items: center;
+      justify-content: center;
+      margin-top: 20px;
+      padding: 12px 16px;
+      border: 0;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #e8a05a, #e07a5f);
+      color: #1a120e;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .auth-secondary { margin: 16px 0 0; }
+    .auth-secondary a {
+      display: inline-flex;
+      min-height: 48px;
+      align-items: center;
+      color: #e8a05a;
+      font-weight: 700;
+    }
+    .auth-shell small { color: #a89f93; }
+    .auth-shell :focus-visible { outline: 2px solid #e0d6a8; outline-offset: 3px; }
+    @media (max-width: 480px) {
+      .auth-shell { padding: 28px 20px; }
+      .auth-card { padding: 24px 20px 20px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .auth-shell *, .auth-shell *::before, .auth-shell *::after {
+        transition: none;
+        animation: none;
+      }
+    }
   </style>
 </head>
-<body>${body}</body>
+<body>
+<main class="auth-shell">
+  <section class="auth-card">
+    <div class="auth-brand">
+      <span class="kidar-wordmark" role="img" aria-label="${escapeHtml(getMessages(lang === "en" ? "en" : "ro").brand.accessibleLabel)}">
+        <span class="kidar-wordmark__eyebrow">
+          <span class="kidar-wordmark__play">PLAY</span>
+          <span class="kidar-wordmark__with">WITH</span>
+        </span>
+        <span class="kidar-wordmark__name">kidAR</span>
+        <span class="kidar-wordmark__subtitle">STUDIO</span>
+      </span>
+    </div>
+    ${body}
+  </section>
+</main>
+</body>
 </html>`;
 }
 
@@ -60,22 +186,29 @@ function resolveNextPath(requestUrl: URL) {
  * the token on POST (human confirm). Use the admin Appwrite client for SSR
  * session minting — bare project clients fail createSession on the server.
  */
+function missingLinkPage(lang: string, intra: string) {
+  const t = getMessages(lang === "en" ? "en" : "ro").auth;
+  return htmlPage(
+    lang,
+    t.retryTitle,
+    `<h1>${escapeHtml(t.retryTitle)}</h1>
+<p class="auth-lead">${escapeHtml(t.linkMissing)}</p>
+<p class="auth-secondary"><a href="${intra}">${escapeHtml(t.requestNewLink)}</a></p>`
+  );
+}
+
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const origin = resolveOrigin(requestUrl);
+  const locale = getRequestLocale();
+  const t = getMessages(locale).auth;
   const userId = requestUrl.searchParams.get("userId");
   const secret = requestUrl.searchParams.get("secret");
   const nextPath = resolveNextPath(requestUrl);
-  const intra = new URL("/intra", origin).toString();
+  const intra = new URL(hrefForLocale("/intra", locale), origin).toString();
 
   if (!userId || !secret) {
-    return htmlResponse(
-      htmlPage(
-        "Intră din nou",
-        `<p>Linkul de intrare lipsește sau e incomplet.</p>
-<p><a href="${intra}">Cere o legătură nouă</a></p>`
-      )
-    );
+    return htmlResponse(missingLinkPage(locale, intra));
   }
 
   const safeUserId = escapeHtml(userId);
@@ -84,15 +217,18 @@ export async function GET(request: Request) {
 
   return htmlResponse(
     htmlPage(
-      "Confirmă intrarea",
-      `<p>Apasă butonul ca să intri în KIDAR. (Confirmarea oprește scanerele de email să consume linkul înaintea ta.)</p>
+      locale,
+      t.confirmPageTitle,
+      `<h1>${escapeHtml(t.confirmTitle)}</h1>
+<p class="auth-lead">${escapeHtml(t.confirmBody)}</p>
+<p class="auth-note">${escapeHtml(t.scannerProtection)}</p>
 <form method="post" action="/auth/callback">
   <input type="hidden" name="userId" value="${safeUserId}">
   <input type="hidden" name="secret" value="${safeSecret}">
   <input type="hidden" name="next" value="${safeNext}">
-  <button type="submit">Intră în KIDAR</button>
+  <button class="auth-btn" type="submit">${escapeHtml(t.enter)}</button>
 </form>
-<p><a href="${intra}">Cere o legătură nouă</a></p>`
+<p class="auth-secondary"><a href="${intra}">${escapeHtml(t.requestNewLink)}</a></p>`
     )
   );
 }
@@ -111,22 +247,17 @@ export async function POST(request: Request) {
   )
     ? "/creaza"
     : "/studio";
-  const destination = new URL(nextPath, origin).toString();
-  const intra = new URL("/intra", origin).toString();
+  const locale = getRequestLocale();
+  const t = getMessages(locale).auth;
+  const destination = new URL(hrefForLocale(nextPath, locale), origin).toString();
+  const intra = new URL(hrefForLocale("/intra", locale), origin).toString();
 
   if (nextCookie) {
     cookies().set("kidar_next", "", { path: "/", maxAge: 0 });
   }
 
   if (!userId || !secret) {
-    return htmlResponse(
-      htmlPage(
-        "Intră din nou",
-        `<p>Linkul de intrare lipsește sau e incomplet.</p>
-<p><a href="${intra}">Cere o legătură nouă</a></p>`
-      ),
-      400
-    );
+    return htmlResponse(missingLinkPage(locale, intra), 400);
   }
 
   try {
@@ -154,21 +285,23 @@ export async function POST(request: Request) {
     }
     return response;
   } catch (cause) {
-    const message = cause instanceof Error ? cause.message : "Eroare necunoscută";
+    const message = cause instanceof Error ? cause.message : t.unknownError;
     const type =
       cause && typeof cause === "object" && "type" in cause
         ? String((cause as { type?: string }).type ?? "")
         : "";
     const hint = type.includes("user_invalid_token") || /invalid|expired|used/i.test(message)
-      ? "Linkul a fost deja folosit sau a expirat. Cere unul nou și apasă <strong>Intră în KIDAR</strong> o singură dată, din cel mai recent email."
-      : "Nu am putut deschide sesiunea. Cere o legătură nouă și încearcă din nou.";
+      ? `${escapeHtml(t.linkUsedBeforeEnter)} <strong>${escapeHtml(t.enter)}</strong> ${escapeHtml(t.linkUsedAfterEnter)}`
+      : escapeHtml(t.sessionFailed);
 
     return htmlResponse(
       htmlPage(
-        "Link expirat",
-        `<p>${hint}</p>
+        locale,
+        t.expiredTitle,
+        `<h1>${escapeHtml(t.expiredTitle)}</h1>
+<p class="auth-lead">${hint}</p>
 <p><small>${escapeHtml(type || message)}</small></p>
-<p><a href="${intra}">Cere o legătură nouă</a></p>`
+<p class="auth-secondary"><a href="${intra}">${escapeHtml(t.requestNewLink)}</a></p>`
       ),
       401
     );

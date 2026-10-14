@@ -7,7 +7,11 @@ import { renderArPage } from "./templates/ar-page";
 import {
   arePageRenderDependenciesSatisfied,
   assertPublicHtmlBundle,
+  cameraViewOrientation,
+  cameraViewUrl,
   consumerArUrl,
+  resolveCameraViewPose,
+  resolveCameraViewModel,
   experiencePointerKey,
   mapSettingsToArPageConfig,
   pageArtifactKey,
@@ -55,7 +59,12 @@ describe("page artifact keys", () => {
       showWatermark: true
     };
     const pageHash = computePageRenderInputHash(demoPage);
-    expect(pageHash).toBe("3b2af8d0cb4cb106d65bff31b92eba6a03d8cab08da7e3ed552affe84487acc2");
+    expect(pageHash).toBe("bf2dae8eaf8a68a2e4f8e6ac1c1100ef83f1fa355dcfc83fe365b8f5b5f493e0");
+    expect(pageHash).not.toBe("6a3ea58b44099d164a4111566b8f7e3ba2751cdbbbfdbc58083fcca696ad59f9");
+    expect(pageHash).not.toBe("0fc0b3dce1b01a98de8b5b3aad8e437d4654a808f3384ccc38dbb28377987bc0");
+    expect(pageHash).not.toBe("d1b101633d92b0d0c10ae0694558baa24826d5facaa7ce799d9ebf3ad4e8dcff");
+    expect(pageHash).not.toBe("3527ccad4accbcff68fd2b70156903ecc305039c26ad1c8ec93bfe83e8bedeb0");
+    expect(pageHash).not.toBe("3b2af8d0cb4cb106d65bff31b92eba6a03d8cab08da7e3ed552affe84487acc2");
     expect(pageHash).not.toBe("6fc29bcdf0bac65c8f55317b155264c695364760562573edb45339747de9d8bc");
     expect(pageHash).not.toBe("da985e5f064af51b2eb2c76ee7cc2ce5f66e74f55aa497855c0cee1561122fe3");
     expect(pageHash).not.toBe("d867c9ccb235b01c93cb9597a9c3a08ab6d1f247b9cf32b7f0271b1278b1b805");
@@ -86,9 +95,16 @@ describe("page artifact keys", () => {
         slug: "other-slug"
       })
     ).not.toBe(pageHash);
+    expect(
+      computePageRenderInputHash({
+        ...demoPage,
+        arAnchorMode: "follow"
+      })
+    ).not.toBe(pageHash);
     expect(buildPageRenderInputDocument(demoPage).arPageTemplateVersion).toBe(
       AR_PAGE_TEMPLATE_VERSION
     );
+    expect(buildPageRenderInputDocument(demoPage).arAnchorMode).toBe("marker");
     expect(buildPageRenderInputDocument(demoPage).publicAppOrigin).toBe(
       "https://kidar-studio.vercel.app"
     );
@@ -272,6 +288,136 @@ describe("settings to AR page mapping", () => {
         }
       })
     ).toThrow(/private or signed/i);
+  });
+
+  it("maps scene.arAnchorMode follow into the AR page config", () => {
+    const modelUrl = "https://cdn.example.com/models/p/abc/popout.glb";
+    const targetUrl = "https://cdn.example.com/targets/p/abc/targets.mind";
+    const marker = mapSettingsToArPageConfig({
+      settings: settings(),
+      modelUrl,
+      targetUrl
+    });
+    expect(marker.arAnchorMode).toBe("marker");
+
+    const follow = mapSettingsToArPageConfig({
+      settings: { ...settings(), scene: { arAnchorMode: "follow" } },
+      modelUrl,
+      targetUrl
+    });
+    expect(follow.arAnchorMode).toBe("follow");
+    // renderArPage takes the unnormalized shape, so rebuild it rather than
+    // feeding the normalized config back in.
+    expect(
+      renderArPage({
+        title: follow.title,
+        theme: follow.theme,
+        modelUrl: follow.modelUrl,
+        targetUrl: follow.targetUrl,
+        arAnchorMode: follow.arAnchorMode
+      })
+    ).toContain('data-ar-anchor="follow"');
+  });
+
+  it("maps persisted scene.decor into marker-anchored props on the app origin", () => {
+    const mapped = mapSettingsToArPageConfig({
+      settings: {
+        ...settings(),
+        scene: { decor: [{ id: "tree", x: 70, y: 40, yaw: 90, pitch: 0 }] }
+      },
+      modelUrl: "https://cdn.example.com/models/p/abc/popout.glb",
+      targetUrl: "https://cdn.example.com/targets/p/abc/targets.mind",
+      publicAppOrigin: "https://kidar.example"
+    });
+    expect(mapped.props).toHaveLength(1);
+    expect(mapped.props[0].modelUrl).toBe("https://kidar.example/demo/glb/decor/tree.glb");
+    expect(mapped.props[0].position.x).toBeCloseTo(0.2);
+    expect(mapped.props[0].position.y).toBeCloseTo(0.1);
+  });
+
+  it("changes the page_render hash when decor placement changes", () => {
+    const base = {
+      inputHash: hash,
+      slug: "demo",
+      publicAppOrigin: "https://kidar.example",
+      publicAssetOrigin: "https://cdn.example.com",
+      showWatermark: true
+    };
+    const without = computePageRenderInputHash(base);
+    const withDecor = computePageRenderInputHash({
+      ...base,
+      decor: [{ id: "tree", x: 70, y: 40, yaw: 90, pitch: 0 }]
+    });
+    const moved = computePageRenderInputHash({
+      ...base,
+      decor: [{ id: "tree", x: 20, y: 40, yaw: 90, pitch: 0 }]
+    });
+    expect(withDecor).not.toBe(without);
+    expect(moved).not.toBe(withDecor);
+  });
+});
+
+describe("camera view (character-only)", () => {
+  const model = "https://cdn.example.com/models/p1/abc/popout.glb";
+
+  it("builds an app URL under /ar/{slug}/camera that carries the character GLB and start pose", () => {
+    const url = cameraViewUrl("https://kidar.example", "Demo Slug", model, {
+      rotation: { x: 11.3, y: -10.2, z: 180 }
+    });
+    const parsed = new URL(url);
+    expect(parsed.origin + parsed.pathname).toBe("https://kidar.example/ar/demo-slug/camera");
+    expect(parsed.searchParams.get("model")).toBe(model);
+    expect(parsed.searchParams.get("rx")).toBe("11.3");
+    expect(parsed.searchParams.get("ry")).toBe("-10.2");
+    expect(parsed.searchParams.get("rz")).toBe("180");
+  });
+
+  it("defaults the camera pose to the MindAR upright baseline when rotation is omitted", () => {
+    const url = cameraViewUrl("https://kidar.example", "demo-slug", model);
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get("rx")).toBe("0");
+    expect(parsed.searchParams.get("ry")).toBe("0");
+    expect(parsed.searchParams.get("rz")).toBe("180");
+    // Marker baseline z=180 becomes free-standing pitch+180 for model-viewer.
+    expect(cameraViewOrientation(null)).toBe("0deg 180deg 0deg");
+    expect(resolveCameraViewPose({})).toEqual({ x: 0, y: 0, z: 180 });
+    expect(resolveCameraViewPose({ rx: "bad", ry: "20", rz: "" })).toEqual({ x: 0, y: 20, z: 180 });
+    expect(resolveCameraViewPose({ rx: "999", ry: "-999", rz: "45" })).toEqual({
+      x: 360,
+      y: -360,
+      z: 45
+    });
+    expect(cameraViewOrientation({ x: 11.3, y: -10.2, z: 180 })).toBe("-10.2deg 191.3deg 0deg");
+    expect(cameraViewOrientation({ x: 10, y: 20, z: 45 })).toBe("20deg 10deg 45deg");
+  });
+
+  it("accepts only GLBs on the public artifact origin", () => {
+    const base = "https://cdn.example.com";
+    expect(resolveCameraViewModel({ modelParam: model, publicBaseUrl: base })).toEqual({
+      ok: true,
+      modelUrl: model
+    });
+    expect(resolveCameraViewModel({ modelParam: null, publicBaseUrl: base })).toEqual({
+      ok: false,
+      reason: "missing"
+    });
+    expect(
+      resolveCameraViewModel({ modelParam: "https://evil.example/x.glb", publicBaseUrl: base })
+    ).toEqual({ ok: false, reason: "foreign_origin" });
+    expect(
+      resolveCameraViewModel({
+        modelParam: "https://cdn.example.com/pages/p1/abc/index.html",
+        publicBaseUrl: base
+      })
+    ).toEqual({ ok: false, reason: "not_glb" });
+    expect(resolveCameraViewModel({ modelParam: "javascript:1", publicBaseUrl: base })).toEqual({
+      ok: false,
+      reason: "invalid"
+    });
+    expect(resolveCameraViewModel({ modelParam: model, publicBaseUrl: undefined })).toEqual({
+      ok: false,
+      reason: "invalid"
+    });
   });
 });
 

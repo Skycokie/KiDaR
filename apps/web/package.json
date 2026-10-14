@@ -22,7 +22,6 @@
     "onnxruntime-web": "1.21.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-dropzone": "^14.3.8",
     "three": "^0.180.0"
   },
   "devDependencies": {

@@ -2,18 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import {
-  POPOUT_EXTRUDE,
-  POPOUT_SHAPE_SCALE,
-  buildEdgeStripRgba,
-  medianRgb,
-  popoutCapUv,
-  rgbToHex,
-  sampleInwardEdgeColors,
-  type DepthScoredPolygon,
-  type StickerPolygon
-} from "@kidar/core";
-import { COPY } from "./fixtures";
+import { type DepthScoredPolygon } from "@kidar/core";
+import { useStudioI18n } from "@/components/i18n/studio-i18n";
+import { disposePopoutObject, makePopoutComponentMesh } from "./popout-extrude-mesh";
 import { createPreviewCutout } from "./popout-preview-cutout";
 import {
   decidePreviewPopout,
@@ -35,121 +26,13 @@ const sessionExtracts = new Map<string, ReadyExtract>();
 
 type Phase = "preparing" | "ready" | "fallback";
 
-function applyCapUvs(geometry: THREE.BufferGeometry) {
-  const position = geometry.getAttribute("position");
-  const uv = geometry.getAttribute("uv");
-  if (!position || !uv) return;
-  const groups = geometry.groups.length
-    ? geometry.groups
-    : [{ start: 0, count: geometry.index?.count ?? position.count, materialIndex: 0 }];
-  const index = geometry.getIndex();
-
-  for (const group of groups) {
-    if (group.materialIndex !== 0) continue;
-    const seen = new Set<number>();
-    if (index) {
-      for (let i = group.start; i < group.start + group.count; i += 1) {
-        const vertex = index.getX(i);
-        if (seen.has(vertex)) continue;
-        seen.add(vertex);
-        const mapped = popoutCapUv(position.getX(vertex), position.getY(vertex));
-        uv.setXY(vertex, mapped.u, mapped.v);
-      }
-    } else {
-      for (let i = group.start; i < group.start + group.count; i += 1) {
-        if (seen.has(i)) continue;
-        seen.add(i);
-        const mapped = popoutCapUv(position.getX(i), position.getY(i));
-        uv.setXY(i, mapped.u, mapped.v);
-      }
-    }
-  }
-  uv.needsUpdate = true;
-}
-
-function disposeObject(object: THREE.Object3D, shared?: Set<THREE.Texture>) {
-  object.traverse((node) => {
-    const mesh = node as THREE.Mesh;
-    if (!mesh.isMesh) return;
-    mesh.geometry?.dispose();
-    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    for (const material of materials) {
-      const map = (material as THREE.MeshStandardMaterial).map;
-      if (map && !shared?.has(map)) map.dispose();
-      material.dispose();
-    }
-  });
-}
-
-function makeComponentMesh(
-  polygon: StickerPolygon,
-  faceTexture: THREE.CanvasTexture,
-  width: number,
-  height: number,
-  rgba: Uint8ClampedArray,
-  depth: number,
-  z: number,
-  shadows: boolean
-) {
-  const shape = new THREE.Shape();
-  polygon.points.forEach((point, index) => {
-    const x = point.x * POPOUT_SHAPE_SCALE;
-    const y = point.y * POPOUT_SHAPE_SCALE;
-    if (index === 0) shape.moveTo(x, y);
-    else shape.lineTo(x, y);
-  });
-  shape.closePath();
-
-  const geometry = new THREE.ExtrudeGeometry(shape, {
-    ...POPOUT_EXTRUDE,
-    depth
-  });
-  applyCapUvs(geometry);
-  geometry.computeVertexNormals();
-  if (z !== 0) geometry.translate(0, 0, z);
-
-  const colors = sampleInwardEdgeColors(width, height, rgba, polygon.points, {
-    inwardPx: Math.max(3, Math.round(Math.min(width, height) / 180)),
-    maxSamples: 160
-  });
-  const fallbackHex = rgbToHex(medianRgb(colors));
-  const strip = buildEdgeStripRgba(colors.length ? colors : [medianRgb([])], 8);
-  const edgeMap = new THREE.DataTexture(strip.data, strip.width, strip.height, THREE.RGBAFormat);
-  edgeMap.colorSpace = THREE.SRGBColorSpace;
-  edgeMap.wrapS = THREE.ClampToEdgeWrapping;
-  edgeMap.wrapT = THREE.ClampToEdgeWrapping;
-  edgeMap.magFilter = THREE.LinearFilter;
-  edgeMap.minFilter = THREE.LinearFilter;
-  edgeMap.needsUpdate = true;
-
-  const front = new THREE.MeshStandardMaterial({
-    map: faceTexture,
-    transparent: true,
-    alphaTest: 0.04,
-    roughness: 0.62,
-    metalness: 0,
-    side: THREE.FrontSide
-  });
-  const side = new THREE.MeshStandardMaterial({
-    map: edgeMap,
-    color: fallbackHex,
-    roughness: 0.78,
-    metalness: 0
-  });
-  const mesh = new THREE.Mesh(geometry, [front, side]);
-  mesh.castShadow = shadows;
-  mesh.receiveShadow = shadows;
-  return mesh;
-}
-
 export function PopoutMeshStage({
   sourceUrl,
   volume,
   yaw,
   pitch,
   roll,
-  zoom,
-  showOriginalPage
+  zoom
 }: {
   sourceUrl: string;
   volume: number;
@@ -157,7 +40,6 @@ export function PopoutMeshStage({
   pitch: number;
   roll: number;
   zoom: number;
-  showOriginalPage: boolean;
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const extractRef = useRef<ReadyExtract | null>(null);
@@ -167,11 +49,11 @@ export function PopoutMeshStage({
     null
   );
   const volumeRef = useRef(volume);
-  const pageRef = useRef(showOriginalPage);
   const viewRef = useRef({ yaw, pitch, roll, zoom });
   volumeRef.current = volume;
-  pageRef.current = showOriginalPage;
   viewRef.current = { yaw, pitch, roll, zoom };
+  const { messages } = useStudioI18n();
+  const COPY = messages.personalize;
 
   useEffect(() => {
     let cancelled = false;
@@ -275,50 +157,12 @@ export function PopoutMeshStage({
     faceTexture.flipY = true;
     const shared = new Set<THREE.Texture>([faceTexture]);
 
-    const photoTexture = new THREE.CanvasTexture(extract.sourceCanvas);
-    photoTexture.colorSpace = THREE.SRGBColorSpace;
-    photoTexture.flipY = true;
-    shared.add(photoTexture);
-    const aspect = extract.height / Math.max(1, extract.width);
-    const plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(POPOUT_SHAPE_SCALE, POPOUT_SHAPE_SCALE * aspect),
-      new THREE.MeshBasicMaterial({
-        map: photoTexture,
-        transparent: true,
-        opacity: 0.28,
-        depthWrite: false
-      })
-    );
-    plane.visible = false;
-    plane.receiveShadow = false;
-    root.add(plane);
-
-    const ground = lite
-      ? new THREE.Mesh(
-          new THREE.CircleGeometry(2.1, 32),
-          new THREE.MeshBasicMaterial({
-            color: 0x1a120c,
-            transparent: true,
-            opacity: 0.38,
-            depthWrite: false
-          })
-        )
-      : new THREE.Mesh(
-          new THREE.CircleGeometry(3.4, 48),
-          new THREE.ShadowMaterial({ opacity: 0.42 })
-        );
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = 0;
-    ground.receiveShadow = !lite;
-    scene.add(ground);
-
-    const focus = new THREE.Vector3(0, 0.8, 0);
+    const focus = new THREE.Vector3();
 
     const rebuild = () => {
       for (const child of [...root.children]) {
-        if (child === plane) continue;
         root.remove(child);
-        disposeObject(child, shared);
+        disposePopoutObject(child, shared);
       }
       const { depth } = previewVolumeDepth(volumeRef.current);
       const ordered = [...extract.layers].sort(
@@ -326,7 +170,7 @@ export function PopoutMeshStage({
       );
       for (const layer of ordered) {
         root.add(
-          makeComponentMesh(
+          makePopoutComponentMesh(
             layer.polygon,
             faceTexture,
             extract.width,
@@ -340,30 +184,22 @@ export function PopoutMeshStage({
       }
       root.updateMatrixWorld(true);
       const box = new THREE.Box3();
-      for (const child of root.children) {
-        if (child === plane) continue;
-        box.expandByObject(child);
-      }
+      for (const child of root.children) box.expandByObject(child);
       if (!box.isEmpty()) {
         const center = box.getCenter(new THREE.Vector3());
-        const minY = box.min.y;
         for (const child of root.children) {
-          if (child === plane) continue;
           child.position.x -= center.x;
-          child.position.y -= minY;
+          child.position.y -= center.y;
           child.position.z -= center.z;
         }
-        const height = box.max.y - box.min.y;
-        focus.set(0, Math.max(0.35, height * 0.42), 0);
-        plane.position.set(0, height * 0.5, -0.62);
       }
-      plane.visible = pageRef.current;
     };
 
     const frameCamera = () => {
       const { yaw: yawDeg, pitch: pitchDeg, roll: rollDeg, zoom: zoomPct } = viewRef.current;
       const radius = 5.4 / Math.max(0.45, zoomPct / 100);
-      // Fixed camera; object rotation matches CSS rotateY/rotateX/rotateZ (Three YXZ).
+      // Fixed camera; Three YXZ rotation (same values as the AR page). The CSS orbit
+      // flips the X / Z sign so the flat fallback shows the exact same pose.
       camera.position.set(focus.x, focus.y, focus.z + radius);
       camera.up.set(0, 1, 0);
       camera.lookAt(focus);
@@ -373,7 +209,6 @@ export function PopoutMeshStage({
         THREE.MathUtils.degToRad(yawDeg),
         THREE.MathUtils.degToRad(rollDeg)
       );
-      plane.visible = pageRef.current;
     };
 
     const resize = () => {
@@ -409,9 +244,7 @@ export function PopoutMeshStage({
     return () => {
       window.cancelAnimationFrame(frame);
       observer.disconnect();
-      disposeObject(root, shared);
-      ground.geometry.dispose();
-      (ground.material as THREE.Material).dispose();
+      disposePopoutObject(root, shared);
       for (const texture of shared) texture.dispose();
       renderer.dispose();
       renderer.domElement.remove();
@@ -430,9 +263,6 @@ export function PopoutMeshStage({
       {phase === "fallback" ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={sourceUrl} alt="" className="studio-stage__popout-flat" draggable={false} />
-      ) : null}
-      {phase === "ready" && showOriginalPage ? (
-        <p className="studio-stage__popout-reference">{COPY.pageReference}</p>
       ) : null}
       {phase === "preparing" ? (
         <p className="studio-stage__popout-status" role="status">

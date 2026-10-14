@@ -1,0 +1,192 @@
+/*
+ * Shared auth shell for Studio sign-in, the sent state, and /intra.
+ * Same dark studio field as the workspace: cream text, warm action.
+ */
+
+body:has(.auth-shell) {
+  margin: 0;
+  background: #0b0e14;
+}
+
+.auth-shell {
+  --auth-ink: #f3efe6;
+  --auth-muted: #a89f93;
+  --auth-paper: #0b0e14;
+  --auth-card: #10141c;
+  --auth-line: rgba(243, 239, 230, 0.12);
+  --auth-accent: #8d82ea;
+  --auth-warm: #e8a05a;
+  --auth-danger: #ffb4b4;
+  --auth-radius: 16px;
+
+  box-sizing: border-box;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  background:
+    radial-gradient(720px 420px at 88% -4%, rgba(217, 119, 79, 0.14), transparent 58%),
+    radial-gradient(480px 320px at 6% 100%, rgba(224, 122, 95, 0.08), transparent 52%),
+    linear-gradient(168deg, #11151e 0%, var(--auth-paper) 48%, #080a10 100%);
+  color: var(--auth-ink);
+  font-family: var(--font-studio-body), "Segoe UI", sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.45;
+}
+
+.auth-shell *,
+.auth-shell *::before,
+.auth-shell *::after {
+  box-sizing: border-box;
+}
+
+.auth-card {
+  width: min(420px, 100%);
+  margin: 0;
+  padding: 28px 24px 24px;
+  background: var(--auth-card);
+  border: 1px solid var(--auth-line);
+  border-radius: 18px;
+}
+
+.auth-brand {
+  margin: 0 0 14px;
+}
+
+.auth-shell h1 {
+  margin: 0 0 12px;
+  color: var(--auth-ink);
+  font-family: var(--font-studio-display), "Avenir Next", "Segoe UI", sans-serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.auth-lead,
+.auth-note {
+  margin: 0 0 20px;
+  color: var(--auth-muted);
+}
+
+.auth-note {
+  margin-bottom: 0;
+  font-size: 0.9375rem;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.auth-field label {
+  font-weight: 700;
+}
+
+.auth-field input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1.5px solid rgba(243, 239, 230, 0.28);
+  border-radius: var(--auth-radius);
+  background: #12161e;
+  color: var(--auth-ink);
+  font: inherit;
+}
+
+.auth-field input::placeholder {
+  color: var(--auth-muted);
+}
+
+.auth-field input:-webkit-autofill {
+  -webkit-text-fill-color: var(--auth-ink);
+  box-shadow: 0 0 0 1000px #12161e inset;
+}
+
+.auth-btn {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--auth-warm), #e07a5f);
+  color: #1a120e;
+  font: inherit;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.auth-btn:disabled {
+  cursor: progress;
+  opacity: 0.72;
+}
+
+.auth-error {
+  margin: 0;
+  color: var(--auth-danger);
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.auth-secondary {
+  margin: 16px 0 0;
+}
+
+.auth-secondary a,
+.auth-text-btn {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  color: var(--auth-warm);
+  font: inherit;
+  font-weight: 700;
+}
+
+.auth-text-btn {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.auth-dev {
+  margin: 16px 0 0;
+  color: var(--auth-muted);
+  font-size: 0.9375rem;
+}
+
+.auth-shell :focus-visible {
+  outline: 2px solid #e0d6a8;
+  outline-offset: 3px;
+}
+
+@media (max-width: 480px) {
+  .auth-shell {
+    padding: 28px 20px;
+  }
+
+  .auth-card {
+    padding: 24px 20px 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-shell *,
+  .auth-shell *::before,
+  .auth-shell *::after {
+    transition: none;
+    animation: none;
+  }
+}

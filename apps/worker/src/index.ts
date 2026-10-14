@@ -4,14 +4,17 @@ import {
   PopoutBuildError,
   FigurineBuildError,
   PublicStorageConfigError,
+  readFigureFeatureFlags,
   type PipelineJob
 } from "@kidar/core";
 import { claimNextJob, downloadAssetFile, failJob, markProjectStatus } from "./appwrite/jobs";
+import { assertWorkerRuntimeGuard } from "./runtime-guard";
 import { createWorkerPublicStorage } from "./storage/public";
 import { handlePopoutJobFailure, runPopoutBuildStage } from "./popout/stage";
 import { handleFigurineJobFailure, runFigurineBuildStage } from "./figurine/stage";
 import { handleMindJobFailure, runMindCompileStage } from "./mindar/stage";
 import { handlePageRenderJobFailure, runPageRenderStage } from "./pagerender/stage";
+import { handleUnpublishJobFailure, runUnpublishStage } from "./unpublish/stage";
 
 function pollIntervalMs(): number {
   const raw = Number(process.env.WORKER_POLL_INTERVAL_MS || 1000);
@@ -52,6 +55,16 @@ async function processClaimedJob(job: PipelineJob): Promise<void> {
   }
 
   if (job.type === "figurine_build") {
+    if (!readFigureFeatureFlags(process.env).generation) {
+      await handleFigurineJobFailure(
+        job,
+        new FigurineBuildError("Figure generation is disabled", {
+          retryable: false,
+          code: "GENERATION_DISABLED"
+        })
+      );
+      return;
+    }
     try {
       const storage = createWorkerPublicStorage();
       await runFigurineBuildStage(job, { storage });
@@ -81,6 +94,18 @@ async function processClaimedJob(job: PipelineJob): Promise<void> {
   }
 
   if (job.type === "page_render") {
+    if (!readFigureFeatureFlags(process.env).publish) {
+      await handlePageRenderJobFailure(
+        job,
+        new PageRenderError("Publish is disabled", {
+          retryable: false,
+          code: "PUBLISH_DISABLED"
+        }),
+        failJob,
+        markProjectStatus
+      );
+      return;
+    }
     try {
       const storage = createWorkerPublicStorage();
       await runPageRenderStage(job, {
@@ -99,11 +124,28 @@ async function processClaimedJob(job: PipelineJob): Promise<void> {
     return;
   }
 
+  if (job.type === "unpublish") {
+    try {
+      await runUnpublishStage(job);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message.includes("Lock token mismatch") || error.name === "JobLockMismatchError")
+      ) {
+        return;
+      }
+      await handleUnpublishJobFailure(job, error);
+    }
+    return;
+  }
+
   await failUnsupportedJob(job);
 }
 
 /** Process at most one eligible job (tests / one-shot runs). */
 export async function runWorkerOnce(): Promise<"processed" | "idle"> {
+  // No-op unless KIDAR_WORKER_ENV=staging; then refuses unsafe (production-like) config.
+  assertWorkerRuntimeGuard();
   const job = await claimNextJob();
   if (!job) return "idle";
   await processClaimedJob(job);
@@ -112,9 +154,11 @@ export async function runWorkerOnce(): Promise<"processed" | "idle"> {
 
 /** Polling loop for Railway / local worker. */
 export async function runWorkerLoop(signal?: AbortSignal): Promise<void> {
+  // Fail closed before the first poll: a misconfigured staging worker must not touch any queue.
+  assertWorkerRuntimeGuard();
   let emptyStreak = 0;
   console.log(
-    `[worker] polling for popout_build|figurine_build|mind_compile|page_render jobs every ${pollIntervalMs()}ms (backoff when idle)`
+    `[worker] polling for popout_build|figurine_build|mind_compile|page_render|unpublish jobs every ${pollIntervalMs()}ms (backoff when idle)`
   );
   while (!signal?.aborted) {
     try {

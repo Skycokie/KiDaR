@@ -1,4 +1,4 @@
-import { ID, Permission, Query, Role, type Models } from "node-appwrite";
+import { ID, Query, type Models } from "node-appwrite";
 import {
   JOB_LOCK_TTL_MS,
   JOB_MAX_ATTEMPTS,
@@ -17,6 +17,7 @@ import {
 } from "@kidar/core";
 import { APPWRITE_DATABASE_ID, APPWRITE_JOBS_COLLECTION } from "./config";
 import { createAdminClient } from "./client";
+import { ownerReadOnlyPermissions } from "./permissions";
 
 /**
  * Appwrite job persistence (M4.1).
@@ -47,14 +48,6 @@ type JobPayloadBag = {
   result?: JobResult | null;
   [key: string]: unknown;
 };
-
-function ownerPermissions(userId: string) {
-  return [
-    Permission.read(Role.user(userId)),
-    Permission.update(Role.user(userId)),
-    Permission.delete(Role.user(userId))
-  ];
-}
 
 function parsePayloadBag(value: unknown): JobPayloadBag {
   if (!value) return {};
@@ -218,7 +211,7 @@ export async function enqueueJob(params: {
     APPWRITE_JOBS_COLLECTION,
     ID.unique(),
     toDocumentData(draft, params.payload ?? { source: "studio" }),
-    ownerPermissions(params.ownerId)
+    ownerReadOnlyPermissions(params.ownerId)
   );
   return { kind: "created", job: mapJobDocument(created) };
 }

@@ -10,6 +10,7 @@ import {
   FIGURINE_RETOPO_FACE_LIMIT,
   FIGURINE_RETOPO_TIMEOUT_MS,
   FigurineBuildError,
+  stripFailedFigureFields,
   PublicStorageConfigError,
   assertFigurineInputs,
   assertFigurineSubjectSuitable,
@@ -239,30 +240,54 @@ export async function runFigurineBuildStage(
   }
 
   const sourceFileId = project.sourceImagePath;
-  const sourceBytes = sourceFileId ? await loadSource(sourceFileId) : null;
-  assertFigurineInputs({
-    projectId: job.projectId,
-    inputHash: job.inputHash,
-    sourceFileId,
-    sourceBytes
-  });
+  const payloadPrompt =
+    typeof (job.payload as { textPrompt?: unknown } | undefined)?.textPrompt === "string"
+      ? String((job.payload as { textPrompt?: string }).textPrompt)
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 500)
+      : "";
+  const settingsPrompt =
+    typeof project.settings?.figurineTextPrompt === "string"
+      ? project.settings.figurineTextPrompt.replace(/\s+/g, " ").trim().slice(0, 500)
+      : "";
+  const textPrompt = payloadPrompt || settingsPrompt;
+  const textMode = Boolean(textPrompt);
 
-  const mime = detectFigurineImageMime(sourceBytes!);
-  if (!mime) {
-    throw new FigurineBuildError("Figurine subject must be PNG or JPEG", {
+  const sourceBytes = !textMode && sourceFileId ? await loadSource(sourceFileId) : null;
+  if (!textMode) {
+    assertFigurineInputs({
+      projectId: job.projectId,
+      inputHash: job.inputHash,
+      sourceFileId,
+      sourceBytes
+    });
+  } else if (!job.projectId || !job.inputHash) {
+    throw new FigurineBuildError("Text figurine_build is missing project or hash", {
       retryable: false,
-      code: "UNSUPPORTED_IMAGE"
+      code: "MISSING_INPUT_HASH"
     });
   }
 
-  const inspection = await (deps.inspectSubject ?? inspectFigurineSubject)(sourceBytes!);
-  assertFigurineSubjectSuitable({
-    bytes: sourceBytes!,
-    width: inspection.width,
-    height: inspection.height,
-    coverage: inspection.coverage,
-    componentCount: inspection.componentCount
-  });
+  let mime: "image/png" | "image/jpeg" | null = null;
+  if (!textMode) {
+    mime = detectFigurineImageMime(sourceBytes!);
+    if (!mime) {
+      throw new FigurineBuildError("Figurine subject must be PNG or JPEG", {
+        retryable: false,
+        code: "UNSUPPORTED_IMAGE"
+      });
+    }
+
+    const inspection = await (deps.inspectSubject ?? inspectFigurineSubject)(sourceBytes!);
+    assertFigurineSubjectSuitable({
+      bytes: sourceBytes!,
+      width: inspection.width,
+      height: inspection.height,
+      coverage: inspection.coverage,
+      componentCount: inspection.componentCount
+    });
+  }
 
   const artifactKey = figurineArtifactKey(job.projectId, job.inputHash);
   const existing = await deps.storage.getMetadata(artifactKey);
@@ -335,12 +360,18 @@ export async function runFigurineBuildStage(
 
   if (!providerTaskId) {
     await persistProgress(job, deps, { phase: "submitting", progress: 5 });
-    const uploaded = await provider.uploadImage({
-      bytes: sourceBytes!,
-      filename: mime === "image/png" ? "subject.png" : "subject.jpg",
-      contentType: mime
-    });
-    const submitted = await provider.submitImageToModel({ fileToken: uploaded.fileToken });
+    let submitted: { providerTaskId: string };
+    if (textMode) {
+      const childSafePrompt = `Kid-friendly stylized toy figure, soft colors, no violence, no text logos. ${textPrompt}`;
+      submitted = await provider.submitTextToModel({ prompt: childSafePrompt });
+    } else {
+      const uploaded = await provider.uploadImage({
+        bytes: sourceBytes!,
+        filename: mime === "image/png" ? "subject.png" : "subject.jpg",
+        contentType: mime!
+      });
+      submitted = await provider.submitImageToModel({ fileToken: uploaded.fileToken });
+    }
     providerTaskId = submitted.providerTaskId;
     // Persist immediately so reclaim/retry does not create a second paid Image-to-3D task.
     await persistProgress(job, deps, {
@@ -580,14 +611,14 @@ export async function handleFigurineJobFailure(
     await patchRunningJobResult({
       jobId: job.id,
       lockToken: job.lockToken,
-      result: {
+      result: stripFailedFigureFields({
         ...persistedResult,
         provider: FIGURINE_PROVIDER,
         phase: "failed",
         progress: 0,
         failureCode: code,
-        failureMessage: message.slice(0, 400)
-      }
+        failureMessage: message.replace(/https?:\/\/\S+/g, "[url]").slice(0, 400)
+      })
     });
   } catch {
     // lock may already be lost
@@ -609,6 +640,7 @@ export async function handleFigurineJobFailure(
           ? job.result.subjectId
           : "primary";
     await markProjectStatus(job.projectId, "error", {
+      figurineModelUrl: null,
       figurineSubjects: mergeSubject(project.settings.figurineSubjects, {
         id: subjectId,
         sourceFileId: project.sourceImagePath || "",
@@ -620,8 +652,13 @@ export async function handleFigurineJobFailure(
             ? persistedResult.providerTaskId
             : undefined,
         jobId: job.id,
+        modelUrl: undefined,
         failureCode: code,
-        failureMessage: message.slice(0, 400)
+        failureMessage: message.replace(/https?:\/\/\S+/g, "[url]").slice(0, 400)
+      }).map((subject) => {
+        if (subject.id !== subjectId) return subject;
+        const { modelUrl: _modelUrl, ...rest } = subject;
+        return rest;
       })
     });
   } catch {

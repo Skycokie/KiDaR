@@ -50,10 +50,15 @@ export function arRuntimeScriptUrls(publicAssetOrigin: string): { aframe: string
  * Included in the page_render input hash so a new template writes a new
  * immutable `pages/<projectId>/<hash>/` namespace instead of overwriting.
  */
-export const AR_PAGE_TEMPLATE_VERSION = "ar-page-debug-v8";
+export const AR_PAGE_TEMPLATE_VERSION = "ar-page-decor-camera-v2";
 
 export const DEFAULT_AR_INSTRUCTIONS_RO =
   "Îndreaptă camera spre desenul tipărit pentru a vedea modelul 3D.";
+/** Shown on the start card so visitors know the camera feed never leaves the phone. */
+export const AR_CAMERA_PRIVACY_NOTE_RO =
+  "Imaginea camerei rămâne pe telefonul tău. Nu este înregistrată și nu este trimisă nicăieri.";
+/** Public AR pages are reachable only by link or QR code. Keep them out of search engines. */
+export const AR_ROBOTS_META_CONTENT = "noindex, nofollow, noarchive";
 export const AR_START_BUTTON_LABEL_RO = "Pornește experiența AR";
 export const AR_RETRY_BUTTON_LABEL_RO = "Reîncearcă";
 export const AR_IDLE_START_HINT_RO = "Apasă pentru a porni experiența AR.";
@@ -65,6 +70,11 @@ export const AR_CAMERA_PERMISSION_HINT_RO = AR_CAMERA_PROMPT_RO;
 export const AR_CAMERA_DENIED_RO =
   "Accesul la cameră a fost refuzat. Activează camera din setările browserului și reîncearcă.";
 export const AR_WATERMARK_RO = "Creat cu kidAR Studio";
+export const AR_CAMERA_VIEW_LABEL_RO = "Vezi în camera ta";
+export const AR_CAMERA_VIEW_NOTE_RO = "Doar personajul 3D. Decorul apare doar în AR pe desen.";
+export const AR_DESKTOP_NOTE_RO =
+  "AR-ul pe desen funcționează pe telefon: scanează codul QR de pe fișa tipărită. Pe acest ecran poți vedea personajul în 3D.";
+export const AR_DESKTOP_PREVIEW_LABEL_RO = "Previzualizare 3D";
 
 export const AR_RUNTIME_STATES = [
   "idle",
@@ -281,6 +291,33 @@ export interface ArPageConfig {
   assetOrigins?: string[];
   /** Allow http(s) localhost / 127.0.0.1 / ::1 for unit tests. */
   allowLocalOrigins?: boolean;
+  /**
+   * After image detect: stay glued to the printed drawing (`marker`) or
+   * reparent onto the phone camera (`follow`). Default marker.
+   */
+  arAnchorMode?: "marker" | "follow";
+  /**
+   * Extra marker-anchored GLB props (Studio decor). Stay on the target even when
+   * the character uses follow mode.
+   */
+  props?: Array<{
+    modelUrl: string;
+    position?: Partial<ArPageVec3>;
+    rotation?: Partial<ArPageVec3>;
+    scale?: number;
+  }>;
+  /**
+   * App page for the character-only camera view (Scene Viewer / Quick Look /
+   * desktop orbit preview). Absent = no camera-view link.
+   */
+  cameraViewUrl?: string;
+}
+
+export interface NormalizedArPageProp {
+  modelUrl: string;
+  position: ArPageVec3;
+  rotation: ArPageVec3;
+  scale: number;
 }
 
 export interface NormalizedArPageConfig {
@@ -299,6 +336,9 @@ export interface NormalizedArPageConfig {
   showWatermark: boolean;
   assetOrigins: string[];
   allowLocalOrigins: boolean;
+  arAnchorMode: "marker" | "follow";
+  props: NormalizedArPageProp[];
+  cameraViewUrl: string | null;
 }
 
 function finiteNumber(value: unknown, label: string, fallback: number): number {
@@ -356,7 +396,14 @@ function optionalPublicUrl(
 
 function collectAssetOrigins(config: NormalizedArPageConfig): string[] {
   const origins = new Set<string>([...config.assetOrigins]);
-  for (const href of [config.modelUrl, config.targetUrl, config.logoUrl, config.audioUrl, config.ctaUrl]) {
+  for (const href of [
+    config.modelUrl,
+    config.targetUrl,
+    config.logoUrl,
+    config.audioUrl,
+    config.ctaUrl,
+    ...config.props.map((p) => p.modelUrl)
+  ]) {
     if (!href) continue;
     try {
       origins.add(new URL(href).origin);
@@ -412,6 +459,10 @@ export function normalizeArPageConfig(config: ArPageConfig): NormalizedArPageCon
   const logoUrl = optionalPublicUrl(config.logoUrl, { allowLocalOrigins, label: "logoUrl" });
   const audioUrl = optionalPublicUrl(config.audioUrl, { allowLocalOrigins, label: "audioUrl" });
   const ctaUrl = optionalPublicUrl(config.ctaUrl, { allowLocalOrigins, label: "ctaUrl" });
+  const cameraViewUrl = optionalPublicUrl(config.cameraViewUrl, {
+    allowLocalOrigins,
+    label: "cameraViewUrl"
+  });
 
   let ctaText: string | null = null;
   if (config.ctaText !== undefined && config.ctaText !== null && config.ctaText !== "") {
@@ -432,6 +483,46 @@ export function normalizeArPageConfig(config: ArPageConfig): NormalizedArPageCon
   const position = normalizeVec3(config.transform?.position, "position", { x: 0, y: 0, z: 0 });
   // MindAR image-target plane: Pop-out GLB needs 180° about Z so artwork matches the marker.
   const rotation = normalizeVec3(config.transform?.rotation, "rotation", { x: 0, y: 0, z: 180 });
+
+  const arAnchorMode = config.arAnchorMode === "follow" ? "follow" : "marker";
+
+  const props: NormalizedArPageProp[] = [];
+  if (config.props) {
+    if (!Array.isArray(config.props)) {
+      throw new ArPageConfigError("props must be an array", "INVALID_PROPS");
+    }
+    if (config.props.length > 16) {
+      throw new ArPageConfigError("props must have at most 16 items", "INVALID_PROPS");
+    }
+    for (let i = 0; i < config.props.length; i += 1) {
+      const prop = config.props[i];
+      if (!prop || typeof prop !== "object") {
+        throw new ArPageConfigError(`props[${i}] must be an object`, "INVALID_PROPS");
+      }
+      let propModelUrl: string;
+      try {
+        propModelUrl = assertPublicAbsoluteUrl(prop.modelUrl, {
+          allowLocalOrigins,
+          label: `props[${i}].modelUrl`
+        }).href;
+      } catch (error) {
+        if (error instanceof PublicUrlError) {
+          throw new ArPageConfigError(error.message, error.code);
+        }
+        throw error;
+      }
+      const propScale = finiteNumber(prop.scale, `props[${i}].scale`, 0.25);
+      if (propScale <= 0 || propScale > 10) {
+        throw new ArPageConfigError(`props[${i}].scale must be in (0, 10]`, "INVALID_SCALE");
+      }
+      props.push({
+        modelUrl: propModelUrl,
+        position: normalizeVec3(prop.position, `props[${i}].position`, { x: 0, y: 0, z: 0.05 }),
+        rotation: normalizeVec3(prop.rotation, `props[${i}].rotation`, { x: 0, y: 0, z: 180 }),
+        scale: propScale
+      });
+    }
+  }
 
   const assetOrigins: string[] = [];
   if (config.assetOrigins) {
@@ -468,7 +559,10 @@ export function normalizeArPageConfig(config: ArPageConfig): NormalizedArPageCon
     scale,
     showWatermark: Boolean(config.showWatermark),
     assetOrigins,
-    allowLocalOrigins
+    allowLocalOrigins,
+    arAnchorMode,
+    props,
+    cameraViewUrl
   };
 }
 
@@ -543,6 +637,22 @@ export function renderArPage(config: ArPageConfig): string {
     `${normalized.scale} ${normalized.scale} ${normalized.scale}`
   );
 
+  const propsHtml = normalized.props
+    .map((prop, index) => {
+      const src = escapeHtmlAttr(prop.modelUrl);
+      const pos = escapeHtmlAttr(formatVec3(prop.position));
+      const rot = escapeHtmlAttr(formatVec3(prop.rotation));
+      const scl = escapeHtmlAttr(`${prop.scale} ${prop.scale} ${prop.scale}`);
+      return `        <a-gltf-model
+          id="kidar-prop-${index}"
+          src="${src}"
+          position="${pos}"
+          rotation="${rot}"
+          scale="${scl}"
+        ></a-gltf-model>`;
+    })
+    .join("\n");
+
   const logoHtml = normalized.logoUrl
     ? `<img class="logo" src="${escapeHtmlAttr(normalized.logoUrl)}" alt="" width="96" height="96" />`
     : "";
@@ -551,6 +661,13 @@ export function renderArPage(config: ArPageConfig): string {
     normalized.ctaText && normalized.ctaUrl
       ? `<a class="cta" href="${escapeHtmlAttr(normalized.ctaUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(normalized.ctaText)}</a>`
       : "";
+
+  const cameraViewHtml = normalized.cameraViewUrl
+    ? `<div class="camera-view">
+          <a id="kidar-camera-view" href="${escapeHtmlAttr(normalized.cameraViewUrl)}" data-mobile-label="${escapeHtmlAttr(AR_CAMERA_VIEW_LABEL_RO)}" data-desktop-label="${escapeHtmlAttr(AR_DESKTOP_PREVIEW_LABEL_RO)}">${escapeHtml(AR_CAMERA_VIEW_LABEL_RO)}</a>
+          <p class="camera-view-note">${escapeHtml(AR_CAMERA_VIEW_NOTE_RO)}</p>
+        </div>`
+    : "";
 
   const watermarkHtml = normalized.showWatermark
     ? `<p class="watermark">${escapeHtml(AR_WATERMARK_RO)}</p>`
@@ -584,6 +701,8 @@ export function renderArPage(config: ArPageConfig): string {
   var sceneEl = document.querySelector("a-scene");
   var targetEl = document.getElementById("kidar-target");
   var audioUrl = ${audioSrcJs};
+  var arAnchorMode = ${JSON.stringify(normalized.arAnchorMode)};
+  var followAttached = false;
   var audio = null;
   var debugEnabled = /(?:^|[?&])debug=1(?:&|$)/.test(location.search || "");
   var startClickRan = false;
@@ -808,7 +927,22 @@ export function renderArPage(config: ArPageConfig): string {
     restoreRetry();
   }
 
+  function attachModelToCamera() {
+    if (followAttached || arAnchorMode !== "follow") return;
+    var model = document.getElementById("kidar-model");
+    var camera = document.querySelector("a-camera");
+    if (!model || !camera) return;
+    // Screen-space companion: fixed offset in front of the lens after first detect.
+    model.setAttribute("position", "0 -0.12 -1.4");
+    model.setAttribute("rotation", "0 180 0");
+    camera.appendChild(model);
+    followAttached = true;
+    try { model.setAttribute("visible", true); } catch (e) {}
+    noteMindar("followAttached");
+  }
+
   function onTargetFound() {
+    if (arAnchorMode === "follow") attachModelToCamera();
     if (audio) {
       var playResult = audio.play();
       if (playResult && typeof playResult.catch === "function") {
@@ -818,6 +952,8 @@ export function renderArPage(config: ArPageConfig): string {
   }
 
   function onTargetLost() {
+    // Sticky follow stays on the camera HUD after the first detect.
+    if (arAnchorMode === "follow" && followAttached) return;
     if (audio) {
       audio.pause();
       try { audio.currentTime = 0; } catch (e) {}
@@ -1031,6 +1167,14 @@ export function renderArPage(config: ArPageConfig): string {
   if (window.__kidarAframeLoad) aframeLoad = window.__kidarAframeLoad;
   if (window.__kidarAframeReadyAt != null) aframeReadyAt = String(window.__kidarAframeReadyAt);
   markAframeGlobal();
+  if (uaFamily().indexOf("desktop-") === 0) {
+    var desktopNote = document.getElementById("kidar-desktop-note");
+    if (desktopNote) desktopNote.hidden = false;
+    var cameraLink = document.getElementById("kidar-camera-view");
+    if (cameraLink && cameraLink.getAttribute("data-desktop-label")) {
+      cameraLink.textContent = cameraLink.getAttribute("data-desktop-label");
+    }
+  }
   if (startBtn) {
     startBtn.addEventListener("click", startExperience);
   }
@@ -1046,6 +1190,7 @@ export function renderArPage(config: ArPageConfig): string {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="${AR_ROBOTS_META_CONTENT}" />
   <meta http-equiv="Content-Security-Policy" content="${escapeCspAttribute(csp)}" />
   <title>${title}</title>
   <script id="kidar-csp-probe">
@@ -1080,7 +1225,13 @@ document.addEventListener("securitypolicyviolation", function (event) {
     .start-card { max-width: 22rem; width: 100%; text-align: center; }
     #kidar-start-hint { margin: 0 0 .85rem; opacity: .92; font-size: .95rem; }
     #kidar-start { appearance: none; border: 0; cursor: pointer; width: 100%; padding: .9rem 1.1rem; border-radius: .75rem; font-size: 1.05rem; font-weight: 700; color: #111; background: var(--kidar-theme); }
+    #kidar-privacy-note { margin: .75rem 0 0; font-size: .78rem; line-height: 1.4; opacity: .7; }
     #kidar-start:disabled { opacity: .65; cursor: default; }
+    #kidar-desktop-note { margin: 0 0 .85rem; padding: .65rem .8rem; border-radius: .6rem; background: rgba(255,255,255,.08); font-size: .9rem; }
+    #kidar-desktop-note[hidden] { display: none !important; }
+    .camera-view { margin-top: .9rem; }
+    #kidar-camera-view { display: block; padding: .75rem 1rem; border-radius: .75rem; border: 2px solid var(--kidar-theme); color: var(--kidar-fg); text-decoration: none; font-weight: 700; }
+    .camera-view-note { margin: .4rem 0 0; font-size: .8rem; opacity: .75; }
     #kidar-camera-hint, #kidar-error { position: absolute; left: 1rem; right: 1rem; bottom: 1.25rem; z-index: 4; margin: 0; padding: .75rem 1rem; border-radius: .65rem; text-align: center; font-size: .9rem; }
     #kidar-camera-hint { background: rgba(15,20,25,.85); }
     #kidar-camera-hint[hidden], #kidar-error[hidden], #kidar-debug[hidden] { display: none !important; }
@@ -1106,7 +1257,10 @@ document.addEventListener("securitypolicyviolation", function (event) {
     <div id="kidar-start-panel">
       <div class="start-card">
         <p id="kidar-start-hint">${escapeHtml(AR_IDLE_START_HINT_RO)}</p>
+        <p id="kidar-desktop-note" hidden>${escapeHtml(AR_DESKTOP_NOTE_RO)}</p>
         <button type="button" id="kidar-start">${escapeHtml(AR_START_BUTTON_LABEL_RO)}</button>
+        <p id="kidar-privacy-note">${escapeHtml(AR_CAMERA_PRIVACY_NOTE_RO)}</p>
+        ${cameraViewHtml}
       </div>
     </div>
 
@@ -1116,6 +1270,7 @@ document.addEventListener("securitypolicyviolation", function (event) {
 
     <a-scene
       mindar-image="imageTargetSrc: ${targetUrl}; autoStart: false; uiScanning: no; uiLoading: no; uiError: no"
+      data-ar-anchor="${normalized.arAnchorMode}"
       embedded
       loading-screen="enabled: false"
       color-space="sRGB"
@@ -1126,11 +1281,13 @@ document.addEventListener("securitypolicyviolation", function (event) {
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
       <a-entity id="kidar-target" mindar-image-target="targetIndex: 0">
         <a-gltf-model
+          id="kidar-model"
           src="${modelUrl}"
           position="${position}"
           rotation="${rotation}"
           scale="${scaleAttr}"
         ></a-gltf-model>
+${propsHtml}
       </a-entity>
     </a-scene>
   </div>

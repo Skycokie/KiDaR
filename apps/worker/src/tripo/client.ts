@@ -11,6 +11,7 @@ import {
 import {
   TRIPO_DECIMATE_MODEL,
   TRIPO_IMAGE_TO_MODEL_MODEL,
+  TRIPO_TEXT_TO_MODEL_MODEL,
   type TripoConfig,
   requireTripoConfig
 } from "./config";
@@ -40,6 +41,8 @@ export interface TripoImageToModelProvider {
     contentType: string;
   }): Promise<{ fileToken: string }>;
   submitImageToModel(input: { fileToken: string }): Promise<{ providerTaskId: string }>;
+  /** Text-to-3D (POST /generation/text-to-model). Used when FIGURE_TEXT_3D_ENABLED jobs carry a prompt. */
+  submitTextToModel(input: { prompt: string }): Promise<{ providerTaskId: string }>;
   /**
    * Smart retopology from a completed generation task (POST /mesh/decimate).
    * Input is the Tripo task id of the high-poly result — never a public KidAR URL.
@@ -204,6 +207,37 @@ export function createTripoProvider(
         throw new FigurineBuildError("Tripo submit did not return task_id", {
           retryable: false,
           code: "TRIPO_SUBMIT_INVALID"
+        });
+      }
+      return { providerTaskId };
+    },
+
+    async submitTextToModel(input) {
+      const prompt = input.prompt.replace(/\s+/g, " ").trim().slice(0, 500);
+      if (!prompt) {
+        throw new FigurineBuildError("Tripo text-to-model requires a prompt", {
+          retryable: false,
+          code: "TRIPO_TEXT_INPUT"
+        });
+      }
+      const model =
+        (typeof process.env.TRIPO_TEXT_TO_MODEL_MODEL === "string" &&
+          process.env.TRIPO_TEXT_TO_MODEL_MODEL.trim()) ||
+        TRIPO_TEXT_TO_MODEL_MODEL;
+      const body = await request("/generation/text-to-model", {
+        method: "POST",
+        headers: authHeaders(config.apiKey, "application/json"),
+        body: JSON.stringify({
+          prompt,
+          model,
+          texture: true
+        })
+      });
+      const providerTaskId = extractTaskId(body);
+      if (!providerTaskId) {
+        throw new FigurineBuildError("Tripo text-to-model did not return task_id", {
+          retryable: false,
+          code: "TRIPO_TEXT_SUBMIT_INVALID"
         });
       }
       return { providerTaskId };

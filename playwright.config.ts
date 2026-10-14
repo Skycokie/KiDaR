@@ -13,21 +13,30 @@ try {
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 
+const romanianLocale = {
+  locale: "ro-RO",
+  extraHTTPHeaders: {
+    "Accept-Language": "ro"
+  }
+} as const;
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 60_000,
   use: {
     baseURL,
-    trace: "on-first-retry"
+    trace: "on-first-retry",
+    ...romanianLocale
   },
   projects: [
-    { name: "desktop", use: devices["Desktop Chrome"] },
+    { name: "desktop", use: { ...devices["Desktop Chrome"], ...romanianLocale } },
     {
       name: "mobile",
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 390, height: 844 },
-        isMobile: true
+        isMobile: true,
+        ...romanianLocale
       }
     }
   ],

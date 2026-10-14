@@ -1,10 +1,10 @@
-import { Permission, Role } from "node-appwrite";
 import { InputFile } from "node-appwrite/file";
 import {
   APPWRITE_ASSETS_BUCKET,
   APPWRITE_SOURCE_BUCKET
 } from "./config";
-import { createSessionClient } from "./client";
+import { createAdminClient } from "./client";
+import { ownerReadOnlyPermissions } from "./permissions";
 
 export function previewUrl(bucketId: string, fileId: string) {
   return `/api/files/${encodeURIComponent(bucketId)}/${encodeURIComponent(fileId)}`;
@@ -24,14 +24,10 @@ async function upsertFile(
   file: File,
   ownerId: string
 ) {
-  const { storage } = createSessionClient();
+  const { storage } = createAdminClient();
   const buffer = Buffer.from(await file.arrayBuffer());
   const input = InputFile.fromBuffer(buffer, file.name || preferredId);
-  const permissions = [
-    Permission.read(Role.user(ownerId)),
-    Permission.update(Role.user(ownerId)),
-    Permission.delete(Role.user(ownerId))
-  ];
+  const permissions = ownerReadOnlyPermissions(ownerId);
 
   try {
     await storage.getFile(bucketId, preferredId);
@@ -52,6 +48,13 @@ export function assetFileId(projectId: string, kind: string) {
   return `${kind}_${projectId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 32)}`.slice(0, 36);
 }
 
+/** Stable Appwrite file id for a character voice clip (max 36 chars). */
+export function voiceAssetFileId(projectId: string, characterId: string) {
+  const project = projectId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 20);
+  const character = characterId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 10);
+  return `v_${project}_${character}`.slice(0, 36);
+}
+
 export async function uploadSourceDrawing(ownerId: string, projectId: string, file: File) {
   const fileId = sourceFileId(ownerId, projectId);
   return upsertFile(APPWRITE_SOURCE_BUCKET, fileId, file, ownerId);
@@ -67,8 +70,18 @@ export async function uploadProjectAsset(
   return upsertFile(APPWRITE_ASSETS_BUCKET, fileId, file, ownerId);
 }
 
+export async function uploadCharacterVoiceAudio(
+  ownerId: string,
+  projectId: string,
+  characterId: string,
+  file: File
+) {
+  const fileId = voiceAssetFileId(projectId, characterId);
+  return upsertFile(APPWRITE_ASSETS_BUCKET, fileId, file, ownerId);
+}
+
 export async function deleteStorageFiles(bucketId: string, fileIds: string[]) {
-  const { storage } = createSessionClient();
+  const { storage } = createAdminClient();
   for (const fileId of fileIds) {
     try {
       await storage.deleteFile(bucketId, fileId);

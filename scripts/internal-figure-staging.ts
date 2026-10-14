@@ -20,8 +20,11 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   FIGURE_STAGING_ENVIRONMENT,
+  decideFigureGeneration,
+  readFigureFeatureFlags,
   type FigureAssets,
-  type FigureGenerationJob
+  type FigureGenerationJob,
+  type FigureLifecycle
 } from "@kidar/core";
 import { createStagingR2WriteStorage } from "../apps/worker/src/storage/staging-r2";
 import { runFigureStagingBuild } from "../apps/worker/src/figurine/staging-stage";
@@ -93,6 +96,14 @@ async function loadSourceFromAppwrite(fileId: string): Promise<Uint8Array> {
   return new Uint8Array(Buffer.from(ab as unknown as ArrayBuffer));
 }
 
+function mapStagingStatus(status: FigureAssets["status"] | undefined): FigureLifecycle | null {
+  if (status === "pending") return "draft";
+  if (status === "processing") return "processing";
+  if (status === "ready") return "ready";
+  if (status === "failed") return "failed";
+  return null;
+}
+
 async function loadSourceFromUrl(url: string): Promise<Uint8Array> {
   const response = await fetch(url);
   if (!response.ok) {
@@ -115,18 +126,57 @@ async function main() {
   }
 
   const prior = (settings.figureStagingTasks as Record<string, string> | undefined) ?? {};
-  const jobId =
+  const proposedJobId =
     process.env.FIGURE_STAGING_JOB_ID ||
     (typeof prior.jobId === "string" && prior.jobId) ||
     randomUUID().replace(/-/g, "").slice(0, 24);
+  const drawingVersion = (sourceImagePath || sourceImageUrl).trim();
+  const storedAssets = settings.figureAssets as FigureAssets | undefined;
+  const ownerId =
+    typeof data.owner === "string" && data.owner.trim() ? data.owner.trim() : "internal-operator";
+  const lifecycle = mapStagingStatus(storedAssets?.status);
+  const decision = decideFigureGeneration({
+    flags: readFigureFeatureFlags(process.env),
+    projectId,
+    drawingVersion,
+    requesterId: ownerId,
+    ownerId,
+    proposedJobId,
+    existing:
+      lifecycle && typeof prior.jobId === "string" && prior.jobId
+        ? {
+            jobId: prior.jobId,
+            status: lifecycle,
+            drawingVersion: typeof prior.drawingVersion === "string" ? prior.drawingVersion : null
+          }
+        : null
+  });
+  if (decision.action === "reject") {
+    throw new Error(`Figure generation blocked: ${decision.code}`);
+  }
+  if (decision.action === "reuse") {
+    console.log(
+      JSON.stringify({
+        action: "figure_staging_idempotent_reuse",
+        projectId,
+        jobId: decision.jobId,
+        environment: FIGURE_STAGING_ENVIRONMENT,
+        publish: false
+      })
+    );
+    return;
+  }
+  const jobId = decision.jobId;
 
   const taskIds: {
     jobId: string;
+    drawingVersion: string;
     providerTaskId?: string;
     retopoTaskId?: string;
     convertTaskId?: string;
   } = {
     jobId,
+    drawingVersion,
     providerTaskId: typeof prior.providerTaskId === "string" ? prior.providerTaskId : undefined,
     retopoTaskId: typeof prior.retopoTaskId === "string" ? prior.retopoTaskId : undefined,
     convertTaskId: typeof prior.convertTaskId === "string" ? prior.convertTaskId : undefined
@@ -214,8 +264,6 @@ async function main() {
         action: "figure_staging_done",
         kind: result.kind,
         status: result.assets.status,
-        glbKey: result.glbKey,
-        usdzKey: result.usdzKey,
         errorCode: result.assets.errorCode ?? null
       },
       null,

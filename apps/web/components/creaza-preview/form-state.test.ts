@@ -11,7 +11,7 @@ import {
   goBack,
   isWritePathBlocked,
   selectExperience,
-  selectPreset,
+  selectStartingPoint,
   setLocalSourceSuccess
 } from "./form-state";
 
@@ -25,15 +25,16 @@ function makeFile(name: string, type: string, size: number): File {
 describe("creaza-preview local form state (Create/Source/Scene Go B)", () => {
   it("preserves preset when moving forward and back after create", () => {
     let state = createInitialCreazaFormState();
-    state = selectPreset(state, "story");
+    state = selectStartingPoint(state, "story");
     state = beginPresetCreate(state);
     state = completePresetCreate(state, "proj_story");
     expect(state.step).toBe("foto");
-    expect(state.preset).toBe("story");
+    expect(state.startingPoint).toBe("story");
+    expect(state.preset).toBe("coloring");
     expect(state.projectId).toBe("proj_story");
     state = goBack(state);
     expect(state.step).toBe("preset");
-    expect(state.preset).toBe("story");
+    expect(state.startingPoint).toBe("story");
     expect(state.projectId).toBe("proj_story");
   });
 
@@ -56,7 +57,7 @@ describe("creaza-preview local form state (Create/Source/Scene Go B)", () => {
 
   it("blocks source save without real photo; completes after upload success", () => {
     let state = createInitialCreazaFormState();
-    state = selectPreset(state, "coloring");
+    state = selectStartingPoint(state, "character");
     state = completePresetCreate(beginPresetCreate(state), "proj_foto");
     expect(state.step).toBe("foto");
 
@@ -85,7 +86,7 @@ describe("creaza-preview local form state (Create/Source/Scene Go B)", () => {
 
   it("keeps experience choice through confirmation after scene save", () => {
     let state = createInitialCreazaFormState();
-    state = selectPreset(state, "coloring");
+    state = selectStartingPoint(state, "character");
     state = completePresetCreate(beginPresetCreate(state), "proj_done");
     state = setLocalSourceSuccess(
       state,

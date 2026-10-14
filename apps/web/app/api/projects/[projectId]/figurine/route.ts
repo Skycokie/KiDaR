@@ -6,6 +6,7 @@ import {
   countReadyFigurineAssets,
   figurineProgressLabel,
   hasActiveFigurineSubject,
+  readFigureFeatureFlags,
   resolveFigurineAvailability,
   type FigurineSubjectRecord,
   type ProjectMode
@@ -16,6 +17,10 @@ import { getProjectForOwner, updateProjectDocument } from "@/lib/appwrite/db";
 import { enqueueJob, findJobByInputHash } from "@/lib/appwrite/jobs";
 import { APPWRITE_SOURCE_BUCKET } from "@/lib/appwrite/config";
 import { isFigurineFeatureEnabled } from "@/lib/figurine-feature";
+import { isFigureText3dEnabled } from "@/lib/ai/feature";
+import { isFigureText3dRequest, limitTextFigurinePrompt } from "@/lib/ai/text-figurine";
+import { moderateText } from "@/lib/ai/moderation";
+import { hasValidConsent } from "@/lib/consent";
 
 type Context = { params: { projectId: string } };
 
@@ -70,6 +75,7 @@ export async function GET(_request: Request, { params }: Context) {
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
   const availability = projectFigurineAvailability(project);
+  const modelUrl = project.settings?.figurineModelUrl ?? null;
 
   const inputHash = computeInputHash({
     projectId: project.id,
@@ -98,7 +104,7 @@ export async function GET(_request: Request, { params }: Context) {
     availability,
     disclosure: FIGURINE_DISCLOSURE_RO,
     subjects: project.settings?.figurineSubjects ?? [],
-    figurineModelUrl: project.settings?.figurineModelUrl ?? null,
+    figurineModelUrl: modelUrl,
     job: job
       ? {
           id: job.id,
@@ -111,8 +117,7 @@ export async function GET(_request: Request, { params }: Context) {
                 ? 100
                 : 0,
           label: figurineProgressLabel(phase),
-          publicUrl:
-            typeof job.result?.publicUrl === "string" ? job.result.publicUrl : null,
+          publicUrl: typeof job.result?.publicUrl === "string" ? job.result.publicUrl : null,
           failureCode:
             typeof job.result?.failureCode === "string" ? job.result.failureCode : null,
           failureMessage:
@@ -136,12 +141,18 @@ export async function POST(request: Request, { params }: Context) {
   const user = await getLoggedInUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  if (!readFigureFeatureFlags(process.env).generation) {
+    return NextResponse.json({ error: "generation_disabled" }, { status: 403 });
+  }
+
   const project = await getProjectForOwner(params.projectId, user.$id);
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
   const body = (await request.json().catch(() => ({}))) as {
     confirm?: boolean;
     subjectId?: string;
+    mode?: string;
+    prompt?: string;
   };
   if (body.confirm !== true) {
     return NextResponse.json(
@@ -154,16 +165,33 @@ export async function POST(request: Request, { params }: Context) {
     );
   }
 
-  const availability = projectFigurineAvailability(project);
+  const textMode = isFigureText3dRequest(body);
+  if (textMode && !isFigureText3dEnabled()) {
+    return NextResponse.json({ error: "text_3d_disabled", code: "flag_off" }, { status: 403 });
+  }
+  if (textMode && !hasValidConsent(user.prefs, "ai")) {
+    return NextResponse.json({ error: "consent_required", code: "ai" }, { status: 403 });
+  }
 
-  if (!availability.available) {
-    return NextResponse.json(
-      {
-        error: availability.reason,
-        message: availability.message
-      },
-      { status: 400 }
-    );
+  const textPrompt = textMode ? limitTextFigurinePrompt(String(body.prompt)) : "";
+  if (textMode) {
+    const mod = await moderateText(textPrompt);
+    if (!mod.ok || mod.flagged) {
+      return NextResponse.json({ error: "prompt_blocked", code: "moderation" }, { status: 400 });
+    }
+  }
+
+  if (!textMode) {
+    const availability = projectFigurineAvailability(project);
+    if (!availability.available) {
+      return NextResponse.json(
+        {
+          error: availability.reason,
+          message: availability.message
+        },
+        { status: 400 }
+      );
+    }
   }
 
   if (hasActiveFigurineSubject(project.settings?.figurineSubjects)) {
@@ -176,15 +204,21 @@ export async function POST(request: Request, { params }: Context) {
     );
   }
 
-  const sourceFileId = project.source_image_path!;
+  const sourceFileId = textMode ? "text-prompt" : project.source_image_path!;
   const subjectId = body.subjectId?.trim() || "primary";
   const inputHash = computeInputHash({
     projectId: project.id,
     mode: "figurine_3d",
-    source: sourceRef(sourceFileId),
+    source: textMode
+      ? {
+          fileId: `text:${sha256Hex(textPrompt).slice(0, 32)}`,
+          checksum: sha256Hex(textPrompt)
+        }
+      : sourceRef(sourceFileId),
     settings: {
       ...project.settings,
-      figurineModelUrl: project.settings.figurineModelUrl
+      figurineModelUrl: project.settings.figurineModelUrl,
+      ...(textMode ? { figurineTextPrompt: textPrompt } : {})
     }
   });
 
@@ -202,6 +236,7 @@ export async function POST(request: Request, { params }: Context) {
     status: "processing",
     settings: {
       ...project.settings,
+      ...(textMode ? { figurineTextPrompt: textPrompt } : {}),
       figurineSubjects: [
         ...(project.settings.figurineSubjects ?? []).filter((s) => s.id !== subjectId),
         subject
@@ -215,8 +250,9 @@ export async function POST(request: Request, { params }: Context) {
     inputHash,
     ownerId: user.$id,
     payload: {
-      source: "studio_figurine",
-      subjectId
+      source: textMode ? "studio_figurine_text" : "studio_figurine",
+      subjectId,
+      ...(textMode ? { textPrompt } : {})
     }
   });
 
@@ -226,6 +262,7 @@ export async function POST(request: Request, { params }: Context) {
       kind: enqueued.kind,
       jobId: enqueued.job.id,
       publicUrl:
+        readFigureFeatureFlags(process.env).ar &&
         typeof enqueued.job.result?.publicUrl === "string"
           ? enqueued.job.result.publicUrl
           : null,

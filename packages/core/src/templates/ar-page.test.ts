@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  AR_CAMERA_PRIVACY_NOTE_RO,
+  AR_CAMERA_VIEW_LABEL_RO,
+  AR_CAMERA_VIEW_NOTE_RO,
+  AR_ROBOTS_META_CONTENT,
   AR_FAILURE_COPY_RO,
   AR_IDLE_START_HINT_RO,
   AR_RETRY_BUTTON_LABEL_RO,
@@ -32,6 +36,21 @@ const baseConfig = (): ArPageConfig => ({
 });
 
 describe("renderArPage", () => {
+  it("keeps public AR pages out of search engines and states the camera privacy note", () => {
+    const html = renderArPage(baseConfig());
+    expect(html).toContain(`<meta name="robots" content="${AR_ROBOTS_META_CONTENT}" />`);
+    expect(AR_ROBOTS_META_CONTENT).toMatch(/noindex/);
+    expect(html).toContain('id="kidar-privacy-note"');
+    expect(html).toContain(AR_CAMERA_PRIVACY_NOTE_RO);
+  });
+
+  it("never loads runtime scripts from a third-party CDN", () => {
+    const html = renderArPage(baseConfig());
+    expect(html).not.toContain("jsdelivr");
+    expect(html).toContain(`src="${AFRAME_RUNTIME_SCRIPT_PATH}"`);
+    expect(html).toContain(`src="${MINDAR_RUNTIME_SCRIPT_PATH}"`);
+  });
+
   it("renders deterministic HTML for a normalized config", () => {
     const htmlA = renderArPage(baseConfig());
     const htmlB = renderArPage(baseConfig());
@@ -481,6 +500,65 @@ describe("AR start gate and error classification", () => {
     expect(classifyArStartError({ name: "KidarArError", message: "a-scene loaded timeout" })).not.toBe(
       "permission"
     );
+  });
+
+  it("keeps marker anchor by default and sticky-follow only when arAnchorMode is follow", () => {
+    const markerHtml = renderArPage(baseConfig());
+    expect(markerHtml).toContain('data-ar-anchor="marker"');
+    expect(markerHtml).toContain('id="kidar-model"');
+    expect(markerHtml).toContain('var arAnchorMode = "marker"');
+    expect(markerHtml).toContain("attachModelToCamera");
+    expect(markerHtml).toContain('if (arAnchorMode === "follow") attachModelToCamera()');
+    expect(markerHtml).toContain('arAnchorMode === "follow" && followAttached');
+
+    const followHtml = renderArPage({ ...baseConfig(), arAnchorMode: "follow" });
+    expect(followHtml).toContain('data-ar-anchor="follow"');
+    expect(followHtml).toContain('var arAnchorMode = "follow"');
+    expect(followHtml).toContain("camera.appendChild(model)");
+    expect(followHtml).toContain('getElementById("kidar-model")');
+    expect(normalizeArPageConfig({ ...baseConfig(), arAnchorMode: "follow" }).arAnchorMode).toBe(
+      "follow"
+    );
+    expect(normalizeArPageConfig(baseConfig()).arAnchorMode).toBe("marker");
+  });
+
+  it("renders marker-anchored decor props beside the character model", () => {
+    const html = renderArPage({
+      ...baseConfig(),
+      props: [
+        {
+          modelUrl: "https://cdn.example.com/demo/glb/decor/stars.glb",
+          position: { x: 0.2, y: -0.1, z: 0.05 },
+          rotation: { x: 0, y: 15, z: 180 },
+          scale: 0.2
+        }
+      ]
+    });
+    expect(html).toContain('id="kidar-prop-0"');
+    expect(html).toContain("https://cdn.example.com/demo/glb/decor/stars.glb");
+    expect(html).toContain('id="kidar-model"');
+  });
+
+  it("labels the camera view as character-only and adds desktop guidance", () => {
+    const cameraUrl =
+      "https://app.example.com/ar/demo/camera?model=https%3A%2F%2Fcdn.example.com%2Fmodels%2Fp1%2Fabc%2Fpopout.glb";
+    const html = renderArPage({ ...baseConfig(), cameraViewUrl: cameraUrl });
+    expect(html).toContain('id="kidar-camera-view"');
+    expect(html).toContain(`href="${cameraUrl}"`);
+    expect(html).toContain(AR_CAMERA_VIEW_LABEL_RO);
+    expect(html).toContain(AR_CAMERA_VIEW_NOTE_RO);
+    expect(html).toContain('id="kidar-desktop-note" hidden');
+    expect(normalizeArPageConfig({ ...baseConfig(), cameraViewUrl: cameraUrl }).cameraViewUrl).toBe(
+      cameraUrl
+    );
+  });
+
+  it("omits the camera view link when no URL is configured and rejects unsafe ones", () => {
+    const html = renderArPage(baseConfig());
+    expect(html).not.toContain('id="kidar-camera-view"');
+    expect(() =>
+      renderArPage({ ...baseConfig(), cameraViewUrl: "javascript:alert(1)" })
+    ).toThrow(ArPageConfigError);
   });
 });
 

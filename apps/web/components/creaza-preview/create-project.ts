@@ -3,6 +3,8 @@
  * Stores only project.id. Never uploads source or patches settings.
  */
 
+import type { Locale } from "@/i18n/config";
+import { getMessages } from "@/i18n/get-messages";
 import {
   friendlySurpriseName,
   type SimpleCreatorPreset
@@ -27,12 +29,15 @@ export type CreateProjectResult =
   | { ok: true; projectId: string }
   | { ok: false; error: Exclude<CreateProjectClientError, "select"> };
 
+const DATE_LOCALE: Record<Locale, string> = { ro: "ro-RO", en: "en-GB" };
+
 export function buildCreateProjectPayload(
   preset: SimpleCreatorPreset,
-  now: Date = new Date()
+  now: Date = new Date(),
+  locale: Locale = "ro"
 ): CreateProjectPayload {
   return {
-    name: friendlySurpriseName(now),
+    name: friendlySurpriseName(now, DATE_LOCALE[locale], getMessages(locale).creaza.surpriseName),
     mode: "popout",
     settings: { preset }
   };

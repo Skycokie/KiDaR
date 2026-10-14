@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
+import { uploadArtifactKey } from "@kidar/core";
+import { sha256Hex } from "@kidar/core/hash";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import { getProfile, getProjectForOwner, updateProjectDocument } from "@/lib/appwrite/db";
 import { createSignedAssetUrl, uploadProjectAsset } from "@/lib/appwrite/storage";
+import { isWebPublicR2Ready, promoteGlbToPublicR2 } from "@/lib/public-r2";
 
 type Context = { params: { projectId: string } };
 type AssetKind = "model" | "logo" | "sound";
@@ -48,10 +51,35 @@ export async function POST(request: Request, { params }: Context) {
   try {
     const path = await uploadProjectAsset(user.$id, params.projectId, kind, file);
     const key = kind === "model" ? "uploadModelPath" : kind === "logo" ? "logoPath" : "soundPath";
-    const settings = { ...project.settings, [key]: path };
-    await updateProjectDocument(params.projectId, { settings });
+    const settings: Record<string, unknown> = { ...project.settings, [key]: path };
+    let publicUrl: string | null = null;
+    let promoted = false;
+
+    if (kind === "model") {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const checksum = sha256Hex(bytes);
+      if (isWebPublicR2Ready()) {
+        const artifactKey = uploadArtifactKey(params.projectId, checksum);
+        const written = await promoteGlbToPublicR2({ key: artifactKey, body: bytes, checksum });
+        publicUrl = written.publicUrl;
+        settings.uploadModelUrl = publicUrl;
+        promoted = true;
+      }
+    }
+
+    const patch: Record<string, unknown> = { settings };
+    if (kind === "model") {
+      patch.mode = "upload";
+    }
+    await updateProjectDocument(params.projectId, patch);
     const url = await createSignedAssetUrl(path, 60 * 15);
-    return NextResponse.json({ path, url });
+    return NextResponse.json({
+      path,
+      url,
+      publicUrl,
+      promoted,
+      mode: kind === "model" ? "upload" : project.mode
+    });
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "Upload failed";
     return NextResponse.json({ error: message }, { status: 500 });

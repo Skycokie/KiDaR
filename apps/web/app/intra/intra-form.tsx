@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { FormEvent, useId, useRef, useState } from "react";
+import { AuthShell } from "@/components/auth/auth-shell";
+import type { Locale } from "@/i18n/config";
+import { hrefForLocale } from "@/i18n/locale";
+import type { Messages } from "@/i18n/types";
 
-const SENT_COPY =
-  "Uită-te în email, inclusiv în folderul Spam. Apasă legătura ca să continui.";
-const ERROR_COPY = "Nu am putut trimite emailul. Verifică adresa și încearcă din nou.";
-
-export function IntraForm() {
+export function IntraForm({ locale, messages }: { locale: Locale; messages: Messages }) {
   const emailId = useId();
   const errorId = useId();
   const emailRef = useRef<HTMLInputElement>(null);
@@ -16,12 +16,13 @@ export function IntraForm() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
   const [devLoginUrl, setDevLoginUrl] = useState("");
+  const auth = messages.auth;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = email.trim();
     if (!trimmed || !emailRef.current?.checkValidity()) {
-      setError(ERROR_COPY);
+      setError(auth.invalidEmail);
       emailRef.current?.focus();
       return;
     }
@@ -35,9 +36,9 @@ export function IntraForm() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email: trimmed, next: "/creaza" })
       });
-      const payload = (await response.json()) as { error?: string; devLoginUrl?: string };
+      const payload = (await response.json()) as { devLoginUrl?: string };
       if (!response.ok) {
-        setError(ERROR_COPY);
+        setError(auth.sendMailError);
         emailRef.current?.focus();
         return;
       }
@@ -46,55 +47,67 @@ export function IntraForm() {
         setDevLoginUrl(payload.devLoginUrl);
       }
     } catch {
-      setError(ERROR_COPY);
+      setError(auth.sendMailError);
       emailRef.current?.focus();
     } finally {
       setLoading(false);
     }
   }
 
-  const describedBy = error ? errorId : undefined;
+  if (sent) {
+    return (
+      <AuthShell title={auth.checkEmail} lang={locale} locale={locale} switcherLabel={messages.accessibility.languageSelector}>
+        <p className="auth-lead">{auth.checkEmailBody}</p>
+        <p className="auth-note" role="status">
+          {auth.spamHint}
+        </p>
+        <p className="auth-secondary">
+          <button type="button" className="auth-text-btn" onClick={() => setSent(false)}>
+            {auth.requestNewLink}
+          </button>
+        </p>
+        {devLoginUrl ? (
+          <p className="auth-dev">
+            {auth.devOnly} <a href={devLoginUrl}>{auth.openLink}</a>
+          </p>
+        ) : null}
+      </AuthShell>
+    );
+  }
 
   return (
-    <>
+    <AuthShell title={auth.title} lang={locale} locale={locale} switcherLabel={messages.accessibility.languageSelector}>
+      <p className="auth-lead">{auth.lead}</p>
       <form onSubmit={submit} aria-busy={loading} noValidate>
-        <div className="creaza-field">
-          <label htmlFor={emailId}>Email</label>
+        <div className="auth-field">
+          <label htmlFor={emailId}>{auth.emailLabel}</label>
           <input
             ref={emailRef}
             id={emailId}
             name="email"
             type="email"
             autoComplete="email"
+            inputMode="email"
             required
+            placeholder={auth.emailPlaceholder}
             value={email}
             aria-invalid={error ? true : undefined}
-            aria-describedby={describedBy}
+            aria-describedby={error ? errorId : undefined}
             onChange={(event) => setEmail(event.target.value)}
           />
           {error ? (
-            <p className="creaza-error" id={errorId} role="alert">
+            <p className="auth-error" id={errorId} role="alert">
               {error}
             </p>
           ) : null}
         </div>
-        <button className="creaza-btn creaza-btn-primary" type="submit" disabled={loading}>
-          {loading ? "Se trimite…" : sent ? "Trimite din nou" : "Trimite legătura de intrare"}
+        <button className="auth-btn" type="submit" disabled={loading}>
+          {loading ? auth.submitting : auth.submit}
         </button>
       </form>
-      {sent ? (
-        <p className="creaza-status" role="status">
-          {SENT_COPY}
-        </p>
-      ) : null}
-      {devLoginUrl ? (
-        <p className="creaza-note">
-          Doar pe acest computer: <a href={devLoginUrl}>deschide legătura de intrare</a>
-        </p>
-      ) : null}
-      <p className="creaza-note">
-        <Link href="/login">Am deja un cont Studio (English)</Link>
+      <p className="auth-secondary">
+        <Link href={hrefForLocale("/login", locale)}>{auth.studioAccount}</Link>
       </p>
-    </>
+    </AuthShell>
   );
 }

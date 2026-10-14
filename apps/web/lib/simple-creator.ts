@@ -138,7 +138,11 @@ export function experiencePatch(input: {
   };
 }
 
-export function friendlySurpriseName(now: Date = new Date(), locale = "ro-RO"): string {
+export function friendlySurpriseName(
+  now: Date = new Date(),
+  locale = "ro-RO",
+  template = "Surpriza din {date}"
+): string {
   const when = new Intl.DateTimeFormat(locale, { day: "numeric", month: "long" }).format(now);
-  return `Surpriza din ${when}`;
+  return template.replace("{date}", when);
 }

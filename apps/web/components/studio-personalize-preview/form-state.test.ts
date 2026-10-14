@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { getMessages } from "@/i18n/get-messages";
 import {
-  COPY,
+  ANIMATIONS,
   FIXTURE_WORLD,
   PERSONALIZE_BACK_HREF,
   PERSONALIZE_CAMERA_HREF,
@@ -19,6 +20,7 @@ import {
   LATERAL_ORBIT_YAW,
   nudgeOrbit,
   nudgeOrbitFromScreen,
+  orbitEulerToQuat,
   orbitDeltaFromPointer,
   ORBIT_DRAG_DEG_PER_PX,
   ORBIT_PITCH_MAX,
@@ -33,8 +35,13 @@ import {
   setStage,
   setStylePreset,
   setTransformMode,
+  setVariantIndex,
   setVolume,
   setArLive,
+  removeDecorInstance,
+  moveDecorInstance,
+  orbitDecorInstance,
+  setDecorSelection,
   summarizePersonalize,
   toggleDecor,
   toggleGrid,
@@ -52,23 +59,32 @@ function readLocal(file: string): string {
 
 describe("Studio personalize workspace — fixture + local state", () => {
   it("exposes only the documented fixture world (no projectId / sourceUrl)", () => {
-    expect(FIXTURE_WORLD.title).toBe("Grădina de după ploaie");
-    expect(FIXTURE_WORLD.status).toBe("Previzualizare");
-    expect(FIXTURE_WORLD.mode).toBe("Popout");
+    const world = getMessages("ro").personalize.fixtureWorld;
+    expect(world.title).toBe("Grădina de după ploaie");
+    expect(world.status).toBe("Previzualizare");
+    expect(world.mode).toBe("Popout");
     expect(Object.keys(FIXTURE_WORLD)).not.toContain("projectId");
     expect(Object.keys(FIXTURE_WORLD)).not.toContain("sourceUrl");
     expect(Object.keys(FIXTURE_WORLD)).not.toContain("owner");
   });
 
   it("exposes the narrative Studio path labels", () => {
-    expect(STAGES.map((stage) => stage.label)).toEqual([
-      "Desen",
-      "Personaj",
-      "Aspect",
-      "Mișcare",
-      "Decor",
-      "AR"
+    expect(STAGES.map((stage) => stage.id)).toEqual([
+      "desenul",
+      "personajul",
+      "decor",
+      "vocea",
+      "testeaza"
     ]);
+    expect(getMessages("ro").studio.steps).toEqual({
+      drawing: "Desen",
+      character: "Personaj",
+      motion: "Mișcare",
+      decor: "Decor",
+      context: "Context",
+      voice: "Vocea",
+      ar: "AR"
+    });
   });
 
   it("starts on Personaj with Desen already completed", () => {
@@ -84,16 +100,16 @@ describe("Studio personalize workspace — fixture + local state", () => {
 
   it("updates stage, transform, style, animation, decor, and camera in memory only", () => {
     let state = createInitialPersonalizeState();
-    state = setStage(state, "aspect");
+    state = setStage(state, "decor");
     state = setTransformMode(state, "figurine");
     state = setStylePreset(state, "clay");
     state = setAnimation(state, "wave");
-    state = toggleDecor(state, "stars");
+    state = toggleDecor(state, "grass");
     state = setCameraPreset(state, "top");
     state = setVolume(state, 80);
     state = toggleGrid(state);
     expect(state).toMatchObject({
-      stage: "aspect",
+      stage: "decor",
       transformMode: "figurine",
       stylePreset: "clay",
       animation: "wave",
@@ -101,9 +117,72 @@ describe("Studio personalize workspace — fixture + local state", () => {
       volume: 80,
       gridOn: false
     });
-    expect(state.decor).toEqual(["stars"]);
+    expect(state.decor.map((item) => item.id)).toEqual(["grass"]);
+    expect(state.decor[0]).toMatchObject({ x: expect.any(Number), y: expect.any(Number) });
     expect(state.completedStages).toContain("personajul");
     expect(summarizePersonalize(state)).toContain("Lut colorat");
+  });
+
+  it("sets follow animation to AR camera-follow anchor mode", () => {
+    const start = createInitialPersonalizeState();
+    expect(start.arAnchorMode).toBe("marker");
+    const follow = setAnimation(start, "follow");
+    expect(follow).toMatchObject({ animation: "follow", arAnchorMode: "follow" });
+    expect(setAnimation(follow, "wave")).toMatchObject({
+      animation: "wave",
+      arAnchorMode: "marker"
+    });
+    expect(ANIMATIONS.some((item) => item.id === "follow")).toBe(true);
+    expect(getMessages("ro").personalize.choices.animations.follow.label).toBe("Cu tine");
+  });
+
+  it("makes Variante switch style and palette so color reads clearly", () => {
+    const start = createInitialPersonalizeState();
+    const preserve = setVariantIndex(start, 0);
+    const clay = setVariantIndex(start, 1);
+    const painted = setVariantIndex(start, 2);
+    expect(preserve).toMatchObject({
+      stylePreset: "preserve",
+      palette: "original",
+      originalColors: true,
+      variantIndex: 0
+    });
+    expect(clay).toMatchObject({
+      stylePreset: "clay",
+      palette: "soft",
+      originalColors: false,
+      variantIndex: 1
+    });
+    expect(painted).toMatchObject({
+      stylePreset: "painted",
+      palette: "bright",
+      originalColors: false,
+      variantIndex: 2
+    });
+    expect(painted.details).toBeGreaterThan(clay.details);
+    expect(clay.details).toBeGreaterThan(preserve.details);
+    const css = readFileSync(join(root, "personalize-preview.css"), "utf8");
+    expect(css).toMatch(/\.studio-stage--clay \.studio-stage__popout-live/);
+    expect(css).toMatch(/\.studio-stage--painted \.studio-stage__popout-live/);
+    expect(css).not.toMatch(/\.studio-stage\[data-colors="styled"\] \.studio-stage__drawing-img/);
+  });
+
+  it("stacks decor on each card click, moves on stage, and removes by key", () => {
+    let state = setDecorSelection(createInitialPersonalizeState(), "stars");
+    expect(state.decor.map((item) => item.id)).toEqual(["stars"]);
+    state = setDecorSelection(state, "stars");
+    expect(state.decor.map((item) => item.id)).toEqual(["stars", "stars"]);
+    state = setDecorSelection(state, "grass");
+    expect(state.decor.map((item) => item.id)).toEqual(["stars", "stars", "grass"]);
+    const key = state.decor[0]!.key;
+    state = moveDecorInstance(state, key, 40, 55);
+    expect(state.decor[0]).toMatchObject({ key, x: 40, y: 55 });
+    state = removeDecorInstance(state, key);
+    expect(state.decor.map((item) => item.id)).toEqual(["stars", "grass"]);
+    state = orbitDecorInstance(state, state.decor[0]!.key, 0.4, -0.1);
+    expect(state.decor[0]).toMatchObject({ yaw: 0.4, pitch: -0.1 });
+    state = setDecorSelection(state, "none");
+    expect(state.decor).toEqual([]);
   });
 
   it("camera reset restores default 3/4 composition and stops auto-rotate", () => {
@@ -160,39 +239,68 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(reset.orbitRoll).toBe(0);
   });
 
-  it("keeps arrow axes on the photo after planar roll", () => {
-    let state = createInitialPersonalizeState();
-    state = { ...state, orbitRoll: 90, orbitYaw: 0, orbitPitch: 0 };
-    // Local left after 90° roll becomes a pitch change — not stuck on initial yaw.
-    const left = nudgeOrbitFromScreen(state, -ORBIT_YAW_STEP, 0, 0, true);
-    expect(Math.abs(left.orbitYaw)).toBeLessThan(0.001);
-    expect(left.orbitPitch).toBeCloseTo(ORBIT_YAW_STEP, 5);
-    expect(left.orbitRoll).toBeCloseTo(90, 5);
-    // Local up after roll becomes yaw.
-    const up = nudgeOrbitFromScreen(state, 0, ORBIT_PITCH_STEP, 0, true);
-    expect(up.orbitYaw).toBeCloseTo(ORBIT_PITCH_STEP, 5);
-    expect(Math.abs(up.orbitPitch)).toBeLessThan(0.001);
-    // Unrolled: arrows still map to yaw / pitch directly.
-    const flat = nudgeOrbitFromScreen(
-      { ...state, orbitRoll: 0 },
-      -ORBIT_YAW_STEP,
-      ORBIT_PITCH_STEP,
-      0,
-      true
-    );
-    expect(flat.orbitYaw).toBeCloseTo(-ORBIT_YAW_STEP, 5);
-    expect(flat.orbitPitch).toBeCloseTo(ORBIT_PITCH_STEP, 5);
-    // Roll stays on the photo plane after a prior yaw/pitch pose.
-    const rolled = nudgeOrbitFromScreen(
-      { ...createInitialPersonalizeState(), orbitYaw: -32, orbitPitch: 8, orbitRoll: 0 },
-      0,
-      0,
-      ORBIT_ROLL_STEP,
-      true
-    );
-    expect(rolled.orbitYaw).toBeCloseTo(-32, 5);
-    expect(rolled.orbitPitch).toBeCloseTo(8, 5);
-    expect(rolled.orbitRoll).toBeCloseTo(ORBIT_ROLL_STEP, 5);
+  it("drag follows the finger in screen space for any pose, including upside down", () => {
+    type V = { x: number; y: number; z: number };
+    type Q = { x: number; y: number; z: number; w: number };
+    const rotate = (q: Q, v: V): V => {
+      // v' = q * v * q^-1 (unit quaternion)
+      const t = {
+        x: 2 * (q.y * v.z - q.z * v.y),
+        y: 2 * (q.z * v.x - q.x * v.z),
+        z: 2 * (q.x * v.y - q.y * v.x)
+      };
+      return {
+        x: v.x + q.w * t.x + (q.y * t.z - q.z * t.y),
+        y: v.y + q.w * t.y + (q.z * t.x - q.x * t.z),
+        z: v.z + q.w * t.z + (q.x * t.y - q.y * t.x)
+      };
+    };
+    const conj = (q: Q): Q => ({ x: -q.x, y: -q.y, z: -q.z, w: q.w });
+    const poses = [
+      { orbitYaw: 0, orbitPitch: 0, orbitRoll: 0 },
+      { orbitYaw: 180, orbitPitch: 0, orbitRoll: 0 },
+      { orbitYaw: 90, orbitPitch: 30, orbitRoll: 0 },
+      { orbitYaw: 0, orbitPitch: 120, orbitRoll: 0 },
+      { orbitYaw: 0, orbitPitch: 0, orbitRoll: 180 },
+      { orbitYaw: -134, orbitPitch: -8, orbitRoll: 180 }
+    ];
+    // Where the model surface facing the viewer / the model's right edge ends up on screen.
+    const front: V = { x: 0, y: 0, z: 1 };
+    const right: V = { x: 1, y: 0, z: 0 };
+    const moved = (pose: (typeof poses)[number], sx: number, sy: number, sr: number, point: V) => {
+      const base = { ...createInitialPersonalizeState(), ...pose };
+      const next = nudgeOrbitFromScreen(base, sx, sy, sr, true);
+      const q0 = orbitEulerToQuat(base.orbitYaw, base.orbitPitch, base.orbitRoll);
+      const q1 = orbitEulerToQuat(next.orbitYaw, next.orbitPitch, next.orbitRoll);
+      const model = rotate(conj(q0), point);
+      const before = rotate(q0, model);
+      const after = rotate(q1, model);
+      return { dx: after.x - before.x, dy: after.y - before.y };
+    };
+    for (const pose of poses) {
+      expect(moved(pose, 10, 0, 0, front).dx).toBeGreaterThan(0.05); // drag right -> moves right
+      expect(moved(pose, -10, 0, 0, front).dx).toBeLessThan(-0.05); // drag left -> moves left
+      expect(moved(pose, 0, 10, 0, front).dy).toBeGreaterThan(0.05); // drag up -> moves up
+      expect(moved(pose, 0, -10, 0, front).dy).toBeLessThan(-0.05); // drag down -> moves down
+      expect(moved(pose, 0, 0, 10, right).dy).toBeLessThan(-0.05); // clockwise -> right edge goes down
+    }
+  });
+
+  it("uses the Three / AR convention at rest: right = +yaw, up = -pitch", () => {
+    const state = createInitialPersonalizeState();
+    const base = { ...state, orbitYaw: 0, orbitPitch: 0, orbitRoll: 0 };
+    expect(nudgeOrbitFromScreen(base, ORBIT_YAW_STEP, 0, 0, true).orbitYaw).toBeCloseTo(ORBIT_YAW_STEP, 5);
+    expect(nudgeOrbitFromScreen(base, 0, ORBIT_PITCH_STEP, 0, true).orbitPitch).toBeCloseTo(-ORBIT_PITCH_STEP, 5);
+    expect(nudgeOrbitFromScreen(base, 0, -ORBIT_PITCH_STEP, 0, true).orbitPitch).toBeCloseTo(ORBIT_PITCH_STEP, 5);
+    expect(nudgeOrbitFromScreen(base, 0, 0, ORBIT_ROLL_STEP, true).orbitRoll).toBeCloseTo(-ORBIT_ROLL_STEP, 5);
+  });
+
+  it("stays well defined with the model pointing straight up", () => {
+    const base = { ...createInitialPersonalizeState(), orbitYaw: 30, orbitPitch: -90, orbitRoll: 0 };
+    const next = nudgeOrbitFromScreen(base, 4, 0, 0, true);
+    for (const value of [next.orbitYaw, next.orbitPitch, next.orbitRoll]) {
+      expect(Number.isFinite(value)).toBe(true);
+    }
   });
 
   it("auto-rotate starts off and reset returns the upright 3/4 view", () => {
@@ -231,7 +339,13 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(state.transformMode).toBe("figurine");
     expect(isPersonalizeWriteBlocked("/api/projects/x")).toBe(false);
     expect(isPersonalizeWriteBlocked("/api/projects/x/source")).toBe(true);
-    expect(isPersonalizeWriteBlocked("/api/publish")).toBe(true);
+    expect(isPersonalizeWriteBlocked("/api/projects/x/figurine")).toBe(false);
+    expect(isPersonalizeWriteBlocked("/api/projects/x/voices/primary")).toBe(false);
+    expect(isPersonalizeWriteBlocked("/api/projects/x/voices/primary/audio")).toBe(false);
+    expect(isPersonalizeWriteBlocked("/api/publish")).toBe(false);
+    expect(isPersonalizeWriteBlocked("/api/projects/x/publish")).toBe(false);
+    expect(isPersonalizeWriteBlocked("/api/projects/x/qr?download=1")).toBe(false);
+    expect(isPersonalizeWriteBlocked("/api/projects/x/publish/extra")).toBe(true);
   });
 
   it("setArLive opens the AR stage with a local overlay flag", () => {
@@ -239,7 +353,7 @@ describe("Studio personalize workspace — fixture + local state", () => {
     state = setArLive(state, true);
     expect(state.stage).toBe("testeaza");
     expect(state.arLive).toBe(true);
-    state = setStage(state, "aspect");
+    state = setStage(state, "decor");
     expect(state.arLive).toBe(false);
     expect(state.publishOpen).toBe(false);
     const open = setPublishOpen(state, true);
@@ -250,9 +364,11 @@ describe("Studio personalize workspace — fixture + local state", () => {
   it("blocks api writes except the owned project start-transform path", () => {
     expect(isPersonalizeWriteBlocked("/api/projects")).toBe(true);
     expect(isPersonalizeWriteBlocked("/api/projects/x")).toBe(false);
+    expect(isPersonalizeWriteBlocked("/api/projects/x/figurine")).toBe(false);
+    expect(isPersonalizeWriteBlocked("/api/projects/x/voices/primary")).toBe(false);
     expect(isPersonalizeWriteBlocked("/api/projects/x/asset")).toBe(true);
-    expect(isPersonalizeWriteBlocked("/api/publish")).toBe(true);
-    expect(PERSONALIZE_BACK_HREF).toBe("/studio-preview");
+    expect(isPersonalizeWriteBlocked("/api/checkout")).toBe(true);
+    expect(PERSONALIZE_BACK_HREF).toBe("/studio");
     expect(PERSONALIZE_STUDIO_HREF).toBe("/studio-preview/personalizeaza");
     expect(PERSONALIZE_CAMERA_HREF).toBe("/studio-preview/personalizeaza/camera");
   });
@@ -274,41 +390,34 @@ describe("Studio personalize workspace — fixture + local state", () => {
       expect(impl.includes(snippet)).toBe(false);
       expect(fixtures.includes(snippet)).toBe(false);
     }
-    expect(fixtures).toContain(COPY.title);
-    expect(fixtures).toContain(COPY.savedLocal);
-    expect(fixtures).toContain(COPY.publish);
-    expect(fixtures).toContain(COPY.seeInAr);
-    expect(fixtures).toContain(COPY.seeInArPreparing);
-    expect(fixtures).toContain(COPY.arCardCaption);
-    expect(shell).toContain("COPY.seeInArPreparing");
+    const COPY = getMessages("ro").personalize;
+    expect(COPY.title).toBe("Lumea mea");
+    expect(COPY.savedLocal).toBe("Salvat în această sesiune");
+    expect(COPY.publish).toBe("Publică");
+    expect(COPY.seeInAr).toBe("Vezi în AR");
+    expect(COPY.seeInArPreparing).toBe("AR în pregătire");
+    expect(COPY.arCardCaption).toBe("Previzualizare locală");
+    expect(shell).toContain("messages.studio.arPreparing");
+    expect(shell).toContain("messages.personalize");
     expect(shell).not.toContain("studio-ws__ar-live");
     expect(shell).not.toContain("Previzualizare AR locală");
-    expect(fixtures).toContain(COPY.regenerate);
-    expect(shell).toContain("PERSONALIZE_STUDIO_HREF");
-    expect(shell).toContain("studio-ws__dpad");
-    expect(shell).toContain("studio-ws__roll");
+    expect(COPY.regenerate).toContain("previzualizare");
+    expect(shell).toContain("PERSONALIZE_BACK_HREF");
     expect(shell).toContain("studio-ws__spin");
-    expect(shell).toContain('aria-label={COPY.tiltUp}');
-    expect(shell).toContain('aria-label={COPY.tiltDown}');
-    expect(shell).toContain('aria-label={COPY.rotateLeft}');
-    expect(shell).toContain('aria-label={COPY.rotateRight}');
-    expect(shell).toContain('aria-label={COPY.rollCcw}');
-    expect(shell).toContain('aria-label={COPY.rollCw}');
-    expect(shell).toContain('aria-label={COPY.resetView}');
+    expect(shell).not.toContain("studio-ws__dpad");
+    expect(shell).not.toContain("studio-ws__roll");
     expect(shell).toContain("nudgeOrbitFromScreen");
-    expect(shell).toContain("yaw: -ORBIT_YAW_STEP");
-    expect(shell).toContain("yaw: ORBIT_YAW_STEP");
-    expect(shell).toContain("pitch: ORBIT_PITCH_STEP");
-    expect(shell).toContain("pitch: -ORBIT_PITCH_STEP");
-    expect(shell).toContain("roll: -ORBIT_ROLL_STEP");
-    expect(shell).toContain("roll: ORBIT_ROLL_STEP");
-    expect(shell).toContain('dispatch({ type: "camera", id: "reset" })');
+    expect(shell).toContain("orbitDeltaFromPointer(dx, dy)");
+    expect(shell).toContain('dispatch({ type: "camera", id: preset.id })');
     expect(shell).toContain('dispatch({ type: "autoRotate", value: !state.autoRotate })');
-    expect(shell).not.toContain("useState");
-    expect(fixtures).toContain(COPY.autoRotateOff);
-    expect(fixtures).toContain(COPY.autoRotateStop);
-    expect(fixtures).toContain(COPY.rollCcw);
-    expect(fixtures).toContain(COPY.rollCw);
+    expect(shell).toContain("useState");
+    expect(shell).toContain("readCharacterVoiceStatus");
+    expect(shell).toContain("spokenMessage");
+    expect(shell).toContain("VoiceCard");
+    expect(COPY.autoRotateOff).toBe("360°");
+    expect(COPY.autoRotateStop).toContain("360");
+    expect(COPY.rollCcw).toMatch(/plan/);
+    expect(COPY.rollCw).toMatch(/plan/);
     expect(shell).toContain("setArLive");
     expect(shell).toContain('dispatch({ type: "publish", open: true })');
     expect(shell).toContain("disabled={!projectId}");
@@ -320,19 +429,28 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(shell).toContain("disabled");
     expect(shell).not.toContain("href={`/studio/${projectId}`}");
     expect(shell).not.toContain('from "next/link"');
-    expect(fixtures).toContain(COPY.publishPrepareTitle);
-    expect(fixtures).toContain(COPY.publishInactive);
-    expect(fixtures).toContain(COPY.publishQrLabel);
+    expect(COPY.publishPrepareTitle).toMatch(/publicare/);
+    expect(COPY.publishInactive).toMatch(/activată/);
+    expect(COPY.publishQrLabel).toMatch(/QR/);
     expect(shell).toContain("transformMode={state.transformMode}");
-    expect(shell).toMatch(/studio-ws__ghost-btn[^>]*\bdisabled\b/);
+    expect(shell).toContain('dispatch({ type: "variant", index: -1 })');
+    expect(shell).toContain("studio-ws__variant");
+    expect(shell).toContain("STYLE_PRESETS.map");
+    expect(shell).toContain("studio-ws__variant-photo");
+    expect(shell).toContain("COPY.choices.styles[preset.id]");
+    expect(shell).not.toMatch(/studio-ws__ghost-btn[^>]*\bdisabled\b/);
     expect(poster).toContain("transformMode");
     expect(poster).toContain("data-mode={transformMode}");
     expect(poster).toContain("PopoutMeshStage");
+    expect(poster).toContain("FigurineLiveStage");
     expect(poster).toContain("ssr: false");
     expect(poster).not.toContain("PopoutDrawingStack");
     expect(poster).toContain("PopoutFixtureFigure");
     expect(poster).toContain("FigurineFixtureFigure");
     expect(poster).toContain("FigurineDrawingShell");
+    expect(shell).toContain("FigurineGenerateCard");
+    expect(shell).toContain("ImportModelCard");
+    expect(poster).toContain("FigurineGlbStage");
     expect(poster).toContain("figurineVolumeScale");
     expect(poster).toContain("popoutExtrusionPx");
     const removedHint = "Rotește lumea pentru a vedea straturile.";
@@ -340,8 +458,9 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(poster).not.toContain(removedHint);
     expect(shell).not.toContain(removedHint);
     expect(readLocal("personalize-preview.css")).not.toContain(removedHint);
-    expect(fixtures).toContain("Pregătim Pop-out-ul…");
-    expect(fixtures).toContain(COPY.figurineVolumeHint);
+    expect(COPY.popoutPreparing).toMatch(/Pop-out/);
+    expect(COPY.figurineVolumeHint).toMatch(/Tripo/);
+    expect(fixtures).not.toMatch(/[ăâîșşțţ]/i);
   });
 
   it("maps pointer drag and wheel or pinch onto the same orbit and zoom", () => {
@@ -378,11 +497,11 @@ describe("Studio personalize workspace — fixture + local state", () => {
     expect(shell).toContain("studio-ws__view-controls--sheet");
     expect(shell).toContain("studio-ws__spin--float");
     expect(shell).toContain("studio-ws__overlay-tools");
-    expect(shell).toContain('dispatch({ type: "orbit", yaw: 0, pitch: ORBIT_PITCH_STEP, user: true })');
+    expect(shell).not.toContain("studio-ws__dpad");
     expect(css).toContain("touch-action: none");
-    expect(css).toMatch(/@media \(max-width: 959px\)[\s\S]*\.studio-ws__overlay-tools\s*\{\s*display:\s*none/);
-    expect(css).toMatch(/@media \(max-width: 959px\)[\s\S]*\.studio-ws__view-controls--sheet\s*\{\s*display:\s*grid/);
-    expect(css).toMatch(/@media \(min-width: 960px\)[\s\S]*\.studio-ws__view-controls--sheet\s*\{\s*display:\s*none/);
+    expect(css).toMatch(/@media \(max-width: 899px\)[\s\S]*\.studio-ws__overlay-tools\s*\{\s*display:\s*none/);
+    expect(css).toMatch(/@media \(max-width: 899px\)[\s\S]*\.studio-ws__view-controls--sheet\s*\{\s*display:\s*grid/);
+    expect(css).toMatch(/@media \(min-width: 900px\)[\s\S]*\.studio-ws__view-controls--sheet\s*\{\s*display:\s*none/);
     expect(stage).toContain("}, [sourceUrl, retryToken]);");
     expect(stage).toContain("}, [phase, sourceUrl, retryToken]);");
     expect(stage).toContain("sessionExtracts");
@@ -395,12 +514,19 @@ describe("Studio personalize workspace — fixture + local state", () => {
 
   it("Vezi în AR is disabled until real assets exist and does not open a fake AR overlay", () => {
     const shell = readLocal("personalize-shell.tsx");
-    const fixtures = readLocal("fixtures.ts");
     expect(shell).not.toContain("/studio-preview/personalizeaza/camera");
     expect(shell).not.toContain("PERSONALIZE_CAMERA_HREF");
-    expect(shell).toContain("seeInArPreparing");
-    expect(fixtures).toContain("AR în pregătire");
-    expect(fixtures).toContain("Previzualizare 2D locală");
+    expect(shell).toContain("messages.studio.arPreparing");
+    expect(getMessages("ro").personalize.seeInArPreparing).toBe("AR în pregătire");
+    expect(getMessages("ro").personalize.seeSceneInAr).toBe("Vezi scena în AR");
+    expect(getMessages("ro").personalize.sceneHeading).toBe("Vezi scena în lumea ta");
+    expect(getMessages("ro").personalize.sceneLocalLabel).toBe(
+      "Previzualizare locală — scena nu este încă disponibilă în AR."
+    );
+    expect(shell).toContain("data-ar-eligible=");
+    expect(shell).toContain("mirror");
+    expect(shell).not.toMatch(/\brel=["']ar["']/);
+    expect(shell).not.toMatch(/\bnavigator\.mediaDevices\b|\.getUserMedia\b/);
     expect(shell).not.toContain("studio-ws__ar-live");
     expect(shell).not.toContain("onClick={openAr}");
   });

@@ -16,6 +16,7 @@ import type { JobType, PipelineJob } from "./jobs";
 import type { HashableProjectSettings } from "./hash";
 import { resolveEffectiveArTransform } from "./start-transform";
 import { IMMUTABLE_CACHE_CONTROL } from "./storage-keys";
+import { normalizeArDecorList, resolveArDecorProps, type ArDecorProp } from "./ar-decor";
 
 export const PAGE_RENDER_PIPELINE_VERSION = "m4.4b.0";
 export const PAGE_POINTER_CACHE_CONTROL = "public, max-age=60";
@@ -92,6 +93,137 @@ export function consumerArUrl(appOrigin: string, slug: string, options?: { allow
   });
   const path = `/ar/${safeExperienceSlug(slug)}`;
   return `${origin.origin}${path}`;
+}
+
+/** MindAR image-target baseline: Pop-out GLB needs 180° about Z to stand upright. */
+export const CAMERA_VIEW_DEFAULT_ROTATION = { x: 0, y: 0, z: 180 } as const;
+
+export type CameraViewRotation = { x: number; y: number; z: number };
+
+function clampCameraViewAngle(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(-360, Math.min(360, value));
+}
+
+/**
+ * Normalize a Studio / A-Frame start pose for the camera view URL.
+ * Missing or invalid axes fall back to the MindAR baseline (z = 180).
+ */
+export function normalizeCameraViewRotation(
+  rotation?: Partial<CameraViewRotation> | null
+): CameraViewRotation {
+  const x =
+    typeof rotation?.x === "number" && Number.isFinite(rotation.x)
+      ? clampCameraViewAngle(rotation.x)
+      : CAMERA_VIEW_DEFAULT_ROTATION.x;
+  const y =
+    typeof rotation?.y === "number" && Number.isFinite(rotation.y)
+      ? clampCameraViewAngle(rotation.y)
+      : CAMERA_VIEW_DEFAULT_ROTATION.y;
+  const z =
+    typeof rotation?.z === "number" && Number.isFinite(rotation.z)
+      ? clampCameraViewAngle(rotation.z)
+      : CAMERA_VIEW_DEFAULT_ROTATION.z;
+  return { x, y, z };
+}
+
+/**
+ * Parse `rx` / `ry` / `rz` query params. Invalid values are ignored so old
+ * camera links (no pose params) still get the upright MindAR baseline.
+ */
+export function resolveCameraViewPose(input: {
+  rx?: string | null;
+  ry?: string | null;
+  rz?: string | null;
+}): CameraViewRotation {
+  const parse = (raw: string | null | undefined): number | undefined => {
+    if (raw == null || raw === "") return undefined;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : undefined;
+  };
+  return normalizeCameraViewRotation({
+    x: parse(input.rx),
+    y: parse(input.ry),
+    z: parse(input.rz)
+  });
+}
+
+/**
+ * `<model-viewer orientation>` string: yaw / pitch / roll in degrees (YXZ).
+ *
+ * Studio / A-Frame store the MindAR marker pose (Ry·Rx·Rz with z≈180 so the
+ * pop-out GLB matches the drawing). Free-standing model-viewer has no marker
+ * plane, so that baseline flip must land on X instead of Z: Ry(yaw)·Rx(pitch+180).
+ * Verified against a published pop-out GLB (upright with `0deg 180deg 0deg`).
+ */
+export function cameraViewOrientation(rotation?: Partial<CameraViewRotation> | null): string {
+  const r = normalizeCameraViewRotation(rotation);
+  const zNorm = ((r.z % 360) + 360) % 360;
+  if (Math.abs(zNorm - 180) <= 1) {
+    return `${r.y}deg ${r.x + 180}deg 0deg`;
+  }
+  return `${r.y}deg ${r.x}deg ${r.z}deg`;
+}
+
+/**
+ * App page for the character-only camera view (Scene Viewer / Quick Look / desktop orbit).
+ * Carries the already-public character GLB URL; decor is never part of this view.
+ * Optional `rotation` becomes `rx` / `ry` / `rz` so the viewer matches the Studio start pose.
+ */
+export function cameraViewUrl(
+  appOrigin: string,
+  slug: string,
+  modelUrl: string,
+  options?: { allowLocalOrigins?: boolean; rotation?: Partial<CameraViewRotation> | null }
+): string {
+  const model = assertPublicAbsoluteUrl(modelUrl, {
+    allowLocalOrigins: options?.allowLocalOrigins,
+    label: "modelUrl"
+  });
+  const base = consumerArUrl(appOrigin, slug, options);
+  const pose = normalizeCameraViewRotation(options?.rotation);
+  const params = new URLSearchParams();
+  params.set("model", model.href);
+  params.set("rx", String(pose.x));
+  params.set("ry", String(pose.y));
+  params.set("rz", String(pose.z));
+  return `${base}/camera?${params.toString()}`;
+}
+
+export type CameraViewModelResult =
+  | { ok: true; modelUrl: string }
+  | { ok: false; reason: "missing" | "invalid" | "foreign_origin" | "not_glb" };
+
+/**
+ * Validate the `model` query param of the camera view. Only GLBs served from the
+ * public artifact origin are accepted, so the page cannot be used to proxy
+ * arbitrary third-party models.
+ */
+export function resolveCameraViewModel(input: {
+  modelParam: string | null | undefined;
+  publicBaseUrl: string | null | undefined;
+  allowLocalOrigins?: boolean;
+}): CameraViewModelResult {
+  const raw = input.modelParam?.trim();
+  if (!raw) return { ok: false, reason: "missing" };
+  if (!input.publicBaseUrl?.trim()) return { ok: false, reason: "invalid" };
+  let model: URL;
+  let base: URL;
+  try {
+    model = assertPublicAbsoluteUrl(raw, {
+      allowLocalOrigins: input.allowLocalOrigins,
+      label: "modelUrl"
+    });
+    base = assertPublicAbsoluteUrl(input.publicBaseUrl, {
+      allowLocalOrigins: input.allowLocalOrigins,
+      label: "publicBaseUrl"
+    });
+  } catch {
+    return { ok: false, reason: "invalid" };
+  }
+  if (model.origin !== base.origin) return { ok: false, reason: "foreign_origin" };
+  if (!model.pathname.toLowerCase().endsWith(".glb")) return { ok: false, reason: "not_glb" };
+  return { ok: true, modelUrl: model.href };
 }
 
 export function pageRenderPipelineLabel(): string {
@@ -280,7 +412,11 @@ export interface MapArPageInput {
   settings: HashableProjectSettings & {
     logoUrl?: string;
     soundUrl?: string;
-    scene?: { startTransform?: unknown } | null;
+    scene?: {
+      startTransform?: unknown;
+      arAnchorMode?: unknown;
+      decor?: ArDecorProp[] | null;
+    } | null;
   };
   modelUrl: string;
   targetUrl: string;
@@ -288,6 +424,8 @@ export interface MapArPageInput {
   logoUrl?: string | null;
   allowLocalOrigins?: boolean;
   showWatermark?: boolean;
+  /** Absolute origin for /demo/glb decor assets (app URL). */
+  publicAppOrigin?: string | null;
 }
 
 /**
@@ -309,6 +447,22 @@ export function selectClickableCta(input: {
 export function mapSettingsToArPageConfig(input: MapArPageInput): NormalizedArPageConfig {
   const cta = selectClickableCta(input.settings);
   const transform = resolveEffectiveArTransform(input.settings);
+  const arAnchorMode =
+    input.settings.scene &&
+    typeof input.settings.scene === "object" &&
+    (input.settings.scene as { arAnchorMode?: unknown }).arAnchorMode === "follow"
+      ? "follow"
+      : "marker";
+  const decorList = normalizeArDecorList(
+    input.settings.scene && typeof input.settings.scene === "object"
+      ? (input.settings.scene as { decor?: unknown }).decor
+      : []
+  );
+  const appOrigin = input.publicAppOrigin?.trim() || "";
+  const resolvedProps =
+    appOrigin && decorList.length > 0
+      ? resolveArDecorProps({ decor: decorList, appOrigin })
+      : [];
   const config: ArPageConfig = {
     title: input.settings.title?.trim() || "Surpriza kidAR",
     theme: input.settings.theme || "#6d5dfc",
@@ -324,7 +478,14 @@ export function mapSettingsToArPageConfig(input: MapArPageInput): NormalizedArPa
       scale: transform.scale
     },
     showWatermark: input.showWatermark,
-    allowLocalOrigins: input.allowLocalOrigins
+    allowLocalOrigins: input.allowLocalOrigins,
+    arAnchorMode,
+    props: resolvedProps.map((p) => ({
+      modelUrl: p.modelUrl,
+      position: p.position,
+      rotation: p.rotation,
+      scale: p.scale
+    }))
   };
   try {
     return normalizeArPageConfig(config);

@@ -1,8 +1,16 @@
 import type { ProjectSettings } from "@kidar/core";
 import { FIXTURE_PROJECTS } from "@/components/studio-preview/fixtures";
+import type { Locale } from "@/i18n/config";
+import { getMessages } from "@/i18n/get-messages";
+import { hrefForLocale } from "@/i18n/locale";
+
+/** Where a world opens: the personalize workspace, never the removed legacy editor. */
+export function personalizeHref(projectId: string, locale: Locale = "ro"): string {
+  return `${hrefForLocale("/studio-preview/personalizeaza", locale)}?projectId=${encodeURIComponent(projectId)}`;
+}
 
 /** Deliberately reduced card DTO — never the full ProjectRecord. */
-export type StudioWorldStatus = "În lucru" | "Pregătit" | "Publicat";
+export type StudioWorldStatus = "draft" | "ready" | "published";
 
 export type StudioWorldVisualVariant = "portrait" | "landscape" | "square";
 
@@ -31,6 +39,8 @@ export type StudioWorldArtKind = (typeof ART_KINDS)[number];
 
 const VARIANT_CYCLE: StudioWorldVisualVariant[] = ["portrait", "landscape", "square"];
 
+const DATE_LOCALE: Record<Locale, string> = { ro: "ro-RO", en: "en-GB" };
+
 function hashId(id: string): number {
   let h = 0;
   for (let i = 0; i < id.length; i += 1) {
@@ -44,6 +54,17 @@ export function visualVariantFromId(id: string): StudioWorldVisualVariant {
   return VARIANT_CYCLE[hashId(id) % VARIANT_CYCLE.length]!;
 }
 
+const EDITORIAL_POSTERS: Record<StudioWorldVisualVariant, string> = {
+  portrait: "/demo/studio/worlds/aurora.webp",
+  landscape: "/demo/studio/worlds/garden.webp",
+  square: "/demo/studio/worlds/kite.webp"
+};
+
+/** Shared editorial poster whose shape matches the card crop (never the child's private drawing). */
+export function editorialPosterSrc(variant: StudioWorldVisualVariant): string {
+  return EDITORIAL_POSTERS[variant];
+}
+
 /** CSS/SVG artwork seed from id when no safe preview exists. */
 export function artKindFromId(id: string): StudioWorldArtKind {
   return ART_KINDS[hashId(id) % ART_KINDS.length]!;
@@ -55,65 +76,75 @@ export function normalizeStudioWorldStatus(
 ): StudioWorldStatus {
   const raw = status.trim().toLowerCase();
   const publishedHint = Boolean(settings?.publicExperienceUrl || settings?.publicHtmlUrl);
-  if (raw === "published" || publishedHint) return "Publicat";
-  if (raw === "ready") return "Pregătit";
-  return "În lucru";
+  if (raw === "published" || publishedHint) return "published";
+  if (raw === "ready") return "ready";
+  return "draft";
 }
 
-export function formatStudioUpdatedLabel(iso: string, now = new Date()): string {
+export function formatStudioUpdatedLabel(iso: string, locale: Locale = "ro", now = new Date()): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
 
+  const t = getMessages(locale).worlds.gallery;
   const diffMs = now.getTime() - date.getTime();
   const dayMs = 24 * 60 * 60 * 1000;
-  if (diffMs >= 0 && diffMs < dayMs) return "actualizat azi";
-  if (diffMs >= 0 && diffMs < 2 * dayMs) return "actualizat ieri";
+  if (diffMs >= 0 && diffMs < dayMs) return t.updatedToday;
+  if (diffMs >= 0 && diffMs < 2 * dayMs) return t.updatedYesterday;
 
-  const label = new Intl.DateTimeFormat("ro-RO", {
+  const label = new Intl.DateTimeFormat(DATE_LOCALE[locale], {
     day: "numeric",
     month: "short"
   }).format(date);
-  return `actualizat ${label}`;
+  return t.updatedOn.replace("{date}", label);
 }
 
 /**
  * Map a persistence record to the public card DTO.
  * Intentionally omits owner, paths, hashes, job fields, and settings blobs.
  */
-export function toStudioWorldCard(project: {
-  id: string;
-  name: string;
-  status: string;
-  updated_at: string;
-  settings?: ProjectSettings;
-}): StudioWorldCard {
+export function toStudioWorldCard(
+  project: {
+    id: string;
+    name: string;
+    status: string;
+    updated_at: string;
+    settings?: ProjectSettings;
+  },
+  locale: Locale = "ro"
+): StudioWorldCard {
   const title =
-    (project.settings?.title && project.settings.title.trim()) || project.name.trim() || "Lume fără nume";
+    (project.settings?.title && project.settings.title.trim()) ||
+    project.name.trim() ||
+    getMessages(locale).worlds.gallery.untitled;
+
+  const visualVariant = visualVariantFromId(project.id);
 
   return {
     id: project.id,
     title,
-    href: `/studio/${project.id}`,
+    href: personalizeHref(project.id, locale),
     status: normalizeStudioWorldStatus(project.status, project.settings),
-    updatedLabel: formatStudioUpdatedLabel(project.updated_at),
-    visualVariant: visualVariantFromId(project.id)
-    // No private source /api/files preview — editorial art from id only.
+    updatedLabel: formatStudioUpdatedLabel(project.updated_at, locale),
+    visualVariant,
+    // No private source /api/files preview: a shared editorial poster, picked by crop.
+    preview: { kind: "safe-preview", src: editorialPosterSrc(visualVariant), alt: title }
   };
 }
 
-export function fixtureStudioWorlds(): StudioWorldCard[] {
+export function fixtureStudioWorlds(locale: Locale = "ro"): StudioWorldCard[] {
+  const copy = getMessages(locale).worlds.gallery.fixtures;
   return FIXTURE_PROJECTS.map((project) => ({
     id: project.id,
-    title: project.title,
+    title: copy[project.key].title,
     href: "",
-    status:
-      project.status === "published"
-        ? "Publicat"
-        : project.status === "ready"
-          ? "Pregătit"
-          : "În lucru",
-    updatedLabel: project.line,
+    status: project.status,
+    updatedLabel: copy[project.key].line,
     visualVariant:
-      project.crop === "panorama" ? "landscape" : (project.crop as StudioWorldVisualVariant)
+      project.crop === "panorama" ? "landscape" : (project.crop as StudioWorldVisualVariant),
+    preview: {
+      kind: "safe-preview",
+      src: `/demo/studio/worlds/${project.key}.webp`,
+      alt: copy[project.key].title
+    }
   }));
 }

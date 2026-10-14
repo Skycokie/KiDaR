@@ -6,6 +6,7 @@
  * on the current Free plan (single private bucket).
  */
 
+import { FIGURE_STAGING_BUCKET_NAME } from "./figure-staging";
 import { PublicStorageConfigError } from "./storage-error";
 import { assertR2UrlRoles, publicArtifactUrl } from "./storage-keys";
 
@@ -177,6 +178,39 @@ export function resolvePublicStorageConfig(
   throw new PublicStorageConfigError(
     "No public artifact storage configured. Set complete R2_* variables (preferred), or configure a separate APPWRITE_ASSETS_BUCKET different from APPWRITE_SOURCE_BUCKET only when a public Appwrite bucket is available on the plan. Publishing must not use the private source-drawings bucket."
   );
+}
+
+/**
+ * Env view for publish artifacts. `PUBLISH_R2_BUCKET` + `PUBLISH_R2_PUBLIC_BASE_URL`
+ * override `R2_BUCKET` / `R2_PUBLIC_BASE_URL` so a private figure-staging bucket can
+ * share the same deployment. Both overrides must be set together.
+ */
+export function publishStorageEnv<T extends Record<string, string | undefined>>(
+  env: T
+): T & Pick<PublicStorageEnv, "R2_BUCKET" | "R2_PUBLIC_BASE_URL"> {
+  const bucket = (env.PUBLISH_R2_BUCKET || "").trim();
+  const publicBaseUrl = (env.PUBLISH_R2_PUBLIC_BASE_URL || "").trim();
+  if (Boolean(bucket) !== Boolean(publicBaseUrl)) {
+    throw new PublicStorageConfigError(
+      "PUBLISH_R2_BUCKET and PUBLISH_R2_PUBLIC_BASE_URL must be set together."
+    );
+  }
+  const view = bucket ? { ...env, R2_BUCKET: bucket, R2_PUBLIC_BASE_URL: publicBaseUrl } : env;
+  if ((view.R2_BUCKET || "").trim() === FIGURE_STAGING_BUCKET_NAME && present(view.R2_PUBLIC_BASE_URL)) {
+    throw new PublicStorageConfigError(
+      `Publishing must not use the private ${FIGURE_STAGING_BUCKET_NAME} bucket.`
+    );
+  }
+  return view;
+}
+
+/** Public delivery origin for publish reads; undefined when publish storage is misconfigured. */
+export function publishPublicBaseUrl(env: Record<string, string | undefined>): string | undefined {
+  try {
+    return publishStorageEnv(env).R2_PUBLIC_BASE_URL;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Config-only handle for web fail-closed checks. Runtime R2 writes use the worker adapter. */

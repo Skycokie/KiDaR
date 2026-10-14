@@ -1,7 +1,14 @@
-import type { CSSProperties } from "react";
+"use client";
+
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
+import { useRef } from "react";
 import dynamic from "next/dynamic";
-import { COPY, type TransformModeId } from "./fixtures";
+import { useStudioI18n } from "@/components/i18n/studio-i18n";
+import { decorGlbSrc } from "./decor-assets";
+import type { DecorId, TransformModeId } from "./fixtures";
 import type { PersonalizeState } from "./form-state";
+import type { InteractionState } from "./interaction-state";
+import { GLB_ORBIT_DRAG_PX, clampGlbOrbitPitch, glbOrbitFromPointer } from "@/components/landing/glb-orbit";
 import {
   FIXTURE_POPOUT_PARTS,
   POPOUT_EDGE_COLORS,
@@ -16,10 +23,25 @@ const PopoutMeshStage = dynamic(
   { ssr: false }
 );
 
+const FigurineLiveStage = dynamic(
+  () => import("./figurine-live-stage").then((mod) => mod.FigurineLiveStage),
+  { ssr: false }
+);
+
+const FigurineGlbStage = dynamic(
+  () => import("./figurine-glb-stage").then((mod) => mod.FigurineGlbStage),
+  { ssr: false }
+);
+
+const StageGlbProp = dynamic(
+  () => import("./stage-glb-prop").then((mod) => mod.StageGlbProp),
+  { ssr: false }
+);
+
 /**
  * Studio stage preview. Transform mode is an explicit prop from the shell.
  * Project photos use the local Three pop-out (cutout + ExtrudeGeometry).
- * Figurine stays a local clay/toy mock. Fixture pop-out stays SVG when there is no photo.
+ * Figurine uses the linked 3D job when a project is present; otherwise the clay mock.
  */
 
 function FixturePartShapes({
@@ -303,31 +325,92 @@ export function GardenPoster({
   state,
   transformMode,
   drawingSrc,
-  showOriginalPage = false
+  projectId = null,
+  mirror = false,
+  interaction,
+  spokenMessage = null,
+  onCharacterClick,
+  onDecorActivate,
+  onDecorMove,
+  onDecorOrbit,
+  onDecorRemove,
+  importedModelUrl = null
 }: {
   state: PersonalizeState;
   transformMode: TransformModeId;
   drawingSrc?: string | null;
-  showOriginalPage?: boolean;
+  projectId?: string | null;
+  /** Public or signed GLB from gallery / file import. */
+  importedModelUrl?: string | null;
+  /** Compact copy for the AR step. Skips a second WebGL cutout. */
+  mirror?: boolean;
+  interaction?: InteractionState;
+  /** Live character voice bubble; takes priority over context dialogue. */
+  spokenMessage?: string | null;
+  onCharacterClick?: () => void;
+  onDecorActivate?: () => void;
+  onDecorMove?: (key: string, x: number, y: number) => void;
+  onDecorOrbit?: (key: string, yaw: number, pitch: number) => void;
+  onDecorRemove?: (key: string) => void;
 }) {
   const scale = state.zoom / 100;
   const isFigurine = transformMode === "figurine";
+  const isImport = transformMode === "import";
   const isPopout = transformMode === "popout";
-  // Pop-out: shallow paper lift. Figurine: steeper Volum response.
-  const volumeScale = isFigurine
+  const usesFigurineVolume = isFigurine || isImport;
+  // Pop-out: shallow paper lift. Figurine/import: steeper Volum response.
+  const volumeScale = usesFigurineVolume
     ? figurineVolumeScale(state.volume)
     : 0.72 + state.volume / 180;
   const hasDrawing = Boolean(drawingSrc);
+  const playing = Boolean(interaction?.enabled) && !mirror;
+  // Props whose GLB ships. Anything else stays off the stage rather than
+  // mounting a loader against a path that resolves to nothing.
+  const decorProps = state.decor.flatMap((item) => {
+    const modelUrl = decorGlbSrc(item.id);
+    return modelUrl ? [{ item, modelUrl }] : [];
+  });
+  const decorRootRef = useRef<HTMLUListElement>(null);
+  const dragRef = useRef<{
+    key: string;
+    pointerId: number;
+    startX: number;
+    startY: number;
+    lastX: number;
+    lastY: number;
+    moved: boolean;
+    mode: "orbit" | "move";
+    yaw: number;
+    pitch: number;
+    longPressTimer: ReturnType<typeof setTimeout> | null;
+  } | null>(null);
+  const { messages } = useStudioI18n();
+  const COPY = messages.personalize;
+  const decorLabel = (id: DecorId) => COPY.choices.decor[id].label;
   const contrast = 0.85 + state.details / 250;
   const brightness = 0.72 + state.light / 180;
-  const saturate = state.originalColors ? 1 : 0.55 + state.variantIndex * 0.2;
+  // Style-led saturation so Variante reads clearly (preserve / clay / painted).
+  const saturate =
+    state.stylePreset === "preserve"
+      ? 1
+      : state.stylePreset === "clay"
+        ? 0.62
+        : 1.55;
   const extrusion = popoutExtrusionPx(state.volume);
+  const dialogueText = spokenMessage ?? state.context.dialogue;
 
   return (
     <div
-      className={`studio-stage studio-stage--${state.stylePreset}${state.gridOn ? " is-grid" : ""}${hasDrawing ? " has-drawing" : ""}`}
+      className={`studio-stage studio-stage--${state.stylePreset}${state.gridOn ? " is-grid" : ""}${hasDrawing ? " has-drawing" : ""}${mirror ? " studio-stage--mirror" : ""}${playing ? " is-interacting" : ""}`}
       data-mode={transformMode}
       data-animation={state.animation}
+      data-palette={state.palette}
+      data-lighting={state.lighting}
+      data-decor={state.decor[0]?.id ?? "none"}
+      data-mood={state.context.mood || "none"}
+      data-preview-only="true"
+      data-interacting={playing ? "yes" : "no"}
+      data-reacting={playing && interaction?.activeTarget === "character" && interaction.reactionNonce > 0 ? "yes" : "no"}
       data-outline={state.preserveOutline ? "yes" : "no"}
       data-colors={state.originalColors ? "original" : "styled"}
       data-variant={state.variantIndex}
@@ -335,9 +418,9 @@ export function GardenPoster({
         {
           "--studio-zoom": String(scale),
           "--studio-volume": String(volumeScale),
-          "--studio-light": String(isFigurine ? Math.min(1, state.light / 100 + 0.18) : state.light / 100),
+          "--studio-light": String(usesFigurineVolume ? Math.min(1, state.light / 100 + 0.18) : state.light / 100),
           "--studio-shadow": String(
-            isFigurine
+            usesFigurineVolume
               ? Math.min(1, state.shadow / 100 + 0.28)
               : Math.max(0.18, state.shadow / 100 * 0.85)
           ),
@@ -351,10 +434,13 @@ export function GardenPoster({
           "--popout-depth": `${extrusion}px`,
           "--popout-edge": POPOUT_EDGE_COLORS.warm,
           "--figurine-scale": String(figurineVolumeScale(state.volume)),
-          "--figurine-puff": String(figurinePuff(state.volume))
+          "--figurine-puff": String(figurinePuff(state.volume)),
+          "--interact-x": `${interaction?.rotationX ?? 0}deg`,
+          "--interact-y": `${interaction?.rotationY ?? 0}deg`,
+          "--interact-zoom": String(interaction?.zoom ?? 1)
         } as CSSProperties
       }
-      aria-label={hasDrawing ? "Previzualizare desen pe scenă" : "Previzualizare personaj pe scenă"}
+      aria-label={hasDrawing ? COPY.stageAriaDrawing : COPY.stageAriaCharacter}
     >
       <div className="studio-stage__vignette" aria-hidden="true" />
       <div className="studio-stage__keylight" aria-hidden="true" />
@@ -363,7 +449,21 @@ export function GardenPoster({
       <div className="studio-stage__ground" aria-hidden="true" />
       <div className="studio-stage__floor" aria-hidden="true" />
 
-      {isPopout && hasDrawing ? (
+      {hasDrawing ? null : <p className="studio-stage__demo-label">{messages.studio.demoPreview}</p>}
+      {dialogueText ? <p className="studio-stage__dialogue">{dialogueText}</p> : null}
+
+      {isFigurine && !projectId ? (
+        <p className="studio-stage__mode-hint studio-stage__mode-hint--figurine">{COPY.figurineNeedsProject}</p>
+      ) : null}
+      {isImport && !projectId ? (
+        <p className="studio-stage__mode-hint studio-stage__mode-hint--import">{COPY.importNeedsProject}</p>
+      ) : null}
+      {isImport && projectId && !importedModelUrl ? (
+        <p className="studio-stage__mode-hint studio-stage__mode-hint--import">{COPY.importPickHint}</p>
+      ) : null}
+
+      <div className="studio-stage__play">
+      {isPopout && hasDrawing && !mirror ? (
         <PopoutMeshStage
           sourceUrl={drawingSrc!}
           volume={state.volume}
@@ -371,14 +471,40 @@ export function GardenPoster({
           pitch={state.orbitPitch}
           roll={state.orbitRoll}
           zoom={state.zoom}
-          showOriginalPage={showOriginalPage}
         />
       ) : null}
 
       <div className="studio-stage__orbit">
+        <div className="studio-stage__actor">
         {isPopout && !hasDrawing ? <PopoutFixtureFigure volume={state.volume} /> : null}
 
-        {isFigurine && hasDrawing ? (
+        {isPopout && hasDrawing && mirror ? (
+          <FigurineDrawingShell
+            drawingSrc={drawingSrc!}
+            volume={state.volume}
+            preserveOutline={state.preserveOutline}
+          />
+        ) : null}
+
+        {isFigurine && hasDrawing && projectId && !mirror ? (
+          <FigurineLiveStage
+            projectId={projectId}
+            yaw={state.orbitYaw}
+            pitch={state.orbitPitch}
+            roll={state.orbitRoll}
+            zoom={state.zoom}
+            volume={state.volume}
+            fallback={
+              <FigurineDrawingShell
+                drawingSrc={drawingSrc!}
+                volume={state.volume}
+                preserveOutline={state.preserveOutline}
+              />
+            }
+          />
+        ) : null}
+
+        {isFigurine && hasDrawing && (!projectId || mirror) ? (
           <FigurineDrawingShell
             drawingSrc={drawingSrc!}
             volume={state.volume}
@@ -387,21 +513,172 @@ export function GardenPoster({
         ) : null}
 
         {isFigurine && !hasDrawing ? <FigurineFixtureFigure volume={state.volume} /> : null}
+
+        {isImport && importedModelUrl && !mirror ? (
+          <FigurineGlbStage
+            modelUrl={importedModelUrl}
+            yaw={state.orbitYaw}
+            pitch={state.orbitPitch}
+            roll={state.orbitRoll}
+            zoom={state.zoom}
+            volume={state.volume}
+          />
+        ) : null}
+
+        {isImport && (!importedModelUrl || mirror) ? (
+          hasDrawing ? (
+            <FigurineDrawingShell
+              drawingSrc={drawingSrc!}
+              volume={state.volume}
+              preserveOutline={state.preserveOutline}
+            />
+          ) : (
+            <FigurineFixtureFigure volume={state.volume} />
+          )
+        ) : null}
+        </div>
       </div>
 
-      {isFigurine ? (
-        <p className="studio-stage__mode-hint studio-stage__mode-hint--figurine">{COPY.figurineVolumeHint}</p>
-      ) : null}
-
-      {state.decor.length > 0 ? (
-        <ul className="studio-stage__decor" aria-hidden="true">
-          {state.decor.map((id) => (
-            <li key={id} className={`studio-stage__prop studio-stage__prop--${id}`}>
-              <span>{id}</span>
+      {decorProps.length > 0 ? (
+        <ul className="studio-stage__decor" ref={decorRootRef} aria-hidden={playing ? undefined : true}>
+          {decorProps.map(({ item, modelUrl }) => (
+            <li
+              key={item.key}
+              className={`studio-stage__prop studio-stage__prop--${item.id}${playing && interaction?.activeTarget === "decor" ? " is-highlight" : ""}`}
+              style={
+                {
+                  "--prop-x": `${item.x}%`,
+                  "--prop-y": `${item.y}%`
+                } as CSSProperties
+              }
+            >
+              <button
+                type="button"
+                className="studio-stage__prop-hit"
+                aria-label={decorLabel(item.id)}
+                title={COPY.decorPropHint}
+                onContextMenu={(event) => event.preventDefault()}
+                onPointerDown={(event) => {
+                  if (event.button !== 0 && event.button !== 2) return;
+                  event.stopPropagation();
+                  event.preventDefault();
+                  const existing = dragRef.current;
+                  // Second finger / right-click / Shift → move instead of rotate.
+                  if (
+                    existing &&
+                    existing.key === item.key &&
+                    existing.pointerId !== event.pointerId
+                  ) {
+                    if (existing.longPressTimer) clearTimeout(existing.longPressTimer);
+                    existing.longPressTimer = null;
+                    existing.mode = "move";
+                    existing.pointerId = event.pointerId;
+                    existing.startX = event.clientX;
+                    existing.startY = event.clientY;
+                    existing.lastX = event.clientX;
+                    existing.lastY = event.clientY;
+                    existing.moved = true;
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    return;
+                  }
+                  const forceMove =
+                    event.button === 2 || event.shiftKey || event.altKey || event.metaKey;
+                  const drag = {
+                    key: item.key,
+                    pointerId: event.pointerId,
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    lastX: event.clientX,
+                    lastY: event.clientY,
+                    moved: false,
+                    mode: (forceMove ? "move" : "orbit") as "orbit" | "move",
+                    yaw: item.yaw,
+                    pitch: item.pitch,
+                    longPressTimer: null as ReturnType<typeof setTimeout> | null
+                  };
+                  // Hold briefly, then drag → move (kids / touch, no modifier keys).
+                  if (!forceMove) {
+                    drag.longPressTimer = setTimeout(() => {
+                      if (dragRef.current === drag) drag.mode = "move";
+                    }, 320);
+                  }
+                  dragRef.current = drag;
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  onDecorActivate?.();
+                }}
+                onPointerMove={(event) => {
+                  const drag = dragRef.current;
+                  const root = decorRootRef.current;
+                  if (!drag || drag.pointerId !== event.pointerId || !root) return;
+                  const totalDx = event.clientX - drag.startX;
+                  const totalDy = event.clientY - drag.startY;
+                  if (!drag.moved && Math.hypot(totalDx, totalDy) < GLB_ORBIT_DRAG_PX) return;
+                  if (drag.longPressTimer) {
+                    clearTimeout(drag.longPressTimer);
+                    drag.longPressTimer = null;
+                  }
+                  drag.moved = true;
+                  if (drag.mode === "orbit") {
+                    const dx = event.clientX - drag.lastX;
+                    const dy = event.clientY - drag.lastY;
+                    drag.lastX = event.clientX;
+                    drag.lastY = event.clientY;
+                    const delta = glbOrbitFromPointer(dx, dy);
+                    drag.yaw += delta.yaw;
+                    drag.pitch = clampGlbOrbitPitch(drag.pitch + delta.pitch);
+                    onDecorOrbit?.(drag.key, drag.yaw, drag.pitch);
+                    return;
+                  }
+                  if (!onDecorMove) return;
+                  const rect = root.getBoundingClientRect();
+                  if (rect.width < 1 || rect.height < 1) return;
+                  const x = ((event.clientX - rect.left) / rect.width) * 100;
+                  const y = ((event.clientY - rect.top) / rect.height) * 100;
+                  onDecorMove(drag.key, x, y);
+                }}
+                onPointerUp={(event) => {
+                  const drag = dragRef.current;
+                  if (!drag || drag.pointerId !== event.pointerId) return;
+                  if (drag.longPressTimer) clearTimeout(drag.longPressTimer);
+                  dragRef.current = null;
+                  if (!drag.moved) onDecorRemove?.(drag.key);
+                }}
+                onPointerCancel={(event) => {
+                  const drag = dragRef.current;
+                  if (!drag || drag.pointerId !== event.pointerId) return;
+                  if (drag.longPressTimer) clearTimeout(drag.longPressTimer);
+                  dragRef.current = null;
+                }}
+              >
+                <StageGlbProp
+                  modelUrl={modelUrl}
+                  variant="decor"
+                  yaw={item.yaw}
+                  pitch={item.pitch}
+                />
+              </button>
             </li>
           ))}
         </ul>
       ) : null}
+
+      {playing ? (
+        <button
+          type="button"
+          className="studio-stage__hit"
+          aria-label={COPY.characterPreviewAria}
+          onClick={onCharacterClick}
+        />
+      ) : null}
+      {playing && interaction && interaction.reactionNonce > 0 ? (
+        <span
+          key={interaction.reactionNonce}
+          className="studio-stage__react-pulse"
+          data-motion={state.animation}
+          aria-hidden="true"
+        />
+      ) : null}
+      </div>
     </div>
   );
 }

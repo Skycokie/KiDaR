@@ -120,6 +120,55 @@ describe("core policies", () => {
     expect(validateSceneSettingsPatch({ startTransform: { scale: 0 } })).toMatch(/\(0, 10\]/);
     expect(validateSceneSettingsPatch({ startTransform: { scale: 11 } })).toMatch(/\(0, 10\]/);
     expect(validateSceneSettingsPatch({ startTransform: "nope" })).toMatch(/object/);
+    expect(validateSceneSettingsPatch({ arAnchorMode: "follow" })).toBeNull();
+    expect(validateSceneSettingsPatch({ arAnchorMode: "marker" })).toBeNull();
+    expect(validateSceneSettingsPatch({ arAnchorMode: "orbit" })).toMatch(/arAnchorMode/);
+  });
+
+  it("merges arAnchorMode onto scene without dropping startTransform", () => {
+    const current = {
+      title: "T",
+      theme: "#000000",
+      scale: 1,
+      offset: { x: 0, y: 0, z: 0 },
+      scene: {
+        startTransform: {
+          rotation: { x: 0, y: 0, z: 180 },
+          position: { x: 0, y: 0, z: 0 },
+          scale: 1
+        }
+      }
+    } as ProjectSettings;
+    const result = mergeSettings(current, { scene: { arAnchorMode: "follow" } });
+    expect(result.scene?.arAnchorMode).toBe("follow");
+    expect(result.scene?.startTransform?.scale).toBe(1);
+  });
+
+  it("merges and validates scene.decor", () => {
+    const current = {
+      title: "Demo",
+      theme: "#ff0",
+      scale: 1,
+      offset: { x: 0, y: 0, z: 0 },
+      scene: {
+        startTransform: {
+          rotation: { x: 0, y: 0, z: 180 },
+          position: { x: 0, y: 0, z: 0 },
+          scale: 1
+        }
+      }
+    } as ProjectSettings;
+    const result = mergeSettings(current, {
+      scene: { decor: [{ id: "stars", x: 20, y: 30, yaw: 5, pitch: 0 }] }
+    });
+    expect(result.scene?.decor).toEqual([{ id: "stars", x: 20, y: 30, yaw: 5, pitch: 0 }]);
+    expect(result.scene?.startTransform?.scale).toBe(1);
+    const cleared = mergeSettings(result, { scene: { decor: [] } });
+    expect(cleared.scene?.decor).toBeUndefined();
+    expect(cleared.scene?.startTransform?.scale).toBe(1);
+    expect(validateSceneSettingsPatch({ decor: [{ id: "stars", x: 1, y: 2 }] })).toBeNull();
+    expect(validateSceneSettingsPatch({ decor: [{ id: "nope", x: 1, y: 2 }] })).toMatch(/known/);
+    expect(validateSceneSettingsPatch({ decor: "nope" })).toMatch(/array/);
   });
 
   it("creates stable URL slugs", () => {

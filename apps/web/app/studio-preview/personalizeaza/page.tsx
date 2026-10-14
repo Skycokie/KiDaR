@@ -1,7 +1,19 @@
 import type { Metadata } from "next";
 import { DM_Sans, Syne } from "next/font/google";
+import {
+  creativeIdeaPrompt,
+  parseCreativeStartingPoint,
+  parseCreativeSuggestionIndex
+} from "@/components/creaza-preview/starting-point";
+import { StudioI18nProvider } from "@/components/i18n/studio-i18n";
 import { PersonalizePreviewShell } from "@/components/studio-personalize-preview";
 import type { PreviewProjectContext } from "@/components/studio-personalize-preview/save-start-transform";
+import {
+  parseArAnchorMode,
+  persistedDecorToStudio
+} from "@/components/studio-personalize-preview/save-start-transform";
+import { getMessages } from "@/i18n/get-messages";
+import { getRequestLocale } from "@/i18n/get-request-locale";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import { getProjectForOwner } from "@/lib/appwrite/db";
 import { createSignedSourceUrl } from "@/lib/appwrite/storage";
@@ -18,13 +30,13 @@ const body = DM_Sans({
   display: "swap"
 });
 
-export const metadata: Metadata = {
-  title: "kidAR Studio — personalizează",
-  description: "Personalizează personajul pe scenă. Controalele rămân locale pe acest ecran."
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = getMessages(getRequestLocale()).personalize;
+  return { title: t.metaTitle, description: t.metaDescription };
+}
 
 type PageProps = {
-  searchParams?: { projectId?: string | string[] };
+  searchParams?: { projectId?: string | string[]; from?: string | string[]; hint?: string | string[] };
 };
 
 async function loadOwnedPreview(projectId: string | undefined): Promise<{
@@ -38,8 +50,13 @@ async function loadOwnedPreview(projectId: string | undefined): Promise<{
   if (!project) return { drawingSrc: null, projectContext: null };
   const offset = project.settings?.offset;
   const rotation = project.settings?.scene?.startTransform?.rotation;
+  const importedModelUrl =
+    (typeof project.settings?.galleryModelUrl === "string" && project.settings.galleryModelUrl) ||
+    (typeof project.settings?.uploadModelUrl === "string" && project.settings.uploadModelUrl) ||
+    null;
   const projectContext: PreviewProjectContext = {
     projectId: project.id,
+    importedModelUrl,
     scale:
       typeof project.settings?.scale === "number" && Number.isFinite(project.settings.scale)
         ? project.settings.scale
@@ -50,7 +67,9 @@ async function loadOwnedPreview(projectId: string | undefined): Promise<{
       z: typeof offset?.z === "number" && Number.isFinite(offset.z) ? offset.z : 0
     },
     startYaw: typeof rotation?.y === "number" && Number.isFinite(rotation.y) ? rotation.y : null,
-    startPitch: typeof rotation?.x === "number" && Number.isFinite(rotation.x) ? rotation.x : null
+    startPitch: typeof rotation?.x === "number" && Number.isFinite(rotation.x) ? rotation.x : null,
+    arAnchorMode: parseArAnchorMode(project.settings?.scene?.arAnchorMode),
+    decor: persistedDecorToStudio(project.settings?.scene?.decor)
   };
   const drawingSrc = project.source_image_path
     ? await createSignedSourceUrl(project.source_image_path, 60 * 30)
@@ -62,15 +81,23 @@ export default async function StudioPersonalizePreviewPage({ searchParams }: Pag
   const raw = searchParams?.projectId;
   const projectId = typeof raw === "string" ? raw.trim() : Array.isArray(raw) ? raw[0]?.trim() : "";
   const { drawingSrc, projectContext } = await loadOwnedPreview(projectId || undefined);
+  const locale = getRequestLocale();
+  const from = parseCreativeStartingPoint(searchParams?.from);
+  const hint = parseCreativeSuggestionIndex(searchParams?.hint);
+  const initialIdeaPrompt = from ? creativeIdeaPrompt(getMessages(locale).creaza.preset, from, hint) : "";
 
   return (
     <div className={`${display.variable} ${body.variable}`}>
       <noscript>
-        <p style={{ margin: "1rem", color: "#9aa3b5" }}>
-          Activează JavaScript pentru Studio. Controalele de pe acest ecran nu deschid camera.
-        </p>
+        <p style={{ margin: "1rem", color: "#9aa3b5" }}>{getMessages(locale).personalize.noscript}</p>
       </noscript>
-      <PersonalizePreviewShell drawingSrc={drawingSrc} projectContext={projectContext} />
+      <StudioI18nProvider locale={locale}>
+        <PersonalizePreviewShell
+          drawingSrc={drawingSrc}
+          projectContext={projectContext}
+          initialIdeaPrompt={initialIdeaPrompt}
+        />
+      </StudioI18nProvider>
     </div>
   );
 }

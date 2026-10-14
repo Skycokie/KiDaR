@@ -12,6 +12,7 @@
     "test:e2e": "playwright test",
     "appwrite:setup": "node scripts/setup-appwrite.mjs",
     "appwrite:verify": "node scripts/setup-appwrite.mjs --verify",
+    "appwrite:migrate-permissions": "node scripts/migrate-appwrite-permissions.mjs",
     "worker": "pnpm --filter @kidar/worker start",
     "pipeline:demo": "pnpm --filter @kidar/worker pipeline:demo",
     "storage:r2:verify": "pnpm --filter @kidar/worker storage:r2:verify"

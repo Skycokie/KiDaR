@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { localeDirection } from "@/i18n/config";
+import { getRequestLocale } from "@/i18n/get-request-locale";
 
 export const metadata: Metadata = {
   title: "kidAR Studio",
@@ -8,8 +10,9 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children
 }: Readonly<{ children: React.ReactNode }>) {
+  const locale = getRequestLocale();
   return (
-    <html lang="en">
+    <html lang={locale} dir={localeDirection[locale]}>
       <body>{children}</body>
     </html>
   );

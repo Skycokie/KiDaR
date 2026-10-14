@@ -95,6 +95,7 @@ describe("figurine_build stage (Go D retopo)", () => {
       uploadImage: async () => {
         throw new Error("should not upload when providerTaskId exists");
       },
+      submitTextToModel: async () => ({ providerTaskId: "text_unused" }),
       submitImageToModel: async () => {
         submitCount += 1;
         return { providerTaskId: "task_dup" };
@@ -172,6 +173,7 @@ describe("figurine_build stage (Go D retopo)", () => {
     const downloadedUrls: string[] = [];
     const provider: TripoImageToModelProvider = {
       uploadImage: async () => ({ fileToken: "file_1" }),
+      submitTextToModel: async () => ({ providerTaskId: "text_unused" }),
       submitImageToModel: async () => {
         submitCount += 1;
         return { providerTaskId: "gen_1" };
@@ -235,6 +237,7 @@ describe("figurine_build stage (Go D retopo)", () => {
   it("fails closed on empty retopo download without writing public artifact", async () => {
     const provider: TripoImageToModelProvider = {
       uploadImage: async () => ({ fileToken: "f" }),
+      submitTextToModel: async () => ({ providerTaskId: "text_unused" }),
       submitImageToModel: async () => ({ providerTaskId: "t1" }),
       submitModelConvert: async () => ({ providerTaskId: "convert_unused" }),
       submitMeshDecimate: async () => ({ providerTaskId: "r1" }),
@@ -272,6 +275,7 @@ describe("figurine_build stage (Go D retopo)", () => {
     const downloadedUrls: string[] = [];
     const provider: TripoImageToModelProvider = {
       uploadImage: async () => ({ fileToken: "f" }),
+      submitTextToModel: async () => ({ providerTaskId: "text_unused" }),
       submitImageToModel: async () => ({ providerTaskId: "t1" }),
       submitModelConvert: async () => ({ providerTaskId: "convert_unused" }),
       submitMeshDecimate: async () => ({ providerTaskId: "r_fail" }),
@@ -319,6 +323,7 @@ describe("figurine_build stage (Go D retopo)", () => {
       uploadImage: async () => {
         throw new Error("must not upload");
       },
+      submitTextToModel: async () => ({ providerTaskId: "text_unused" }),
       submitImageToModel: async () => {
         throw new Error("must not submit");
       },

@@ -8,6 +8,10 @@ import {
   type StudioWorldsResult
 } from "@/lib/studio-worlds";
 import { SiteHeader } from "@/components/site-nav";
+import type { Locale } from "@/i18n/config";
+import { getMessages } from "@/i18n/get-messages";
+import { hrefForLocale } from "@/i18n/locale";
+import type { Messages } from "@/i18n/types";
 import { Artwork, HeroStage } from "./artworks";
 import {
   CREATE_CHOICES,
@@ -20,9 +24,37 @@ import {
 } from "./fixtures";
 import "./studio-preview.css";
 
+type WorldsCopy = Messages["worlds"];
+
 function cropClass(variant: StudioWorldCard["visualVariant"]): string {
   if (variant === "landscape") return "panorama";
   return variant;
+}
+
+function WorldPosterArt({
+  world,
+  art
+}: {
+  world: StudioWorldCard;
+  art: ReturnType<typeof resolveArt>;
+}) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const preview = world.preview?.kind === "safe-preview" ? world.preview : null;
+
+  if (preview && failedSrc !== preview.src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        className="studio-art"
+        src={preview.src}
+        alt={preview.alt}
+        loading="lazy"
+        decoding="async"
+        onError={() => setFailedSrc(preview.src)}
+      />
+    );
+  }
+  return <Artwork id={`world-${world.id}`} kind={art} />;
 }
 
 function resolveArt(world: StudioWorldCard, sourceKind: StudioWorldsResult["kind"]) {
@@ -34,14 +66,19 @@ function resolveArt(world: StudioWorldCard, sourceKind: StudioWorldsResult["kind
 }
 
 export function StudioShell({
-  worldsResult = { kind: "fixtures", worlds: fixtureStudioWorlds() },
-  createHref = "/intra"
+  worldsResult,
+  createHref = "/intra",
+  locale = "ro"
 }: {
   worldsResult?: StudioWorldsResult;
   /** Existing Simple Creator entry — /creaza when signed in, /intra when guest. */
   createHref?: string;
+  locale?: Locale;
 }) {
-  const worlds = worldsResult.kind === "fixtures" || worldsResult.kind === "live" ? worldsResult.worlds : [];
+  const messages = getMessages(locale);
+  const t = messages.worlds;
+  const result = worldsResult ?? { kind: "fixtures", worlds: fixtureStudioWorlds(locale) };
+  const worlds = result.kind === "fixtures" || result.kind === "live" ? result.worlds : [];
   const [view, setView] = useState<FixtureView>("atelier");
   const [libraryFilter, setLibraryFilter] = useState<"all" | FixtureAssetKind>("all");
   const [selectedWorld, setSelectedWorld] = useState(worlds[0]?.id ?? "");
@@ -61,11 +98,16 @@ export function StudioShell({
   return (
     <div className="studio-preview">
       <a className="studio-skip" href="#studio-main">
-        Sari la conținut
+        {messages.accessibility.skipToContent}
       </a>
 
       <SiteHeader
         brandHref="/studio"
+        studioHref="/studio"
+        locale={locale}
+        menuLabel={messages.accessibility.menu}
+        languageLabel={messages.accessibility.languageSelector}
+        navLabel={t.nav.main}
         trailing={
           <>
             <button
@@ -74,7 +116,7 @@ export function StudioShell({
               aria-current={view === "worlds" ? "page" : undefined}
               onClick={() => go("worlds")}
             >
-              Lumi
+              {t.nav.worlds}
             </button>
             <button
               type="button"
@@ -82,10 +124,10 @@ export function StudioShell({
               aria-current={view === "library" ? "page" : undefined}
               onClick={() => go("library")}
             >
-              Bibliotecă
+              {t.nav.library}
             </button>
             <button type="button" className="studio-header__ghost" disabled>
-              Profil
+              {t.nav.profile}
             </button>
           </>
         }
@@ -97,7 +139,7 @@ export function StudioShell({
               aria-current={view === "worlds" ? "page" : undefined}
               onClick={() => go("worlds")}
             >
-              Lumi
+              {t.nav.worlds}
             </button>
             <button
               type="button"
@@ -105,7 +147,7 @@ export function StudioShell({
               aria-current={view === "library" ? "page" : undefined}
               onClick={() => go("library")}
             >
-              Bibliotecă
+              {t.nav.library}
             </button>
             <button
               type="button"
@@ -113,10 +155,10 @@ export function StudioShell({
               aria-current={view === "create" ? "page" : undefined}
               onClick={() => go("create")}
             >
-              Creează
+              {t.nav.create}
             </button>
             <button type="button" className="site-header__sheet-btn" disabled>
-              Profil
+              {t.nav.profile}
             </button>
           </>
         }
@@ -127,40 +169,43 @@ export function StudioShell({
           <>
             <section className="atelier-hero" aria-labelledby="atelier-title">
               <div className="atelier-hero__copy">
-                <p className="atelier-kicker">Atelier</p>
+                <p className="atelier-kicker">{t.atelier.kicker}</p>
                 <h1 id="atelier-title" className="atelier-title">
-                  Orice poză poate
+                  {t.atelier.titleLine1}
                   <br />
-                  deveni o lume.
+                  {t.atelier.titleLine2}
                 </h1>
-                <p className="atelier-lead">
-                  Adaugă o poză, alege ce prinde viață și vezi-l în AR.
-                </p>
+                <p className="atelier-lead">{t.atelier.lead}</p>
                 <div className="atelier-actions">
                   <a className="atelier-cta" href={createHref}>
-                    Începe cu o poză
+                    {t.atelier.startWithPhoto}
                   </a>
                   <button type="button" className="atelier-secondary" onClick={() => go("worlds")}>
-                    Vezi lumile tale →
+                    {t.atelier.seeWorlds}
                   </button>
                 </div>
-                <ol className="atelier-steps" aria-label="Cum începe">
+                <ol className="atelier-steps" aria-label={t.atelier.stepsLabel}>
                   <li>
-                    <span>01</span> Poza ta
+                    <span>01</span> {t.atelier.stepPhoto}
                   </li>
                   <li>
-                    <span>02</span> Lumea ta
+                    <span>02</span> {t.atelier.stepWorld}
                   </li>
                   <li>
-                    <span>03</span> Pe telefonul tău
+                    <span>03</span> {t.atelier.stepPhone}
                   </li>
                 </ol>
               </div>
-              <HeroStage />
+              <HeroStage
+                label={t.atelier.heroLabel}
+                playLabel={messages.landing.playAnimation}
+                pauseLabel={messages.landing.pauseAnimation}
+              />
             </section>
 
             <WorldsGallery
-              result={worldsResult}
+              t={t}
+              result={result}
               selectedId={selectedWorld}
               onSelect={setSelectedWorld}
               createHref={createHref}
@@ -170,7 +215,8 @@ export function StudioShell({
 
         {view === "worlds" ? (
           <WorldsGallery
-            result={worldsResult}
+            t={t}
+            result={result}
             selectedId={selectedWorld}
             onSelect={setSelectedWorld}
             createHref={createHref}
@@ -178,34 +224,34 @@ export function StudioShell({
           />
         ) : null}
 
-        {view === "create" ? <CreateView createHref={createHref} /> : null}
+        {view === "create" ? <CreateView t={t} createHref={createHref} /> : null}
 
         {view === "library" ? (
-          <LibraryView filter={libraryFilter} onFilter={setLibraryFilter} assets={assets} />
+          <LibraryView t={t} filter={libraryFilter} onFilter={setLibraryFilter} assets={assets} />
         ) : null}
 
         {view === "settings" ? (
           <section className="studio-quiet">
-            <h1>Setări</h1>
-            <p>Utilitarele vin mai târziu. Aici rămâne un spațiu calm și dens, nu o scenă cinematică.</p>
+            <h1>{t.settings.title}</h1>
+            <p>{t.settings.body}</p>
           </section>
         ) : null}
       </main>
 
-      <nav className="studio-mobile-nav" aria-label="Mobil">
-        <a href="/creaza">Atelier</a>
-        <a href="/studio" aria-current="page">
+      <nav className="studio-mobile-nav" aria-label={t.nav.mobile}>
+        <a href={hrefForLocale("/creaza", locale)}>Atelier</a>
+        <a href={hrefForLocale("/studio", locale)} aria-current="page">
           Studio
         </a>
-        {MOBILE_NAV.map((item) => (
+        {MOBILE_NAV.map((id) => (
           <button
-            key={item.id}
+            key={id}
             type="button"
-            className={item.id === "create" ? "is-create" : undefined}
-            aria-current={view === item.id ? "page" : undefined}
-            onClick={() => go(item.id)}
+            className={id === "create" ? "is-create" : undefined}
+            aria-current={view === id ? "page" : undefined}
+            onClick={() => go(id)}
           >
-            {item.label}
+            {t.nav[id]}
           </button>
         ))}
       </nav>
@@ -214,53 +260,85 @@ export function StudioShell({
 }
 
 function WorldsGallery({
+  t,
   result,
   selectedId,
   onSelect,
   createHref,
   standalone = false
 }: {
+  t: WorldsCopy;
   result: StudioWorldsResult;
   selectedId: string;
   onSelect: (id: string) => void;
   createHref: string;
   standalone?: boolean;
 }) {
-  const worlds = result.kind === "fixtures" || result.kind === "live" ? result.worlds : [];
+  const canDelete = result.kind === "live";
+  const [worlds, setWorlds] = useState(
+    result.kind === "fixtures" || result.kind === "live" ? result.worlds : []
+  );
+  const [pendingDelete, setPendingDelete] = useState<StudioWorldCard | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(false);
+
+  async function confirmDelete() {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    setDeleteError(false);
+    try {
+      const response = await fetch(`/api/projects/${encodeURIComponent(pendingDelete.id)}`, {
+        method: "DELETE"
+      });
+      // 204 success, 404 already gone — both free the free-plan slot in the UI.
+      if (!response.ok && response.status !== 204 && response.status !== 404) {
+        throw new Error("delete_failed");
+      }
+      setWorlds((current) => current.filter((world) => world.id !== pendingDelete.id));
+      if (selectedId === pendingDelete.id) {
+        onSelect("");
+      }
+      setPendingDelete(null);
+    } catch {
+      setDeleteError(true);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <section className={`worlds${standalone ? " worlds--page" : ""}`} aria-labelledby="worlds-title">
       <div className="worlds__intro">
         <div>
-          <h2 id="worlds-title">Lumile tale</h2>
-          <p>Nu o listă de fișiere — afișe, coperți, postere din pozele tale.</p>
+          <h2 id="worlds-title">{t.gallery.title}</h2>
+          <p>{t.gallery.lead}</p>
         </div>
         <a className="atelier-secondary" href={createHref}>
-          Începe o lume nouă →
+          {t.gallery.startNew}
         </a>
       </div>
 
       {result.kind === "loading" ? (
         <p className="worlds__message" role="status">
-          Îți adunăm lumile…
+          {t.gallery.loading}
         </p>
       ) : null}
 
       {result.kind === "error" ? (
         <div className="worlds__message" role="alert">
-          <p>Nu am putut deschide lumile tale acum. Reîncearcă.</p>
+          <p>{t.gallery.error}</p>
           <button type="button" className="atelier-secondary" onClick={() => window.location.reload()}>
-            Reîncearcă →
+            {t.gallery.retry}
           </button>
         </div>
       ) : null}
 
       {result.kind === "live" && worlds.length === 0 ? (
         <div className="worlds__empty">
-          <p className="worlds__empty-title">Nicio lume încă.</p>
-          <p>Începe cu o poză — aici va apărea ca un afiș, nu ca un fișier.</p>
+          <p className="worlds__empty-title">{t.gallery.emptyTitle}</p>
+          <p>{t.gallery.emptyBody}</p>
           <a className="atelier-cta" href={createHref}>
-            Începe cu o poză
+            {t.atelier.startWithPhoto}
           </a>
         </div>
       ) : null}
@@ -270,26 +348,53 @@ function WorldsGallery({
           {worlds.map((world) => {
             const crop = cropClass(world.visualVariant);
             const art = resolveArt(world, result.kind);
+            const status = t.gallery.status[world.status];
             const className = `world-poster world-poster--${crop}${
               selectedId === world.id ? " is-selected" : ""
             }`;
-            const label = `${world.title}. ${world.updatedLabel}. ${world.status}`;
+            const label = [world.title, world.updatedLabel, status]
+              .map((part) => part.replace(/\.$/, ""))
+              .filter(Boolean)
+              .join(". ");
             const body = (
               <>
-                {world.preview?.kind === "safe-preview" ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="studio-art" src={world.preview.src} alt={world.preview.alt} />
-                ) : (
-                  <Artwork id={`world-${world.id}`} kind={art} />
-                )}
+                <WorldPosterArt world={world} art={art} />
                 <span className="world-poster__shade" />
                 <span className="world-poster__copy">
                   <strong>{world.title}</strong>
                   <em>{world.updatedLabel}</em>
                 </span>
-                <span className="world-poster__meta">{world.status}</span>
+                <span className="world-poster__meta">{status}</span>
               </>
             );
+
+            if (canDelete && world.href) {
+              return (
+                <article key={world.id} className={className}>
+                  <a
+                    href={world.href}
+                    className="world-poster__link"
+                    aria-label={label}
+                    onClick={() => onSelect(world.id)}
+                  >
+                    {body}
+                  </a>
+                  <button
+                    type="button"
+                    className="world-poster__delete"
+                    aria-label={`${t.gallery.delete}: ${world.title}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setDeleteError(false);
+                      setPendingDelete(world);
+                    }}
+                  >
+                    {t.gallery.delete}
+                  </button>
+                </article>
+              );
+            }
 
             if (world.href) {
               return (
@@ -320,25 +425,73 @@ function WorldsGallery({
           })}
 
           <blockquote className="world-quote">
-            <p>„Poza devine poartă.”</p>
+            <p>{t.gallery.quote}</p>
           </blockquote>
         </div>
       )}
+
+      {pendingDelete ? (
+        <div
+          className="world-delete-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="world-delete-title"
+        >
+          <div className="world-delete-dialog__panel">
+            <h3 id="world-delete-title">{t.gallery.deleteConfirmTitle}</h3>
+            <p>
+              <strong>{pendingDelete.title}</strong>
+            </p>
+            <p>{t.gallery.deleteConfirmBody}</p>
+            {pendingDelete.status === "published" ? (
+              <p className="world-delete-dialog__warn">{t.gallery.deleteConfirmPublished}</p>
+            ) : null}
+            {deleteError ? (
+              <p className="world-delete-dialog__error" role="alert">
+                {t.gallery.deleteError}
+              </p>
+            ) : null}
+            <div className="world-delete-dialog__actions">
+              <button
+                type="button"
+                className="atelier-secondary"
+                disabled={deleting}
+                onClick={() => {
+                  if (deleting) return;
+                  setPendingDelete(null);
+                  setDeleteError(false);
+                }}
+              >
+                {t.gallery.deleteCancel}
+              </button>
+              <button
+                type="button"
+                className="world-delete-dialog__confirm"
+                disabled={deleting}
+                onClick={() => void confirmDelete()}
+              >
+                {deleting ? t.gallery.deleting : t.gallery.deleteConfirmAction}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
 
-function CreateView({ createHref }: { createHref: string }) {
+function CreateView({ t, createHref }: { t: WorldsCopy; createHref: string }) {
   return (
     <section className="create-view" aria-labelledby="create-title">
       <div className="create-view__intro">
-        <p className="atelier-kicker">Creează</p>
-        <h1 id="create-title">Cu ce începe lumea?</h1>
-        <p>Patru porți mari. Doar una e deschisă acum.</p>
+        <p className="atelier-kicker">{t.create.kicker}</p>
+        <h1 id="create-title">{t.create.title}</h1>
+        <p>{t.create.lead}</p>
       </div>
 
       <div className="create-grid">
         {CREATE_CHOICES.map((choice) => {
+          const copy = t.create.choices[choice.id];
           const body = (
             <>
               <span className="create-door__art">
@@ -346,10 +499,10 @@ function CreateView({ createHref }: { createHref: string }) {
               </span>
               <span className="create-door__copy">
                 <span className={`create-door__state${choice.available ? " is-open" : ""}`}>
-                  {choice.state}
+                  {choice.available ? t.create.available : t.create.soon}
                 </span>
-                <strong>{choice.title}</strong>
-                <em>{choice.detail}</em>
+                <strong>{copy.title}</strong>
+                <em>{copy.detail}</em>
               </span>
             </>
           );
@@ -360,7 +513,7 @@ function CreateView({ createHref }: { createHref: string }) {
                 key={choice.id}
                 href={createHref}
                 className={`create-door create-door--${choice.id}`}
-                aria-label={`${choice.title}. Continuă în fluxul existent de creare.`}
+                aria-label={`${copy.title}. ${t.create.continueHint}`}
               >
                 {body}
               </a>
@@ -387,25 +540,27 @@ function CreateView({ createHref }: { createHref: string }) {
           event.preventDefault();
         }}
       >
-        <label htmlFor="imagine-prompt">Imaginează ce apare din poză…</label>
+        <label htmlFor="imagine-prompt">{t.create.promptLabel}</label>
         <textarea
           id="imagine-prompt"
           name="prompt"
           readOnly
           aria-disabled="true"
-          placeholder="Un vulpoi de hârtie cu urechi din acuarelă…"
+          placeholder={t.create.promptPlaceholder}
         />
-        <p>În curând. Fără generare acum, fără chat, fără pretenții false.</p>
+        <p>{t.create.promptNote}</p>
       </form>
     </section>
   );
 }
 
 function LibraryView({
+  t,
   filter,
   onFilter,
   assets
 }: {
+  t: WorldsCopy;
   filter: "all" | FixtureAssetKind;
   onFilter: (next: "all" | FixtureAssetKind) => void;
   assets: typeof FIXTURE_ASSETS;
@@ -413,41 +568,44 @@ function LibraryView({
   return (
     <section className="cabinet" aria-labelledby="cabinet-title">
       <div className="cabinet__intro">
-        <p className="atelier-kicker">Bibliotecă</p>
-        <h1 id="cabinet-title">Biblioteca ta</h1>
-        <p>Desene, personaje, sunete și lumi care așteaptă să prindă viață.</p>
+        <p className="atelier-kicker">{t.library.kicker}</p>
+        <h1 id="cabinet-title">{t.library.title}</h1>
+        <p>{t.library.lead}</p>
       </div>
 
-      <div className="cabinet__filters" role="tablist" aria-label="Filtre bibliotecă">
-        {LIBRARY_FILTERS.map((item) => (
+      <div className="cabinet__filters" role="tablist" aria-label={t.library.filtersLabel}>
+        {LIBRARY_FILTERS.map((id) => (
           <button
-            key={item.id}
+            key={id}
             type="button"
             role="tab"
-            aria-selected={filter === item.id}
-            className={filter === item.id ? "is-active" : undefined}
-            onClick={() => onFilter(item.id)}
+            aria-selected={filter === id}
+            className={filter === id ? "is-active" : undefined}
+            onClick={() => onFilter(id)}
           >
-            {item.label}
+            {t.library.filters[id]}
           </button>
         ))}
       </div>
 
       <div className="cabinet__masonry">
-        {assets.map((asset) => (
-          <article
-            key={asset.id}
-            className={`cabinet-object cabinet-object--${asset.size}`}
-            tabIndex={0}
-            aria-label={`${asset.title}. ${asset.meta}`}
-          >
-            <Artwork id={`asset-${asset.id}`} kind={asset.art} />
-            <div className="cabinet-object__reveal">
-              <strong>{asset.title}</strong>
-              <span>{asset.meta}</span>
-            </div>
-          </article>
-        ))}
+        {assets.map((asset) => {
+          const copy = t.library.assets[asset.key];
+          return (
+            <article
+              key={asset.id}
+              className={`cabinet-object cabinet-object--${asset.size}`}
+              tabIndex={0}
+              aria-label={`${copy.title}. ${copy.meta}`}
+            >
+              <Artwork id={`asset-${asset.id}`} kind={asset.art} />
+              <div className="cabinet-object__reveal">
+                <strong>{copy.title}</strong>
+                <span>{copy.meta}</span>
+              </div>
+            </article>
+          );
+        })}
       </div>
     </section>
   );

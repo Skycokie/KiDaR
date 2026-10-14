@@ -1,4 +1,21 @@
 export type Plan = "free" | "paid";
+import { normalizeArDecorList, AR_DECOR_MAX, isKnownArDecorId } from "./ar-decor";
+export {
+  AR_DECOR_MAX,
+  AR_DECOR_MARKER_SPAN,
+  AR_DECOR_DEFAULT_SCALE,
+  AR_DECOR_GLB_PATH,
+  clampDecorPercent,
+  clampDecorAngleDeg,
+  stagePercentToMarkerPosition,
+  decorGlbPublicUrl,
+  normalizeArDecorList,
+  studioDecorToArProps,
+  resolveArDecorProps,
+  decorHashIdentity,
+  isKnownArDecorId
+} from "./ar-decor";
+export type { ArDecorProp, ArDecorResolved } from "./ar-decor";
 export {
   alphaMaskFromRgba,
   cleanAlphaMask,
@@ -54,7 +71,9 @@ export { PublicStorageConfigError } from "./storage-error";
 export {
   resolvePublicStorageConfig,
   createUnimplementedPublicStorage,
-  createPublicArtifactStorage
+  createPublicArtifactStorage,
+  publishStorageEnv,
+  publishPublicBaseUrl
 } from "./storage";
 export type {
   PublicStorageProviderId,
@@ -131,6 +150,39 @@ export type {
 } from "./figurine";
 
 export {
+  CHARACTER_VOICE_ROLES,
+  CHARACTER_VOICE_MESSAGE_MAX,
+  CHARACTER_VOICE_AUDIO_MAX_BYTES,
+  CHARACTER_VOICE_AUDIO_MAX_SECONDS,
+  CHARACTER_VOICE_AUDIO_TYPES,
+  PRIMARY_CHARACTER_ID,
+  isCharacterVoiceRole,
+  isValidCharacterId,
+  trimVoiceMessage,
+  normalizeCharacterVoice,
+  isAllowedVoiceAudioType,
+  readCharacterVoice,
+  upsertCharacterVoice,
+  removeCharacterVoice
+} from "./character-voice";
+export type {
+  CharacterVoiceRole,
+  CharacterVoice,
+  CharacterVoiceMap,
+  NormalizeCharacterVoiceOk,
+  NormalizeCharacterVoiceFail
+} from "./character-voice";
+
+export {
+  collectCharacterVoiceAudioPaths,
+  collectUnpublishKeys,
+  isAllowedUnpublishKey,
+  objectKeyFromPublicUrl,
+  projectNeedsUnpublish
+} from "./project-cleanup";
+export type { UnpublishKeyInput } from "./project-cleanup";
+
+export {
   FIGURE_STAGING_ENVIRONMENT,
   FIGURE_STAGING_BUCKET_NAME,
   FIGURE_STAGING_KEY_PREFIX,
@@ -166,6 +218,53 @@ export type {
 } from "./figure-staging";
 
 export {
+  FIGURE_FLAG_GENERATION,
+  FIGURE_FLAG_GENERATION_ALIAS,
+  FIGURE_FLAG_AR,
+  FIGURE_FLAG_PUBLISH,
+  FIGURE_GLB_CONTENT_TYPE,
+  FIGURE_USDZ_CONTENT_TYPE,
+  FIGURE_MAX_UPLOAD_BYTES,
+  FIGURE_LIFECYCLE,
+  FIGURE_LIMITS,
+  FIGURE_AUDIT_EVENTS,
+  readFigureFeatureFlags,
+  isFigureGenerationEnabled,
+  isFigureLifecycle,
+  canFigureTransition,
+  assertFigureTransition,
+  figureIdempotencyKey,
+  decideFigureGeneration,
+  claimFigureGeneration,
+  classifyFigureUpload,
+  assertFigureImageDimensions,
+  normalizeFigureUpload,
+  stripFailedFigureFields,
+  acceptUploadForProcessing,
+  validateFigureModel,
+  figureDeliveryForStatus,
+  authorizeFigureRequest,
+  redactFigureRecord,
+  evaluateFigureBudget,
+  buildFigureAuditEvent,
+  publishLifecycleFromProjectStatus,
+  decideFigurePublish
+} from "./figure-hardening";
+export type {
+  FigureLifecycle,
+  FigureActor,
+  FigureFeatureFlags,
+  FigureJobSnapshot,
+  FigureSubmitDecision,
+  FigureUploadVerdict,
+  FigureModelVerdict,
+  FigureBudgetSnapshot,
+  FigureAuditEventName,
+  FigureAuditEvent,
+  FigurePublishDecision
+} from "./figure-hardening";
+
+export {
   MIND_PIPELINE_VERSION,
   MIND_AR_PACKAGE_VERSION,
   MIND_ARTIFACT_KIND,
@@ -197,6 +296,8 @@ export {
   AR_PAGE_TEMPLATE_VERSION,
   DEFAULT_AR_INSTRUCTIONS_RO,
   AR_START_BUTTON_LABEL_RO,
+  AR_CAMERA_PRIVACY_NOTE_RO,
+  AR_ROBOTS_META_CONTENT,
   AR_RETRY_BUTTON_LABEL_RO,
   AR_CAMERA_PERMISSION_HINT_RO,
   AR_CAMERA_DENIED_RO,
@@ -242,6 +343,12 @@ export {
   pageArtifactKey,
   experiencePointerKey,
   consumerArUrl,
+  CAMERA_VIEW_DEFAULT_ROTATION,
+  cameraViewUrl,
+  cameraViewOrientation,
+  normalizeCameraViewRotation,
+  resolveCameraViewPose,
+  resolveCameraViewModel,
   pageRenderPipelineLabel,
   requiredJobsForMode,
   pageRenderDependsOn,
@@ -254,7 +361,12 @@ export {
   mapSettingsToArPageConfig,
   selectClickableCta
 } from "./page-render";
-export type { PageRenderDependsOn, MapArPageInput } from "./page-render";
+export type {
+  PageRenderDependsOn,
+  MapArPageInput,
+  CameraViewModelResult,
+  CameraViewRotation
+} from "./page-render";
 
 export { PublishPlanError, planPublishJobs } from "./publish-plan";
 export type { PublishPlanInput, PublishPlan } from "./publish-plan";
@@ -290,6 +402,16 @@ export interface StartTransform {
 
 export interface SceneSettings {
   startTransform?: StartTransform;
+  /**
+   * After MindAR detects the drawing: keep the model on the marker (`marker`)
+   * or reparent it to the phone camera so it stays on screen (`follow`).
+   */
+  arAnchorMode?: "marker" | "follow";
+  /**
+   * Studio decor props for AR (marker-anchored). yaw/pitch are degrees.
+   * Empty/absent = no props in the AR page.
+   */
+  decor?: import("./ar-decor").ArDecorProp[];
 }
 
 export type StartTransformPatch = {
@@ -300,6 +422,9 @@ export type StartTransformPatch = {
 
 export type SceneSettingsPatch = {
   startTransform?: StartTransformPatch;
+  arAnchorMode?: "marker" | "follow";
+  /** Replace (not merge) the decor list. Pass [] to clear. */
+  decor?: import("./ar-decor").ArDecorProp[];
 };
 
 export interface ProjectSettings {
@@ -315,6 +440,8 @@ export interface ProjectSettings {
   uploadModelPath?: string;
   /** Public HTTPS GLB from completed figurine_build (R2); never a source-bucket URL. */
   figurineModelUrl?: string;
+  /** Moderated text prompt for FIGURE_TEXT_3D_ENABLED jobs (worker Tripo text-to-model). */
+  figurineTextPrompt?: string;
   /**
    * Per-subject generation records (MVP: usually one). Mutable generation state
    * lives here + job payload — not browser-only storage.
@@ -334,6 +461,11 @@ export interface ProjectSettings {
   };
   logoPath?: string;
   soundPath?: string;
+  /**
+   * Per-character Studio voice (narrator / hidden + message + optional audio).
+   * Not part of pipeline inputHash — voice edits must not rebuild Tripo / pop-out.
+   */
+  characterVoices?: import("./character-voice").CharacterVoiceMap;
   scale: number;
   offset: { x: number; y: number; z: number };
   soundUrl?: string;
@@ -342,6 +474,8 @@ export interface ProjectSettings {
   publicQrUrl?: string;
   publicPdfUrl?: string;
   publicExperienceUrl?: string;
+  /** ISO time the owner last accepted publish terms server-side; not part of inputHash. */
+  publishTermsAcceptedAt?: string;
   /** Optional AR start pose. Absent on older projects — no migration. */
   scene?: SceneSettings;
 }
@@ -404,6 +538,15 @@ function mergeScene(
     ...(startTransform ? { startTransform } : {})
   } as SceneSettings;
   if (!startTransform) delete scene.startTransform;
+  if (scene.arAnchorMode !== "marker" && scene.arAnchorMode !== "follow") {
+    delete scene.arAnchorMode;
+  }
+  if ("decor" in patch) {
+    const decor = normalizeArDecorList(patch.decor);
+    if (decor.length > 0) scene.decor = decor;
+    else delete scene.decor;
+  }
+  if (!scene.startTransform && !scene.arAnchorMode && !scene.decor?.length) return undefined;
   return scene;
 }
 
@@ -463,6 +606,29 @@ function validateVec3Patch(
 export function validateSceneSettingsPatch(scene: unknown): string | null {
   if (scene === undefined) return null;
   if (!isPlainObject(scene)) return "settings.scene must be an object";
+  if ("arAnchorMode" in scene && scene.arAnchorMode !== undefined) {
+    if (scene.arAnchorMode !== "marker" && scene.arAnchorMode !== "follow") {
+      return 'settings.scene.arAnchorMode must be "marker" or "follow"';
+    }
+  }
+  if ("decor" in scene && scene.decor !== undefined) {
+    if (!Array.isArray(scene.decor)) return "settings.scene.decor must be an array";
+    if (scene.decor.length > AR_DECOR_MAX) {
+      return `settings.scene.decor must have at most ${AR_DECOR_MAX} items`;
+    }
+    for (let i = 0; i < scene.decor.length; i += 1) {
+      const item = scene.decor[i];
+      if (!isPlainObject(item)) return `settings.scene.decor[${i}] must be an object`;
+      if (typeof item.id !== "string" || !isKnownArDecorId(item.id)) {
+        return `settings.scene.decor[${i}].id is not a known decor asset`;
+      }
+      for (const axis of ["x", "y", "yaw", "pitch"] as const) {
+        if (!(axis in item) || item[axis] === undefined) continue;
+        const message = validateFiniteAxis(item[axis], `settings.scene.decor[${i}].${axis}`);
+        if (message) return message;
+      }
+    }
+  }
   if (!("startTransform" in scene) || scene.startTransform === undefined) return null;
   const start = scene.startTransform;
   if (!isPlainObject(start)) return "settings.scene.startTransform must be an object";
@@ -517,3 +683,9 @@ export async function generateUniqueSlug(
 
   return candidate;
 }
+
+export {
+  UPLOAD_ARTIFACT_KIND,
+  UploadModelError,
+  uploadArtifactKey
+} from "./upload-model";

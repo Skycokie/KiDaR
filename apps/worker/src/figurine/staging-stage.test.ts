@@ -95,6 +95,7 @@ describe("figure staging build", () => {
     let convertCount = 0;
     const provider: TripoImageToModelProvider = {
       uploadImage: async () => ({ fileToken: "f1" }),
+      submitTextToModel: async () => ({ providerTaskId: "text_unused" }),
       submitImageToModel: async () => {
         imageToModel += 1;
         return { providerTaskId: "task_1" };
@@ -169,6 +170,7 @@ describe("figure staging build", () => {
     const usdz = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 9]);
     const provider: TripoImageToModelProvider = {
       uploadImage: async () => ({ fileToken: "f1" }),
+      submitTextToModel: async () => ({ providerTaskId: "text_unused" }),
       submitImageToModel: async () => ({ providerTaskId: "t" }),
       submitMeshDecimate: async () => ({ providerTaskId: "r" }),
       submitModelConvert: async () => ({ providerTaskId: "c" }),

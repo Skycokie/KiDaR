@@ -1,11 +1,20 @@
 import { NextResponse } from "next/server";
-import { mergeSettings, validateSceneSettingsPatch, type ProjectSettingsPatch } from "@kidar/core";
+import {
+  collectCharacterVoiceAudioPaths,
+  collectUnpublishKeys,
+  mergeSettings,
+  projectNeedsUnpublish,
+  validateSceneSettingsPatch,
+  type ProjectSettingsPatch
+} from "@kidar/core";
+import { computeUnpublishInputHash } from "@kidar/core/hash";
 import { getLoggedInUser } from "@/lib/appwrite/client";
 import {
   deleteProjectDocument,
   getProjectForOwner,
   updateProjectDocument
 } from "@/lib/appwrite/db";
+import { enqueueJob } from "@/lib/appwrite/jobs";
 import {
   APPWRITE_ASSETS_BUCKET,
   APPWRITE_SOURCE_BUCKET,
@@ -15,6 +24,15 @@ import {
 } from "@/lib/appwrite/storage";
 
 type Context = { params: { projectId: string } };
+
+/** Written only by publish / page_render on the server. */
+const SERVER_OWNED_SETTINGS = [
+  "publicHtmlUrl",
+  "publicQrUrl",
+  "publicPdfUrl",
+  "publicExperienceUrl",
+  "publishTermsAcceptedAt"
+] as const;
 
 export async function GET(_request: Request, { params }: Context) {
   const user = await getLoggedInUser();
@@ -70,7 +88,9 @@ export async function PATCH(request: Request, { params }: Context) {
       ...(body.mode ? { mode: body.mode } : {})
     };
     if (body.settings) {
-      patch.settings = mergeSettings(existing.settings, body.settings);
+      const clientSettings = { ...body.settings };
+      for (const key of SERVER_OWNED_SETTINGS) delete clientSettings[key];
+      patch.settings = mergeSettings(existing.settings, clientSettings);
     }
     const project = await updateProjectDocument(params.projectId, patch);
     return NextResponse.json({ project });
@@ -87,21 +107,71 @@ export async function DELETE(_request: Request, { params }: Context) {
   const project = await getProjectForOwner(params.projectId, user.$id);
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
-  const sourceIds = [project.source_image_path].filter((path): path is string => Boolean(path));
-  if (sourceIds.length) await deleteStorageFiles(APPWRITE_SOURCE_BUCKET, sourceIds);
+  const settings = project.settings ?? {};
+  if (
+    projectNeedsUnpublish({
+      slug: project.slug,
+      publicHtmlUrl: settings.publicHtmlUrl,
+      publicExperienceUrl: settings.publicExperienceUrl
+    })
+  ) {
+    const keys = collectUnpublishKeys({
+      slug: project.slug,
+      publicBaseUrl: process.env.R2_PUBLIC_BASE_URL,
+      publicHtmlUrl: settings.publicHtmlUrl,
+      publicQrUrl: settings.publicQrUrl,
+      publicPdfUrl: settings.publicPdfUrl
+    });
+    if (keys.length) {
+      try {
+        await enqueueJob({
+          projectId: project.id,
+          type: "unpublish",
+          inputHash: computeUnpublishInputHash(keys),
+          ownerId: user.$id,
+          payload: {
+            source: "studio_delete",
+            slug: project.slug,
+            keys
+          }
+        });
+      } catch {
+        // Best-effort: free the free-plan slot even if CDN cleanup enqueue fails
+        // (e.g. Appwrite step enum missing "unpublish"). Orphaned public keys are
+        // worse than a stuck surprise the owner cannot delete.
+      }
+    }
+  }
 
+  const sourceIds = [project.source_image_path].filter((path): path is string => Boolean(path));
   const assetIds = [
-    project.settings?.uploadModelPath,
-    project.settings?.logoPath,
-    project.settings?.soundPath
+    settings.uploadModelPath,
+    settings.logoPath,
+    settings.soundPath,
+    ...collectCharacterVoiceAudioPaths(settings.characterVoices)
   ].filter((path): path is string => Boolean(path));
-  if (assetIds.length) await deleteStorageFiles(APPWRITE_ASSETS_BUCKET, assetIds);
 
   try {
-    await deleteProjectDocument(params.projectId);
+    if (sourceIds.length) await deleteStorageFiles(APPWRITE_SOURCE_BUCKET, sourceIds);
+    if (assetIds.length) await deleteStorageFiles(APPWRITE_ASSETS_BUCKET, assetIds);
+  } catch {
+    // Storage cleanup is best-effort.
+  }
+
+  try {
+    await deleteProjectDocument(project.id);
     return new NextResponse(null, { status: 204 });
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "Delete failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const code =
+      cause && typeof cause === "object" && "type" in cause
+        ? String((cause as { type?: unknown }).type ?? "delete_failed")
+        : "delete_failed";
+    console.error("[projects.DELETE] deleteProjectDocument failed", {
+      projectId: project.id,
+      code,
+      message
+    });
+    return NextResponse.json({ error: message, code }, { status: 500 });
   }
 }

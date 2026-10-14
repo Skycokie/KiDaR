@@ -7,8 +7,10 @@ import {
 import {
   PublicStorageConfigError,
   R2PublicArtifactStorage,
+  isAllowedUnpublishKey,
   normalizePublicObjectKey,
   publicArtifactUrl,
+  publishStorageEnv,
   resolvePublicStorageConfig,
   type PublicArtifactMetadata,
   type PublicArtifactStorage,
@@ -143,7 +145,7 @@ function r2Client(config: R2PublicStorageConfig) {
 export function createWorkerPublicStorage(
   env: NodeJS.ProcessEnv = process.env
 ): PublicArtifactStorage {
-  const config = resolvePublicStorageConfig(env);
+  const config = resolvePublicStorageConfig(publishStorageEnv(env));
   if (config.provider !== "r2") {
     throw new PublicStorageConfigError(
       "Worker requires R2 public artifact storage. Appwrite public fallback is not wired for uploads, and source-drawings must stay private."
@@ -163,4 +165,38 @@ export async function deleteR2VerifyObject(input: {
   }
   const client = r2Client(input.config);
   await client.send(new DeleteObjectCommand({ Bucket: input.config.bucket, Key: key }));
+}
+
+/**
+ * Delete allow-listed public keys (experience pointer + page artifacts).
+ * Missing keys are treated as success (idempotent unpublish).
+ */
+export async function deletePublicArtifactKeys(
+  keys: string[],
+  env: NodeJS.ProcessEnv = process.env
+): Promise<{ deleted: string[]; skipped: string[] }> {
+  const config = resolvePublicStorageConfig(env);
+  if (config.provider !== "r2") {
+    throw new PublicStorageConfigError("Unpublish requires R2 public artifact storage.");
+  }
+  const client = r2Client(config);
+  const deleted: string[] = [];
+  const skipped: string[] = [];
+  for (const raw of keys) {
+    const key = normalizePublicObjectKey(raw);
+    if (!isAllowedUnpublishKey(key)) {
+      throw new PublicStorageConfigError(`Refusing to delete key outside unpublish allow-list: ${key}`);
+    }
+    try {
+      await client.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: key }));
+      deleted.push(key);
+    } catch (error) {
+      if (isNotFound(error)) {
+        skipped.push(key);
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { deleted, skipped };
 }

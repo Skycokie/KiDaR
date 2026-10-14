@@ -1,58 +1,74 @@
 "use client";
 
-import { useEffect, useReducer, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
+  useCallback,
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent
+} from "react";
+import {
   Check,
   Grid3x3,
   Maximize2,
-  RotateCcw,
   RotateCw,
   Route,
   SlidersHorizontal,
   X
 } from "lucide-react";
+import { useStudioI18n } from "@/components/i18n/studio-i18n";
 import { SiteHeader } from "@/components/site-nav";
+import { decorGlbAvailable } from "./decor-assets";
+import { DecorPreviewIcon } from "./decor-preview-icons";
+import { ModePreviewIcon } from "./mode-preview-icons";
 import {
   ANIMATIONS,
   CAMERA_PRESETS,
-  COPY,
   DECOR_ASSETS,
-  PERSONALIZE_STUDIO_HREF,
+  PERSONALIZE_BACK_HREF,
+  STAGE_MESSAGE_KEY,
   STAGES,
   STYLE_PRESETS,
   TRANSFORM_MODES,
   type AnimationId,
   type CameraPresetId,
   type DecorId,
+  type LightingId,
+  type PaletteId,
   type StudioStageId,
   type StylePresetId,
   type TransformModeId
 } from "./fixtures";
 import {
+  applyAssistantSettings,
+  applyIdeaPrompt,
   createInitialPersonalizeState,
+  createWorkspaceState,
   frameFit,
   nudgeOrbit,
   nudgeOrbitFromScreen,
   orbitDeltaFromPointer,
-  ORBIT_PITCH_STEP,
-  ORBIT_ROLL_STEP,
-  ORBIT_YAW_STEP,
+  regenerateVariant,
+  resetIdeaPrompt,
   setAnimation,
   setArLive,
   setCameraPreset,
+  setDecorSelection,
+  removeDecorInstance,
+  moveDecorInstance,
+  orbitDecorInstance,
   setDetails,
+  setIdeaPrompt,
   setLeftOpen,
+  setLighting,
   setLight,
   setOriginalColors,
+  setPalette,
   setPreserveOutline,
   setPublishOpen,
   setRightOpen,
   setShadow,
-  setShowOriginalPage,
   setAutoRotate,
   setStage,
   setStylePreset,
@@ -63,14 +79,39 @@ import {
   summarizePersonalize,
   zoomFromPinch,
   zoomFromWheel,
-  toggleDecor,
   toggleGrid,
   type PersonalizeState
 } from "./form-state";
+import { IdeaPromptCard } from "./idea-prompt-card";
+import type { PromptLanguage } from "./idea-prompt";
+import { FigurineGenerateCard } from "./figurine-generate-card";
+import { ImportModelCard, type ImportedModelInfo } from "./import-model-card";
+import { VoiceCard, type VoiceDraft } from "./voice-card";
+import {
+  readCharacterVoiceStatus,
+  type VoiceStatusView
+} from "./character-voice-client";
+import { PRIMARY_CHARACTER_ID } from "@kidar/core";
+import { contextPreviewLines } from "./scene-context";
+import { CURRENT_SCENE_ELIGIBILITY, sceneSummary, toStudioSceneDraft } from "./scene-draft";
 import { GardenPoster } from "./garden-poster";
+import {
+  createInteractionState,
+  reduceInteraction
+} from "./interaction-state";
+import {
+  PUBLISH_POLL_MS,
+  canStartPublish,
+  qrDownloadHref,
+  readPublishStatus,
+  shouldPollPublish,
+  startPublish,
+  type PublishStatusResponse
+} from "./publish-world";
 import {
   type PreviewProjectContext,
   type StartSaveStatus,
+  type StudioDecorForSave,
   buildStartTransformPatch,
   isStartPoseDirty,
   patchStartTransform,
@@ -91,17 +132,34 @@ type Action =
   | { type: "details"; value: number }
   | { type: "outline"; value: boolean }
   | { type: "style"; id: StylePresetId }
+  | { type: "palette"; id: PaletteId }
+  | { type: "lighting"; id: LightingId }
   | { type: "colors"; value: boolean }
   | { type: "light"; value: number }
   | { type: "shadow"; value: number }
   | { type: "animation"; id: AnimationId }
-  | { type: "decor"; id: DecorId }
+  | { type: "decor"; id: DecorId | "none" }
+  | { type: "decorRemove"; key: string }
+  | { type: "decorMove"; key: string; x: number; y: number }
+  | { type: "decorOrbit"; key: string; yaw: number; pitch: number }
+  | { type: "idea"; value: string }
+  | { type: "applyIdea"; locale?: PromptLanguage }
+  | {
+      type: "applyAssistant";
+      prompt: string;
+      reply: string;
+      motion: AnimationId | null;
+      decor: DecorId | null;
+      palette: PaletteId | null;
+      lighting: LightingId | null;
+      locale?: PromptLanguage;
+    }
+  | { type: "resetIdea" }
   | { type: "camera"; id: CameraPresetId }
   | { type: "grid" }
   | { type: "frame" }
   | { type: "zoom"; value: number }
   | { type: "orbit"; yaw: number; pitch: number; roll?: number; user?: boolean }
-  | { type: "page"; value: boolean }
   | { type: "autoRotate"; value: boolean }
   | { type: "variant"; index: number }
   | { type: "arLive"; value: boolean }
@@ -123,6 +181,10 @@ function reducer(state: PersonalizeState, action: Action): PersonalizeState {
       return setPreserveOutline(state, action.value);
     case "style":
       return setStylePreset(state, action.id);
+    case "palette":
+      return setPalette(state, action.id);
+    case "lighting":
+      return setLighting(state, action.id);
     case "colors":
       return setOriginalColors(state, action.value);
     case "light":
@@ -132,7 +194,29 @@ function reducer(state: PersonalizeState, action: Action): PersonalizeState {
     case "animation":
       return setAnimation(state, action.id);
     case "decor":
-      return toggleDecor(state, action.id);
+      return setDecorSelection(state, action.id);
+    case "decorRemove":
+      return removeDecorInstance(state, action.key);
+    case "decorMove":
+      return moveDecorInstance(state, action.key, action.x, action.y);
+    case "decorOrbit":
+      return orbitDecorInstance(state, action.key, action.yaw, action.pitch);
+    case "idea":
+      return setIdeaPrompt(state, action.value);
+    case "applyIdea":
+      return applyIdeaPrompt(state, state.ideaPrompt, action.locale ?? "ro");
+    case "applyAssistant":
+      return applyAssistantSettings(state, {
+        prompt: action.prompt,
+        reply: action.reply,
+        motion: action.motion,
+        decor: action.decor,
+        palette: action.palette,
+        lighting: action.lighting,
+        locale: action.locale ?? "ro"
+      });
+    case "resetIdea":
+      return resetIdeaPrompt(state);
     case "camera":
       return setCameraPreset(state, action.id);
     case "grid":
@@ -152,12 +236,10 @@ function reducer(state: PersonalizeState, action: Action): PersonalizeState {
         );
       }
       return nudgeOrbit(state, action.yaw, action.pitch, false, action.roll ?? 0);
-    case "page":
-      return setShowOriginalPage(state, action.value);
     case "autoRotate":
       return setAutoRotate(state, action.value);
     case "variant":
-      return setVariantIndex(state, action.index);
+      return action.index < 0 ? regenerateVariant(state) : setVariantIndex(state, action.index);
     case "arLive":
       return setArLive(state, action.value);
     case "left":
@@ -173,9 +255,11 @@ function reducer(state: PersonalizeState, action: Action): PersonalizeState {
 
 function SheetChrome({
   title,
+  closeLabel,
   onClose
 }: {
   title: string;
+  closeLabel: string;
   onClose: () => void;
 }) {
   return (
@@ -183,7 +267,7 @@ function SheetChrome({
       <span className="studio-ws__sheet-handle" aria-hidden="true" />
       <div className="studio-ws__sheet-row">
         <p className="studio-ws__sheet-title">{title}</p>
-        <button type="button" className="studio-ws__sheet-close" onClick={onClose} aria-label={COPY.closePanel}>
+        <button type="button" className="studio-ws__sheet-close" onClick={onClose} aria-label={closeLabel}>
           <X size={16} strokeWidth={1.75} aria-hidden />
         </button>
       </div>
@@ -193,11 +277,15 @@ function SheetChrome({
 
 function StageNav({
   state,
+  hasDrawing,
   onSelect
 }: {
   state: PersonalizeState;
+  hasDrawing: boolean;
   onSelect: (id: StudioStageId) => void;
 }) {
+  const { messages } = useStudioI18n();
+  const COPY = messages.personalize;
   return (
     <nav className="studio-ws__stages" aria-label={COPY.sidebarLabel}>
       <p className="studio-ws__stages-label">{COPY.pathLabel}</p>
@@ -205,6 +293,7 @@ function StageNav({
         {STAGES.map((stage, index) => {
           const active = state.stage === stage.id;
           const done = state.completedStages.includes(stage.id);
+          const locked = !hasDrawing && stage.id !== "desenul";
           return (
             <li key={stage.id} className="studio-ws__path-item">
               {index > 0 ? <span className="studio-ws__path-line" aria-hidden="true" /> : null}
@@ -212,6 +301,8 @@ function StageNav({
                 type="button"
                 className={`studio-ws__stage${active ? " is-active" : ""}${done ? " is-done" : ""}`}
                 aria-current={active ? "step" : undefined}
+                disabled={locked}
+                title={locked ? COPY.stepLocked : undefined}
                 onClick={() => onSelect(stage.id)}
               >
                 <span className="studio-ws__stage-mark" aria-hidden="true">
@@ -220,8 +311,8 @@ function StageNav({
                   )}
                 </span>
                 <span className="studio-ws__stage-copy">
-                  <strong>{stage.label}</strong>
-                  {stage.hint ? <span>{stage.hint}</span> : null}
+                  <strong>{messages.studio.steps[STAGE_MESSAGE_KEY[stage.id]]}</strong>
+                  <span>{messages.studio.stepHints[STAGE_MESSAGE_KEY[stage.id]]}</span>
                 </span>
               </button>
             </li>
@@ -232,30 +323,73 @@ function StageNav({
   );
 }
 
+function ideaCard(
+  state: PersonalizeState,
+  dispatch: (action: Action) => void,
+  locked: boolean,
+  locale: PromptLanguage,
+  projectId?: string | null
+) {
+  return (
+    <IdeaPromptCard
+      state={state}
+      locked={locked}
+      projectId={projectId}
+      onChange={(value) => dispatch({ type: "idea", value })}
+      onApplyLocal={() => dispatch({ type: "applyIdea", locale })}
+      onApplyAssistant={(input) =>
+        dispatch({
+          type: "applyAssistant",
+          prompt: input.prompt,
+          reply: input.reply,
+          motion: input.motion,
+          decor: input.decor,
+          palette: input.palette,
+          lighting: input.lighting,
+          locale
+        })
+      }
+      onReset={() => dispatch({ type: "resetIdea" })}
+      onSuggest3d={() => dispatch({ type: "transform", id: "figurine" })}
+    />
+  );
+}
+
 function Inspector({
   state,
   dispatch,
   drawingSrc,
-  projectId
+  projectId,
+  importedModel,
+  onImportedModel,
+  onVoiceChange,
+  onVoiceDraftChange,
+  onPlayVoice
 }: {
   state: PersonalizeState;
   dispatch: (action: Action) => void;
   drawingSrc?: string | null;
   projectId?: string | null;
+  importedModel: ImportedModelInfo | null;
+  onImportedModel: (info: ImportedModelInfo | null) => void;
+  onVoiceChange?: (status: VoiceStatusView | null) => void;
+  onVoiceDraftChange?: (draft: VoiceDraft | null) => void;
+  onPlayVoice: (url: string) => void;
 }) {
+  const { locale, messages } = useStudioI18n();
+  const COPY = messages.personalize;
+  const hasDrawing = Boolean(drawingSrc);
+  const showIdea = state.stage === "personajul";
   if (state.stage === "desenul") {
     return (
       <div className="studio-ws__inspector-block">
-        <h2>Desen</h2>
-        <p className="studio-ws__muted">
-          {drawingSrc
-            ? "Desenul salvat din Atelier e pe scenă. Continuă ca să ridici personajul din hârtie."
-            : "Nu există încă o poză legată. Continuă cu fixture-ul demonstrativ sau revino din Atelier."}
-        </p>
+        <h2>{messages.studio.steps.drawing}</h2>
+        <p className="studio-ws__muted">{hasDrawing ? COPY.drawingReady : COPY.emptyDrawing}</p>
+        {hasDrawing ? null : ideaCard(state, dispatch, true, locale, projectId)}
         <div className={`studio-ws__drawing-card${drawingSrc ? " has-photo" : ""}`}>
           {drawingSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={drawingSrc} alt="Desenul salvat" className="studio-ws__drawing-photo" />
+            <img src={drawingSrc} alt={COPY.drawingAlt} className="studio-ws__drawing-photo" />
           ) : (
             <span className="studio-ws__drawing-paper" aria-hidden="true" />
           )}
@@ -263,9 +397,11 @@ function Inspector({
         <button
           type="button"
           className="studio-ws__primary-btn"
+          disabled={!hasDrawing}
+          title={hasDrawing ? undefined : COPY.stepLocked}
           onClick={() => dispatch({ type: "stage", id: "personajul" })}
         >
-          Continuă la personaj
+          {COPY.continueToCharacter}
         </button>
       </div>
     );
@@ -274,11 +410,13 @@ function Inspector({
   if (state.stage === "personajul") {
     return (
       <div className="studio-ws__inspector-block">
-        <h2>Personaj</h2>
+        {showIdea ? ideaCard(state, dispatch, !hasDrawing, locale, projectId) : null}
+        <h2>{messages.studio.steps.character}</h2>
         <p className="studio-ws__section-label">{COPY.modeSection}</p>
         <div className="studio-ws__mode-cards" role="group" aria-label={COPY.modeSection}>
           {TRANSFORM_MODES.map((mode) => {
             const selected = state.transformMode === mode.id;
+            const copy = COPY.choices.modes[mode.id];
             return (
               <button
                 key={mode.id}
@@ -288,11 +426,11 @@ function Inspector({
                 onClick={() => dispatch({ type: "transform", id: mode.id })}
               >
                 <span className="studio-ws__mode-preview" aria-hidden="true">
-                  <span className="studio-ws__mode-blob" />
+                  <ModePreviewIcon mode={mode.id} />
                 </span>
                 <span className="studio-ws__mode-copy">
-                  <strong>{mode.label}</strong>
-                  {mode.hint ? <span>{mode.hint}</span> : null}
+                  <strong>{copy.label}</strong>
+                  {copy.hint ? <span>{copy.hint}</span> : null}
                 </span>
                 {selected ? (
                   <span className="studio-ws__mode-check" aria-hidden="true">
@@ -303,19 +441,65 @@ function Inspector({
             );
           })}
         </div>
+        {state.transformMode === "figurine" ? (
+          <FigurineGenerateCard projectId={projectId} hasDrawing={hasDrawing} />
+        ) : null}
+        {state.transformMode === "import" ? (
+          <ImportModelCard
+            projectId={projectId}
+            selected={importedModel}
+            onSelected={onImportedModel}
+          />
+        ) : null}
+
+        <p className="studio-ws__section-label">{COPY.giveLife}</p>
+        <div className="studio-ws__assets" role="group" aria-label={COPY.giveLife}>
+          {ANIMATIONS.map((anim) => {
+            const selected = state.animation === anim.id;
+            const copy = COPY.choices.animations[anim.id];
+            return (
+              <button
+                key={anim.id}
+                type="button"
+                className={`studio-ws__asset${selected ? " is-selected" : ""}`}
+                aria-pressed={selected}
+                title={"hint" in copy ? copy.hint : copy.label}
+                onClick={() => dispatch({ type: "animation", id: anim.id })}
+              >
+                <span className={`studio-ws__asset-icon studio-ws__asset-icon--${anim.id}`} aria-hidden="true" />
+                <span>{copy.label}</span>
+              </button>
+            );
+          })}
+        </div>
 
         <p className="studio-ws__section-label">{COPY.variantSoon}</p>
         <div className="studio-ws__variant-row" role="group" aria-label={COPY.variantSoon}>
-          {[0, 1, 2].map((index) => (
-            <button
-              key={index}
-              type="button"
-              className={state.variantIndex === index ? "is-active" : undefined}
-              aria-pressed={state.variantIndex === index}
-              aria-label={`Varianta ${index + 1}`}
-              onClick={() => dispatch({ type: "variant", index })}
-            />
-          ))}
+          {STYLE_PRESETS.map((preset, index) => {
+            const selected = state.variantIndex === index;
+            const copy = COPY.choices.styles[preset.id];
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                className={`studio-ws__variant studio-ws__variant--${preset.id}${selected ? " is-active" : ""}`}
+                aria-pressed={selected}
+                aria-label={copy.label}
+                title={copy.hint ?? copy.label}
+                onClick={() => dispatch({ type: "variant", index })}
+              >
+                <span className="studio-ws__variant-swatch" aria-hidden="true">
+                  {drawingSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={drawingSrc} alt="" className="studio-ws__variant-photo" />
+                  ) : (
+                    <span className="studio-ws__variant-fallback" />
+                  )}
+                </span>
+                <span className="studio-ws__variant-label">{copy.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         <label className="studio-ws__slider">
@@ -355,126 +539,51 @@ function Inspector({
           <span>{COPY.preserveOutline}</span>
         </label>
 
-        <button type="button" className="studio-ws__ghost-btn" disabled title="În curând">
+        <button
+          type="button"
+          className="studio-ws__ghost-btn"
+          onClick={() => dispatch({ type: "variant", index: -1 })}
+        >
           {COPY.regenerate}
         </button>
       </div>
     );
   }
 
-  if (state.stage === "aspect") {
-    return (
-      <div className="studio-ws__inspector-block">
-        <h2>{COPY.aspect}</h2>
-        <p className="studio-ws__section-label">{COPY.styleSection}</p>
-        <div className="studio-ws__style-cards" role="radiogroup" aria-label={COPY.styleSection}>
-          {STYLE_PRESETS.map((preset) => {
-            const selected = state.stylePreset === preset.id;
-            return (
-              <button
-                key={preset.id}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                className={`studio-ws__style-card studio-ws__style-card--${preset.id}${selected ? " is-selected" : ""}`}
-                onClick={() => dispatch({ type: "style", id: preset.id })}
-              >
-                <span className="studio-ws__style-swatch" aria-hidden="true" />
-                <strong>{preset.label}</strong>
-                {preset.hint ? <span>{preset.hint}</span> : null}
-              </button>
-            );
-          })}
-        </div>
-
-        <label className="studio-ws__toggle">
-          <input
-            type="checkbox"
-            checked={state.originalColors}
-            onChange={(event) => dispatch({ type: "colors", value: event.target.checked })}
-          />
-          <span>{COPY.originalColors}</span>
-        </label>
-
-        <label className="studio-ws__slider">
-          <span>
-            Lumină
-            <em>{state.light}</em>
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={state.light}
-            onChange={(event) => dispatch({ type: "light", value: Number(event.target.value) })}
-          />
-        </label>
-
-        <label className="studio-ws__slider">
-          <span>
-            Umbră
-            <em>{state.shadow}</em>
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={state.shadow}
-            onChange={(event) => dispatch({ type: "shadow", value: Number(event.target.value) })}
-          />
-        </label>
-      </div>
-    );
-  }
-
-  if (state.stage === "miscare") {
-    return (
-      <div className="studio-ws__inspector-block">
-        <h2>{COPY.giveLife}</h2>
-        <div className="studio-ws__motion-cards" role="radiogroup" aria-label={COPY.giveLife}>
-          {ANIMATIONS.map((anim) => {
-            const selected = state.animation === anim.id;
-            return (
-              <button
-                key={anim.id}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                className={`studio-ws__motion-card${selected ? " is-selected" : ""}`}
-                onClick={() => dispatch({ type: "animation", id: anim.id })}
-              >
-                <span
-                  className={`studio-ws__motion-preview studio-ws__motion-preview--${anim.id}`}
-                  aria-hidden="true"
-                >
-                  <span />
-                </span>
-                <strong>{anim.label}</strong>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
   if (state.stage === "decor") {
+    const noneSelected = state.decor.length === 0;
     return (
       <div className="studio-ws__inspector-block">
         <h2>{COPY.placeInWorld}</h2>
+        <p className="studio-ws__muted">{COPY.decorHint}</p>
         <div className="studio-ws__assets" role="group" aria-label={COPY.placeInWorld}>
+          <button
+            type="button"
+            className={`studio-ws__asset${noneSelected ? " is-selected" : ""}`}
+            onClick={() => dispatch({ type: "decor", id: "none" })}
+          >
+            <span className="studio-ws__asset-icon studio-ws__asset-icon--none" aria-hidden="true" />
+            <span>{COPY.noDecor}</span>
+          </button>
           {DECOR_ASSETS.map((asset) => {
-            const selected = state.decor.includes(asset.id);
+            const count = state.decor.filter((item) => item.id === asset.id).length;
+            const label = COPY.choices.decor[asset.id].label;
+            const glbReady = decorGlbAvailable(asset.id);
             return (
               <button
                 key={asset.id}
                 type="button"
-                aria-pressed={selected}
-                className={`studio-ws__asset${selected ? " is-selected" : ""}`}
-                onClick={() => dispatch({ type: "decor", id: asset.id })}
+                className={`studio-ws__asset${count > 0 ? " is-selected" : ""}`}
+                disabled={!glbReady}
+                onClick={() => {
+                  if (!glbReady) return;
+                  dispatch({ type: "decor", id: asset.id });
+                }}
+                aria-label={count > 0 ? `${label}, ${count}` : label}
               >
-                <span className={`studio-ws__asset-icon studio-ws__asset-icon--${asset.id}`} aria-hidden="true" />
-                <span>{asset.label}</span>
+                <DecorPreviewIcon decorId={asset.id} />
+                <span>{label}</span>
+                {count > 0 ? <span className="studio-ws__asset-count">{count}</span> : null}
               </button>
             );
           })}
@@ -483,19 +592,58 @@ function Inspector({
     );
   }
 
+  if (state.stage === "vocea") {
+    return (
+      <VoiceCard
+        projectId={projectId}
+        hasDrawing={hasDrawing}
+        onVoiceChange={onVoiceChange}
+        onDraftChange={onVoiceDraftChange}
+        onPlay={onPlayVoice}
+      />
+    );
+  }
+
+  const scene = toStudioSceneDraft(state, hasDrawing);
+  const summary = sceneSummary(scene, locale);
+  const storyLines = scene.context.story ? contextPreviewLines(scene.context, state, locale) : [];
   return (
-    <div className="studio-ws__inspector-block">
-      <h2>AR</h2>
-      <p className="studio-ws__muted">{COPY.arPreviewNote}</p>
-      <div className="studio-ws__ar-card">
-        <span className="studio-ws__ar-frame" aria-hidden="true" />
-        <span className="studio-ws__ar-caption">
-          {drawingSrc ? COPY.arCardCaption : COPY.arCardEmpty}
-        </span>
+    <div className="studio-ws__inspector-block" data-ar-eligible={CURRENT_SCENE_ELIGIBILITY.arEligible ? "yes" : "no"}>
+      <h2>{COPY.sceneHeading}</h2>
+      <p className="studio-ws__muted">{COPY.sceneBody}</p>
+      <p className="studio-ws__scene-label">{COPY.sceneLocalLabel}</p>
+      <div className="studio-ws__scene-mirror">
+        <GardenPoster
+          state={state}
+          transformMode={state.transformMode}
+          drawingSrc={drawingSrc}
+          mirror
+        />
       </div>
-      <button type="button" className="studio-ws__primary-btn" disabled title={COPY.seeInArPreparing}>
-        {COPY.seeInArPreparing}
+      {storyLines.length > 0 ? (
+        <div className="studio-ws__scene-story">
+          <p className="studio-ws__scene-label">{COPY.contextPreviewTitle}</p>
+          <ul>
+            {storyLines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <dl className="studio-ws__scene-summary">
+        {summary.map((line) => (
+          <div key={line.label}>
+            <dt>{line.label}</dt>
+            <dd>{line.value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="studio-ws__scene-status">{messages.studio.arPreparing}</p>
+      <p className="studio-ws__muted">{COPY.sceneExplanation}</p>
+      <button type="button" className="studio-ws__primary-btn" disabled>
+        {COPY.seeSceneInAr}
       </button>
+      <p className="studio-ws__muted">{COPY.sceneHelper}</p>
     </div>
   );
 }
@@ -504,19 +652,37 @@ type StartSaveState = {
   status: StartSaveStatus;
   baselineYaw: number;
   baselinePitch: number;
+  baselineArAnchorMode: "marker" | "follow";
+  baselineDecor: StudioDecorForSave[];
 };
 
 type StartSaveAction =
   | { type: "saving" }
-  | { type: "saved"; yaw: number; pitch: number }
+  | {
+      type: "saved";
+      yaw: number;
+      pitch: number;
+      arAnchorMode: "marker" | "follow";
+      decor: StudioDecorForSave[];
+    }
   | { type: "error" };
 
 function startSaveReducer(current: StartSaveState, action: StartSaveAction): StartSaveState {
   if (action.type === "saving") return { ...current, status: "saving" };
   if (action.type === "saved") {
-    return { status: "saved", baselineYaw: action.yaw, baselinePitch: action.pitch };
+    return {
+      status: "saved",
+      baselineYaw: action.yaw,
+      baselinePitch: action.pitch,
+      baselineArAnchorMode: action.arAnchorMode,
+      baselineDecor: action.decor
+    };
   }
   return { ...current, status: "error" };
+}
+
+function decorForSave(decor: PersonalizeState["decor"]): StudioDecorForSave[] {
+  return decor.map((item) => ({ id: item.id, x: item.x, y: item.y, yaw: item.yaw, pitch: item.pitch }));
 }
 
 /**
@@ -524,56 +690,170 @@ function startSaveReducer(current: StartSaveState, action: StartSaveAction): Sta
  * Singura scriere aprobată este PATCH-ul pentru poziția de start a modelului.
  * Fără cameră hardware, fără publicare și fără generare GLB.
  */
+function InteractionPanel({
+  hasDrawing,
+  enabled,
+  activeTarget,
+  reactionNonce,
+  onToggle,
+  onZoom,
+  onNudge,
+  onReset
+}: {
+  hasDrawing: boolean;
+  enabled: boolean;
+  activeTarget: "none" | "character" | "decor";
+  reactionNonce: number;
+  onToggle: () => void;
+  onZoom: (direction: -1 | 1) => void;
+  onNudge: (direction: -1 | 1) => void;
+  onReset: () => void;
+}) {
+  const { messages } = useStudioI18n();
+  const COPY = messages.personalize;
+  const reaction =
+    enabled && activeTarget === "character" && reactionNonce > 0
+      ? COPY.interactCharacter
+      : enabled && activeTarget === "decor"
+        ? COPY.interactDecor
+        : "";
+  const controlsDisabled = !hasDrawing || !enabled;
+  return (
+    <section className="studio-ws__interact" aria-labelledby="studio-interact-title">
+      <h2 id="studio-interact-title">{COPY.interactTitle}</h2>
+      <p className="studio-ws__interact-sub">{COPY.interactSubtitle}</p>
+      <p className="studio-ws__muted">{COPY.interactIntro}</p>
+      {hasDrawing ? null : <p className="studio-ws__muted">{messages.studio.addDrawingFirst}</p>}
+      {enabled ? <p className="studio-ws__interact-status">{COPY.interactActive}</p> : null}
+      {enabled ? <p className="studio-ws__muted">{COPY.interactHint}</p> : null}
+      <div className="studio-ws__interact-actions">
+        <button type="button" className="studio-ws__btn-secondary" disabled={!hasDrawing} onClick={onToggle}>
+          {enabled ? COPY.interactStop : COPY.interactStart}
+        </button>
+        <button type="button" className="studio-ws__btn-secondary" disabled={controlsDisabled} onClick={() => onNudge(-1)}>
+          {COPY.interactLeft}
+        </button>
+        <button type="button" className="studio-ws__btn-secondary" disabled={controlsDisabled} onClick={() => onNudge(1)}>
+          {COPY.interactRight}
+        </button>
+      </div>
+      <div className="studio-ws__interact-zoom" role="group" aria-label={COPY.interactZoom}>
+        <span>{COPY.interactZoom}</span>
+        <button type="button" aria-label={COPY.interactZoomOut} disabled={controlsDisabled} onClick={() => onZoom(-1)}>
+          −
+        </button>
+        <button type="button" aria-label={COPY.interactZoomIn} disabled={controlsDisabled} onClick={() => onZoom(1)}>
+          +
+        </button>
+        <button type="button" aria-label={messages.studio.resetScene} disabled={controlsDisabled} onClick={onReset}>
+          {messages.studio.resetScene}
+        </button>
+      </div>
+      <p className="studio-ws__interact-live" role="status" aria-live="polite">
+        {reaction}
+      </p>
+      <p className="studio-ws__muted">{COPY.interactHonest}</p>
+      <p className="studio-ws__muted">{COPY.interactArLater}</p>
+    </section>
+  );
+}
+
 export function PersonalizePreviewShell({
   drawingSrc = null,
-  projectContext = null
+  projectContext = null,
+  initialIdeaPrompt = ""
 }: {
   drawingSrc?: string | null;
   projectContext?: PreviewProjectContext | null;
+  initialIdeaPrompt?: string;
 }) {
+  const { locale, messages } = useStudioI18n();
+  const COPY = messages.personalize;
   const projectId = projectContext?.projectId ?? null;
   const orbitSeed = {
+    hasDrawing: Boolean(drawingSrc),
     yaw: projectContext?.startYaw ?? null,
-    pitch: projectContext?.startPitch ?? null
+    pitch: projectContext?.startPitch ?? null,
+    arAnchorMode: projectContext?.arAnchorMode ?? null,
+    ideaPrompt: initialIdeaPrompt,
+    decor: projectContext?.decor ?? []
   };
   const [state, dispatch] = useReducer(reducer, orbitSeed, (seed) => {
-    const next = createInitialPersonalizeState();
-    if (seed.yaw == null && seed.pitch == null) return next;
-    return {
-      ...next,
-      orbitYaw: seed.yaw ?? next.orbitYaw,
-      orbitPitch: seed.pitch ?? next.orbitPitch
-    };
+    const seeded = createWorkspaceState(seed);
+    return projectContext?.importedModelUrl ? setTransformMode(seeded, "import") : seeded;
   });
+  const [importedModel, setImportedModel] = useState<ImportedModelInfo | null>(() =>
+    projectContext?.importedModelUrl
+      ? {
+          modelUrl: projectContext.importedModelUrl,
+          publicUrl: projectContext.importedModelUrl,
+          promoted: true,
+          label: COPY.choices.modes.import.label,
+          source: "gallery"
+        }
+      : null
+  );
+  const [interaction, interactDispatch] = useReducer(reduceInteraction, createInteractionState());
   const [save, saveDispatch] = useReducer(startSaveReducer, {
     status: "idle",
     baselineYaw: orbitSeed.yaw ?? createInitialPersonalizeState().orbitYaw,
-    baselinePitch: orbitSeed.pitch ?? createInitialPersonalizeState().orbitPitch
+    baselinePitch: orbitSeed.pitch ?? createInitialPersonalizeState().orbitPitch,
+    baselineArAnchorMode:
+      orbitSeed.arAnchorMode ?? createInitialPersonalizeState().arAnchorMode,
+    baselineDecor: orbitSeed.decor
   });
+  const [voiceStatus, setVoiceStatus] = useState<VoiceStatusView | null>(null);
+  const [voiceDraft, setVoiceDraft] = useState<VoiceDraft | null>(null);
+  const savedVoice = voiceStatus?.voice ?? null;
+  const draftMessage = voiceDraft?.message.trim() ?? "";
+  const liveVoice = voiceDraft
+    ? draftMessage || savedVoice?.message
+      ? { role: voiceDraft.role, message: draftMessage || savedVoice!.message }
+      : null
+    : savedVoice;
+  const [spokenMessage, setSpokenMessage] = useState<string | null>(null);
+  const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const narratorPlayedRef = useRef(false);
   const dragRef = useRef({ active: false, pointerId: -1, lastX: 0, lastY: 0 });
+  // Pointer moves arrive faster than frames: sum them and update the state once per frame.
+  const pendingDragRef = useRef({ dx: 0, dy: 0, frame: 0 });
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = useRef<{ distance: number } | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const zoomRef = useRef(state.zoom);
+  const interactDispatchRef = useRef(interactDispatch);
   zoomRef.current = state.zoom;
+  interactDispatchRef.current = interactDispatch;
   const publishDialogRef = useRef<HTMLDivElement | null>(null);
-  const summary = summarizePersonalize(state);
-  const activeStage = STAGES.find((stage) => stage.id === state.stage);
+  const summary = summarizePersonalize(state, locale);
+  const activeStageLabel = messages.studio.steps[STAGE_MESSAGE_KEY[state.stage]];
   const hasDrawing = Boolean(drawingSrc);
   const startDirty = isStartPoseDirty(
-    { yaw: state.orbitYaw, pitch: state.orbitPitch },
-    { yaw: save.baselineYaw, pitch: save.baselinePitch }
+    {
+      yaw: state.orbitYaw,
+      pitch: state.orbitPitch,
+      arAnchorMode: state.arAnchorMode,
+      decor: state.decor
+    },
+    {
+      yaw: save.baselineYaw,
+      pitch: save.baselinePitch,
+      arAnchorMode: save.baselineArAnchorMode,
+      decor: save.baselineDecor
+    }
   );
   const startPresentation = startSavePresentation({
     hasProject: Boolean(projectContext),
     dirty: startDirty,
-    status: save.status
+    status: save.status,
+    copy: COPY.startSave
   });
 
-  const onSaveStart = async () => {
-    if (!projectContext || startPresentation.disabled) return;
+  const persistScene = async (): Promise<boolean> => {
+    if (!projectContext) return false;
     const yaw = state.orbitYaw;
     const pitch = state.orbitPitch;
+    const decor = decorForSave(state.decor);
     if (state.autoRotate) dispatch({ type: "autoRotate", value: false });
     saveDispatch({ type: "saving" });
     const ok = await patchStartTransform(
@@ -582,16 +862,72 @@ export function PersonalizePreviewShell({
         yaw,
         pitch,
         offset: projectContext.offset,
-        scale: projectContext.scale
+        scale: projectContext.scale,
+        arAnchorMode: state.arAnchorMode,
+        decor
       })
     );
-    saveDispatch(ok ? { type: "saved", yaw, pitch } : { type: "error" });
+    saveDispatch(
+      ok
+        ? { type: "saved", yaw, pitch, arAnchorMode: state.arAnchorMode, decor }
+        : { type: "error" }
+    );
+    return ok;
+  };
+
+  const onSaveStart = async () => {
+    if (!projectContext || startPresentation.disabled) return;
+    await persistScene();
+  };
+
+  const [publishStatus, setPublishStatus] = useState<PublishStatusResponse | null>(null);
+  const [publishTerms, setPublishTerms] = useState(false);
+  const [publishBusy, setPublishBusy] = useState(false);
+  const [publishNotice, setPublishNotice] = useState<"save" | "denied" | null>(null);
+
+  const refreshPublishStatus = useCallback(async () => {
+    if (!projectId) return;
+    const result = await readPublishStatus(projectId);
+    if (result.ok) setPublishStatus(result.status);
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!state.publishOpen) return;
+    void refreshPublishStatus();
+  }, [state.publishOpen, refreshPublishStatus]);
+
+  useEffect(() => {
+    if (!state.publishOpen || !shouldPollPublish(publishStatus)) return;
+    const timer = window.setTimeout(() => void refreshPublishStatus(), PUBLISH_POLL_MS);
+    return () => window.clearTimeout(timer);
+  }, [state.publishOpen, publishStatus, refreshPublishStatus]);
+
+  const onPublishWorld = async () => {
+    if (!projectId || !canStartPublish({ status: publishStatus, termsAccepted: publishTerms, busy: publishBusy })) {
+      return;
+    }
+    setPublishBusy(true);
+    setPublishNotice(null);
+    if (!(await persistScene())) {
+      setPublishNotice("save");
+      setPublishBusy(false);
+      return;
+    }
+    const result = await startPublish(projectId, publishTerms);
+    if (!result.ok) setPublishNotice("denied");
+    await refreshPublishStatus();
+    setPublishBusy(false);
   };
 
   useEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
     const onWheel = (event: WheelEvent) => {
+      if (el.querySelector("[data-interacting='yes']")) {
+        event.preventDefault();
+        interactDispatchRef.current({ type: "wheel", deltaY: event.deltaY });
+        return;
+      }
       event.preventDefault();
       const next = zoomFromWheel(zoomRef.current, event.deltaY);
       if (next !== zoomRef.current) dispatch({ type: "zoom", value: next });
@@ -633,6 +969,107 @@ export function PersonalizePreviewShell({
     };
   }, [state.publishOpen]);
 
+  useEffect(() => {
+    if (!projectId) {
+      setVoiceStatus(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const result = await readCharacterVoiceStatus(projectId, PRIMARY_CHARACTER_ID);
+      if (cancelled || !result.ok) return;
+      setVoiceStatus(result.status);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  const stopVoiceAudio = () => {
+    const current = voiceAudioRef.current;
+    if (!current) return;
+    current.pause();
+    current.src = "";
+    voiceAudioRef.current = null;
+  };
+
+  const playVoiceClip = (url: string | null | undefined) => {
+    stopVoiceAudio();
+    if (!url) return;
+    const audio = new Audio(url);
+    voiceAudioRef.current = audio;
+    audio.addEventListener("ended", () => {
+      if (voiceAudioRef.current !== audio) return;
+      voiceAudioRef.current = null;
+      setSpokenMessage(null);
+    });
+    void audio.play().catch(() => {
+      // Autoplay can be blocked until a gesture; narrator waits for interact toggle.
+    });
+  };
+
+  const speakCharacter = (mode: "narrator" | "hidden" | "tap") => {
+    const voice = liveVoice;
+    if (!voice) return;
+    if (mode === "narrator" && voice.role !== "narrator") return;
+    if (mode === "hidden" && voice.role !== "hidden") return;
+    setSpokenMessage(voice.message);
+    playVoiceClip(voiceStatus?.audioUrl);
+  };
+
+  const silenceCharacter = () => {
+    setSpokenMessage(null);
+    stopVoiceAudio();
+  };
+
+  useEffect(() => {
+    if (!interaction.enabled) {
+      narratorPlayedRef.current = false;
+      setSpokenMessage(null);
+      stopVoiceAudio();
+      return;
+    }
+    if (narratorPlayedRef.current) return;
+    if (liveVoice?.role !== "narrator") return;
+    narratorPlayedRef.current = true;
+    speakCharacter("narrator");
+    // Speak once when interactions turn on with a narrator voice.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [interaction.enabled, liveVoice?.role, liveVoice?.message, voiceStatus?.audioUrl]);
+
+  useEffect(() => {
+    // Narrator replays only after interactions are toggled off and on again.
+    setSpokenMessage(null);
+    stopVoiceAudio();
+  }, [state.stage]);
+
+  useEffect(() => {
+    return () => {
+      stopVoiceAudio();
+    };
+  }, []);
+
+  useEffect(() => {
+    const dragBuffer = pendingDragRef.current;
+    return () => {
+      if (dragBuffer.frame) window.cancelAnimationFrame(dragBuffer.frame);
+    };
+  }, []);
+
+  const flushOrbitDrag = () => {
+    const pending = pendingDragRef.current;
+    if (pending.frame) {
+      window.cancelAnimationFrame(pending.frame);
+      pending.frame = 0;
+    }
+    const { dx, dy } = pending;
+    pending.dx = 0;
+    pending.dy = 0;
+    if (dx === 0 && dy === 0) return;
+    const delta = orbitDeltaFromPointer(dx, dy);
+    dispatch({ type: "orbit", yaw: delta.yaw, pitch: delta.pitch, user: true });
+  };
+
   const markDragging = (active: boolean) => {
     const el = viewportRef.current;
     if (!el) return;
@@ -640,9 +1077,27 @@ export function PersonalizePreviewShell({
     else delete el.dataset.dragging;
   };
 
+  const onCharacterClick = () => {
+    interactDispatch({ type: "character" });
+    if (!liveVoice) return;
+    // Tapping a speaking character stops it; tapping a silent one makes it speak (either role).
+    if (spokenMessage !== null) {
+      silenceCharacter();
+      return;
+    }
+    speakCharacter("tap");
+  };
+
   const onViewportPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
-    if (target.closest("button, input, label, a")) return;
+    if (
+      target.closest(
+        "input, label, a, .studio-ws__overlay-tools, .studio-ws__viewport-bar, .studio-ws__start-save, .studio-stage__prop button"
+      )
+    ) {
+      return;
+    }
+    if (target.closest("button") && !target.closest(".studio-stage__hit")) return;
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     event.currentTarget.setPointerCapture(event.pointerId);
     markDragging(true);
@@ -677,11 +1132,14 @@ export function PersonalizePreviewShell({
     dragRef.current.lastX = event.clientX;
     dragRef.current.lastY = event.clientY;
     if (dx === 0 && dy === 0) return;
-    const delta = orbitDeltaFromPointer(dx, dy);
-    dispatch({ type: "orbit", yaw: delta.yaw, pitch: delta.pitch, user: true });
+    const pending = pendingDragRef.current;
+    pending.dx += dx;
+    pending.dy += dy;
+    if (!pending.frame) pending.frame = window.requestAnimationFrame(flushOrbitDrag);
   };
 
   const onViewportPointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    flushOrbitDrag();
     pointersRef.current.delete(event.pointerId);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
@@ -708,7 +1166,7 @@ export function PersonalizePreviewShell({
       type="button"
       className="studio-ws__btn-secondary"
       disabled={!projectId}
-      title={projectId ? COPY.publishPrepareTitle : "Doar previzualizare"}
+      title={projectId ? COPY.publishPrepareTitle : COPY.previewOnlyTitle}
       onClick={() => {
         if (!projectId) return;
         dispatch({ type: "publish", open: true });
@@ -720,108 +1178,9 @@ export function PersonalizePreviewShell({
 
   const renderViewControls = (variant: "overlay" | "sheet") => (
     <>
-      <div className="studio-ws__dpad-cluster">
-        <div className="studio-ws__dpad" role="group" aria-label="Rotire scenă">
-          <button
-            type="button"
-            className="studio-ws__dpad-btn studio-ws__dpad-btn--up"
-            aria-label={COPY.tiltUp}
-            title={COPY.tiltUp}
-            onClick={() => dispatch({ type: "orbit", yaw: 0, pitch: ORBIT_PITCH_STEP, user: true })}
-          >
-            <ArrowUp size={16} strokeWidth={1.75} aria-hidden />
-          </button>
-          <button
-            type="button"
-            className="studio-ws__dpad-btn studio-ws__dpad-btn--left"
-            aria-label={COPY.rotateLeft}
-            title={COPY.rotateLeft}
-            onClick={() => dispatch({ type: "orbit", yaw: -ORBIT_YAW_STEP, pitch: 0, user: true })}
-          >
-            <ArrowLeft size={16} strokeWidth={1.75} aria-hidden />
-          </button>
-          <button
-            type="button"
-            className="studio-ws__dpad-btn studio-ws__dpad-btn--center"
-            aria-label={COPY.resetView}
-            title={COPY.resetView}
-            onClick={() => dispatch({ type: "camera", id: "reset" })}
-          >
-            <span aria-hidden>⊙</span>
-          </button>
-          <button
-            type="button"
-            className="studio-ws__dpad-btn studio-ws__dpad-btn--right"
-            aria-label={COPY.rotateRight}
-            title={COPY.rotateRight}
-            onClick={() => dispatch({ type: "orbit", yaw: ORBIT_YAW_STEP, pitch: 0, user: true })}
-          >
-            <ArrowRight size={16} strokeWidth={1.75} aria-hidden />
-          </button>
-          <button
-            type="button"
-            className="studio-ws__dpad-btn studio-ws__dpad-btn--down"
-            aria-label={COPY.tiltDown}
-            title={COPY.tiltDown}
-            onClick={() => dispatch({ type: "orbit", yaw: 0, pitch: -ORBIT_PITCH_STEP, user: true })}
-          >
-            <ArrowDown size={16} strokeWidth={1.75} aria-hidden />
-          </button>
-        </div>
-        <div className="studio-ws__roll" role="group" aria-label={COPY.rollGroup}>
-          <button
-            type="button"
-            className="studio-ws__roll-btn"
-            aria-label={COPY.rollCcw}
-            title={COPY.rollCcw}
-            onClick={() => dispatch({ type: "orbit", yaw: 0, pitch: 0, roll: -ORBIT_ROLL_STEP, user: true })}
-          >
-            <RotateCcw size={16} strokeWidth={1.75} aria-hidden />
-          </button>
-          <button
-            type="button"
-            className="studio-ws__roll-btn"
-            aria-label={COPY.rollCw}
-            title={COPY.rollCw}
-            onClick={() => dispatch({ type: "orbit", yaw: 0, pitch: 0, roll: ORBIT_ROLL_STEP, user: true })}
-          >
-            <RotateCw size={16} strokeWidth={1.75} aria-hidden />
-          </button>
-        </div>
-        {variant === "overlay" ? (
-          <button
-            type="button"
-            className={`studio-ws__spin${state.autoRotate ? " is-active" : ""}`}
-            aria-label={COPY.autoRotate}
-            aria-pressed={state.autoRotate}
-            title={COPY.autoRotate}
-            onClick={() => dispatch({ type: "autoRotate", value: !state.autoRotate })}
-          >
-            <RotateCw size={16} strokeWidth={1.75} aria-hidden />
-            <span>{state.autoRotate ? COPY.autoRotateStop : COPY.autoRotateOff}</span>
-            {state.autoRotate ? <em>{COPY.autoRotateActive}</em> : null}
-          </button>
-        ) : null}
-      </div>
-      {hasDrawing && state.transformMode === "popout" ? (
-        <label
-          className={
-            variant === "overlay"
-              ? "studio-ws__page-toggle studio-ws__page-toggle--float"
-              : "studio-ws__page-toggle"
-          }
-        >
-          <input
-            type="checkbox"
-            checked={state.showOriginalPage}
-            onChange={(event) => dispatch({ type: "page", value: event.target.checked })}
-          />
-          <span>{COPY.showOriginalPage}</span>
-        </label>
-      ) : null}
       {variant === "sheet" ? (
       <div className="studio-ws__viewport-bar">
-        <div className="studio-ws__cam-presets" role="group" aria-label="Cameră">
+        <div className="studio-ws__cam-presets" role="group" aria-label={COPY.cameraSection}>
           {CAMERA_PRESETS.map((preset) => {
             const active =
               preset.id === "reset"
@@ -835,7 +1194,7 @@ export function PersonalizePreviewShell({
                 className={`studio-ws__cam-btn${active ? " is-active" : ""}`}
                 onClick={() => dispatch({ type: "camera", id: preset.id })}
               >
-                {preset.label}
+                {COPY.choices.cameras[preset.id].label}
               </button>
             );
           })}
@@ -882,20 +1241,23 @@ export function PersonalizePreviewShell({
       data-sheet={state.leftOpen || state.rightOpen ? "open" : "closed"}
     >
       <a className="studio-ws__skip" href="#studio-ws-main">
-        Sari la conținut
+        {messages.accessibility.skipToContent}
       </a>
 
       <SiteHeader
-        brandHref={PERSONALIZE_STUDIO_HREF}
-        studioHref={PERSONALIZE_STUDIO_HREF}
+        brandHref={PERSONALIZE_BACK_HREF}
+        studioHref={PERSONALIZE_BACK_HREF}
+        locale={locale}
+        menuLabel={messages.accessibility.menu}
+        languageLabel={messages.accessibility.languageSelector}
         trailing={
           <div className="studio-ws__header-actions">
             <span className="studio-ws__saved" aria-live="polite">
               {COPY.savedLocal}
             </span>
             {renderPublish()}
-            <button type="button" className="studio-ws__btn-primary" disabled title={COPY.seeInArPreparing}>
-              {COPY.seeInArPreparing}
+            <button type="button" className="studio-ws__btn-primary" disabled title={COPY.sceneHelper}>
+              {COPY.seeSceneInAr}
             </button>
           </div>
         }
@@ -903,8 +1265,8 @@ export function PersonalizePreviewShell({
           <>
             <p className="studio-ws__saved studio-ws__saved--sheet">{COPY.savedLocal}</p>
             {renderPublish()}
-            <button type="button" className="studio-ws__btn-primary" disabled title={COPY.seeInArPreparing}>
-              {COPY.seeInArPreparing}
+            <button type="button" className="studio-ws__btn-primary" disabled title={COPY.sceneHelper}>
+              {COPY.seeSceneInAr}
             </button>
           </>
         }
@@ -917,9 +1279,14 @@ export function PersonalizePreviewShell({
         >
           <SheetChrome
             title={COPY.pathLabel}
+            closeLabel={COPY.closePanel}
             onClose={() => dispatch({ type: "left", open: false })}
           />
-          <StageNav state={state} onSelect={(id) => dispatch({ type: "stage", id })} />
+          <StageNav
+            state={state}
+            hasDrawing={hasDrawing}
+            onSelect={(id) => dispatch({ type: "stage", id })}
+          />
         </aside>
 
         <section className="studio-ws__center" aria-labelledby="studio-ws-title">
@@ -946,7 +1313,15 @@ export function PersonalizePreviewShell({
               state={state}
               transformMode={state.transformMode}
               drawingSrc={drawingSrc}
-              showOriginalPage={state.showOriginalPage}
+              projectId={projectId}
+              importedModelUrl={importedModel?.modelUrl ?? null}
+              interaction={interaction}
+              spokenMessage={spokenMessage}
+              onCharacterClick={onCharacterClick}
+              onDecorActivate={() => interactDispatch({ type: "decor" })}
+              onDecorMove={(key, x, y) => dispatch({ type: "decorMove", key, x, y })}
+              onDecorOrbit={(key, yaw, pitch) => dispatch({ type: "decorOrbit", key, yaw, pitch })}
+              onDecorRemove={(key) => dispatch({ type: "decorRemove", key })}
             />
 
             <div className="studio-ws__overlay-tools">{renderViewControls("overlay")}</div>
@@ -978,12 +1353,12 @@ export function PersonalizePreviewShell({
             </div>
 
             <div className="studio-ws__viewport-overlay">
-              <p className="studio-ws__viewport-step">{activeStage?.label}</p>
+              <p className="studio-ws__viewport-step">{activeStageLabel}</p>
             </div>
 
             <div className="studio-ws__overlay-tools">
             <div className="studio-ws__viewport-bar">
-              <div className="studio-ws__cam-presets" role="group" aria-label="Cameră">
+              <div className="studio-ws__cam-presets" role="group" aria-label={COPY.cameraSection}>
                 {CAMERA_PRESETS.map((preset) => {
                   const active =
                     preset.id === "reset"
@@ -997,7 +1372,7 @@ export function PersonalizePreviewShell({
                       className={`studio-ws__cam-btn${active ? " is-active" : ""}`}
                       onClick={() => dispatch({ type: "camera", id: preset.id })}
                     >
-                      {preset.label}
+                      {COPY.choices.cameras[preset.id].label}
                     </button>
                   );
                 })}
@@ -1037,6 +1412,16 @@ export function PersonalizePreviewShell({
           <p className="studio-ws__summary" aria-live="polite">
             {summary}
           </p>
+          <InteractionPanel
+            hasDrawing={hasDrawing}
+            enabled={interaction.enabled}
+            activeTarget={interaction.activeTarget}
+            reactionNonce={interaction.reactionNonce}
+            onToggle={() => interactDispatch({ type: "enable", enabled: !interaction.enabled })}
+            onZoom={(direction) => interactDispatch({ type: "zoom", direction })}
+            onNudge={(direction) => interactDispatch({ type: "nudge", direction })}
+            onReset={() => interactDispatch({ type: "reset" })}
+          />
         </section>
 
         <aside
@@ -1044,7 +1429,8 @@ export function PersonalizePreviewShell({
           aria-label={COPY.rightNavOpen}
         >
           <SheetChrome
-            title={activeStage?.label ?? COPY.rightNavOpen}
+            title={activeStageLabel ?? COPY.rightNavOpen}
+            closeLabel={COPY.closePanel}
             onClose={() => dispatch({ type: "right", open: false })}
           />
           <div className="studio-ws__view-controls studio-ws__view-controls--sheet">
@@ -1055,6 +1441,11 @@ export function PersonalizePreviewShell({
             dispatch={dispatch}
             drawingSrc={drawingSrc}
             projectId={projectId}
+            importedModel={importedModel}
+            onImportedModel={setImportedModel}
+            onVoiceChange={setVoiceStatus}
+            onVoiceDraftChange={setVoiceDraft}
+            onPlayVoice={playVoiceClip}
           />
         </aside>
       </main>
@@ -1078,8 +1469,8 @@ export function PersonalizePreviewShell({
           <SlidersHorizontal size={17} strokeWidth={1.75} aria-hidden />
           {COPY.rightNavOpen}
         </button>
-        <button type="button" className="studio-ws__dock-cta" disabled title={COPY.seeInArPreparing}>
-          {COPY.seeInArPreparing}
+        <button type="button" className="studio-ws__dock-cta" disabled title={COPY.sceneHelper}>
+          {COPY.seeSceneInAr}
         </button>
       </nav>
 
@@ -1117,24 +1508,93 @@ export function PersonalizePreviewShell({
             </h2>
             <p>{COPY.publishLinkNote}</p>
             <p>{COPY.publishStartNote}</p>
-            <p>{COPY.publishLaterNote}</p>
+            {publishStatus && !publishStatus.publishEnabled ? <p>{COPY.publishLaterNote}</p> : null}
+            <p
+              className="studio-ws__publish-status"
+              role="status"
+              aria-live="polite"
+              data-publish-phase={publishStatus?.phase ?? "idle"}
+            >
+              {publishNotice === "save"
+                ? COPY.publishSaveFailed
+                : publishNotice === "denied"
+                  ? COPY.publishDenied
+                  : publishStatus?.phase === "building"
+                    ? COPY.publishBuilding
+                    : publishStatus?.phase === "ready"
+                      ? COPY.publishReady
+                      : publishStatus?.phase === "failed"
+                        ? COPY.publishFailed
+                        : ""}
+            </p>
             <figure className="studio-ws__publish-qr">
-              <svg viewBox="0 0 64 64" aria-hidden="true">
-                <rect x="4" y="4" width="18" height="18" />
-                <rect x="42" y="4" width="18" height="18" />
-                <rect x="4" y="42" width="18" height="18" />
-                <rect x="28" y="28" width="8" height="8" />
-                <rect x="40" y="40" width="6" height="6" />
-                <rect x="50" y="28" width="8" height="8" />
-                <rect x="28" y="48" width="8" height="8" />
-              </svg>
+              {publishStatus?.ready && publishStatus.qrPath ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={publishStatus.qrPath} alt={COPY.publishQrLabel} width={192} height={192} />
+              ) : (
+                <svg viewBox="0 0 64 64" aria-hidden="true">
+                  <rect x="4" y="4" width="18" height="18" />
+                  <rect x="42" y="4" width="18" height="18" />
+                  <rect x="4" y="42" width="18" height="18" />
+                  <rect x="28" y="28" width="8" height="8" />
+                  <rect x="40" y="40" width="6" height="6" />
+                  <rect x="50" y="28" width="8" height="8" />
+                  <rect x="28" y="48" width="8" height="8" />
+                </svg>
+              )}
               <figcaption>{COPY.publishQrLabel}</figcaption>
             </figure>
+            {publishStatus?.ready ? (
+              <div className="studio-ws__publish-links">
+                {publishStatus.qrPath ? (
+                  <a className="studio-ws__btn-secondary" href={qrDownloadHref(publishStatus.qrPath)} download>
+                    {COPY.publishQrDownload}
+                  </a>
+                ) : null}
+                {publishStatus.publicUrls.experience ? (
+                  <a
+                    className="studio-ws__btn-secondary"
+                    href={publishStatus.publicUrls.experience}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {COPY.publishOpenPage}
+                  </a>
+                ) : null}
+                {publishStatus.publicUrls.pdf ? (
+                  <a
+                    className="studio-ws__btn-secondary"
+                    href={publishStatus.publicUrls.pdf}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {COPY.publishPdf}
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
+            {publishStatus?.publishEnabled ? (
+              <label className="studio-ws__publish-terms">
+                <input
+                  type="checkbox"
+                  checked={publishTerms}
+                  onChange={(event) => setPublishTerms(event.target.checked)}
+                />
+                <span>{COPY.publishTermsLabel}</span>
+              </label>
+            ) : null}
             <div className="studio-ws__publish-actions">
-              <button type="button" className="studio-ws__btn-primary" disabled>
+              <button
+                type="button"
+                className="studio-ws__btn-primary"
+                disabled={!canStartPublish({ status: publishStatus, termsAccepted: publishTerms, busy: publishBusy })}
+                onClick={() => void onPublishWorld()}
+              >
                 {COPY.publishWorld}
               </button>
-              <p className="studio-ws__publish-inactive">{COPY.publishInactive}</p>
+              {publishStatus && !publishStatus.publishEnabled ? (
+                <p className="studio-ws__publish-inactive">{COPY.publishInactive}</p>
+              ) : null}
               <button type="button" className="studio-ws__btn-secondary" onClick={closePublish}>
                 {COPY.publishBack}
               </button>

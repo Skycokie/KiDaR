@@ -12,6 +12,7 @@ describe("preview pop-out session wiring", () => {
   it("runs cutout and extrusion only in the client mesh stage", () => {
     const poster = read("garden-poster.tsx");
     const mesh = read("popout-mesh-stage.tsx");
+    const extrude = read("popout-extrude-mesh.ts");
     const cutout = read("popout-preview-cutout.ts");
     const normalize = read("popout-preview-normalize.ts");
 
@@ -25,12 +26,13 @@ describe("preview pop-out session wiring", () => {
     expect(cutout).toContain("alphaMaskFromRgba");
     expect(cutout).toContain("extractSilhouettePolygons");
     expect(normalize).toContain("assignPopoutDepthLayers");
-    expect(mesh).toContain("ExtrudeGeometry");
+    expect(extrude).toContain("ExtrudeGeometry");
+    expect(extrude).toContain("makePopoutComponentMesh");
+    expect(mesh).toContain("makePopoutComponentMesh");
     expect(mesh).toContain("decidePreviewPopout");
-    expect(mesh).toContain("showOriginalPage");
-    expect(mesh).toContain("plane.visible = pageRef.current");
-    expect(mesh).toContain("ShadowMaterial");
-    expect(poster).toContain("showOriginalPage");
+    expect(mesh).not.toContain("ShadowMaterial");
+    expect(mesh).not.toContain("showOriginalPage");
+    expect(mesh).toContain("child.position.y -= center.y");
     expect(mesh).toContain("COPY.popoutPreparing");
     expect(mesh).toContain("COPY.popoutSeparateFailed");
     expect(mesh).toContain("COPY.popoutRetry");
